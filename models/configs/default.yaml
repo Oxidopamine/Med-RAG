@@ -1,0 +1,16 @@
+schema_version: 1
+safety_policy_version: "0.1.0"
+research_profile:
+  phi_allowed: false
+  clinical_use_allowed: false
+models:
+  context_extractor:
+    provider: deterministic_preview
+    model: regex-v1
+  high_risk_semantic_verifier:
+    provider: unavailable
+    model: null
+retrieval:
+  approved_corpus_required: true
+  unvalidated_fallback_allowed_for_high_risk: false
+

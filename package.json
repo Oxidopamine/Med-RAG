@@ -1,0 +1,19 @@
+{
+  "name": "guideline-evidence-qa",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "apps/web"
+  ],
+  "scripts": {
+    "dev:web": "npm run dev --workspace @med-rag/web",
+    "build:web": "npm run build --workspace @med-rag/web",
+    "lint:web": "npm run lint --workspace @med-rag/web",
+    "typecheck:web": "npm run typecheck --workspace @med-rag/web",
+    "test:web": "npm run test --workspace @med-rag/web"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
+
