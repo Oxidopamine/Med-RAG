@@ -12,6 +12,28 @@ from pydantic import ValidationError
 from app.core.config import get_settings
 from app.corpus.releases import SQLCorpusReleaseRepository
 from app.corpus_steward.adapter_registry import default_adapter_registry
+from app.corpus_steward.adjudication_repository import (
+    SQLBenchmarkAdjudicationRepository,
+)
+from app.corpus_steward.adjudication_schemas import (
+    ADJUDICATION_CONTRACT_VERSION,
+    AdjudicationProcessPolicy,
+    AdjudicationProcessPolicyContent,
+    AdjudicationSealRequest,
+    BenchmarkAccessPolicy,
+    BenchmarkAccessPolicyContent,
+    BenchmarkAdjudicationRecord,
+    BenchmarkSuiteBuildRequest,
+    BenchmarkThresholdPolicy,
+    BenchmarkThresholdPolicyContent,
+    ClinicalReviewDecision,
+    ClinicalReviewDecisionContent,
+    ClinicalReviewImport,
+    DisagreementResolution,
+    DisagreementResolutionContent,
+    DisagreementResolutionImport,
+)
+from app.corpus_steward.adjudication_service import ClinicalAdjudicationService
 from app.corpus_steward.benchmark import RetrievalBenchmarkRunner
 from app.corpus_steward.benchmark_schemas import (
     BENCHMARK_CONTRACT_VERSION,
@@ -189,6 +211,32 @@ def benchmark_acceptance_schema_document() -> dict[str, object]:
     )
     schema["x-contract-version"] = BENCHMARK_CONTRACT_VERSION
     return schema
+
+
+def benchmark_adjudication_schema_documents() -> dict[str, dict[str, object]]:
+    models = {
+        "benchmark-access-policy": BenchmarkAccessPolicy,
+        "adjudication-process-policy": AdjudicationProcessPolicy,
+        "benchmark-threshold-policy": BenchmarkThresholdPolicy,
+        "clinical-review-decision": ClinicalReviewDecision,
+        "disagreement-resolution": DisagreementResolution,
+        "benchmark-adjudication-record": BenchmarkAdjudicationRecord,
+        "benchmark-suite-build-request": BenchmarkSuiteBuildRequest,
+    }
+    documents: dict[str, dict[str, object]] = {}
+    for name, model in models.items():
+        filename = f"{name}-{ADJUDICATION_CONTRACT_VERSION}.schema.json"
+        schema = model.model_json_schema()
+        schema["$id"] = f"https://med-rag.local/contracts/{filename}"
+        schema["x-contract-version"] = ADJUDICATION_CONTRACT_VERSION
+        documents[filename] = schema
+    return documents
+
+
+def export_benchmark_adjudication_schemas(directory: Path) -> int:
+    for filename, document in benchmark_adjudication_schema_documents().items():
+        export_schema(directory / filename, document)
+    return 0
 
 
 def model_artifact_schema_document() -> dict[str, object]:
@@ -369,6 +417,247 @@ def seal_benchmark_suite(arguments: argparse.Namespace) -> int:
                 "modes": [item.value for item in content.modes],
                 "candidate_mode": content.candidate_mode.value,
                 "suite_sha256": suite.suite_sha256,
+                "output": str(arguments.output),
+            },
+            sort_keys=True,
+        )
+    )
+    return 0
+
+
+def seal_clinical_review(arguments: argparse.Namespace) -> int:
+    content = ClinicalReviewDecisionContent.model_validate_json(
+        arguments.path.read_text(encoding="utf-8")
+    )
+    decision = ClinicalReviewDecision.seal(content)
+    _write_json_output(arguments.output, decision)
+    print(
+        json.dumps(
+            {
+                "valid": True,
+                "review_id": content.review_id,
+                "case_id": content.case_id,
+                "decision_sha256": decision.decision_sha256,
+                "output": str(arguments.output),
+            },
+            sort_keys=True,
+        )
+    )
+    return 0
+
+
+def seal_disagreement_resolution(arguments: argparse.Namespace) -> int:
+    content = DisagreementResolutionContent.model_validate_json(
+        arguments.path.read_text(encoding="utf-8")
+    )
+    resolution = DisagreementResolution.seal(content)
+    _write_json_output(arguments.output, resolution)
+    print(
+        json.dumps(
+            {
+                "valid": True,
+                "resolution_id": content.resolution_id,
+                "case_id": content.case_id,
+                "resolution_sha256": resolution.resolution_sha256,
+                "output": str(arguments.output),
+            },
+            sort_keys=True,
+        )
+    )
+    return 0
+
+
+def _clinical_adjudication_service(
+    arguments: argparse.Namespace,
+) -> tuple[Database, ClinicalAdjudicationService]:
+    database = Database(arguments.database_url)
+    artifacts = ImmutableStewardArtifactStore(arguments.artifact_store)
+    repository = SQLBenchmarkAdjudicationRepository(database, artifacts)
+    return database, ClinicalAdjudicationService(repository, artifacts)
+
+
+async def seal_benchmark_access_policy(arguments: argparse.Namespace) -> int:
+    content = BenchmarkAccessPolicyContent.model_validate_json(
+        arguments.path.read_text(encoding="utf-8")
+    )
+    database, service = _clinical_adjudication_service(arguments)
+    try:
+        policy = await service.seal_access_policy(content)
+    finally:
+        await database.close()
+    _write_json_output(arguments.output, policy)
+    print(
+        json.dumps(
+            {
+                "valid": True,
+                "policy_id": content.policy_id,
+                "revision": content.revision,
+                "policy_sha256": policy.policy_sha256,
+                "output": str(arguments.output),
+            },
+            sort_keys=True,
+        )
+    )
+    return 0
+
+
+async def seal_adjudication_process_policy(arguments: argparse.Namespace) -> int:
+    content = AdjudicationProcessPolicyContent.model_validate_json(
+        arguments.path.read_text(encoding="utf-8")
+    )
+    database, service = _clinical_adjudication_service(arguments)
+    try:
+        policy = await service.seal_adjudication_process(content)
+    finally:
+        await database.close()
+    _write_json_output(arguments.output, policy)
+    print(
+        json.dumps(
+            {
+                "valid": True,
+                "policy_id": content.policy_id,
+                "revision": content.revision,
+                "policy_sha256": policy.policy_sha256,
+                "output": str(arguments.output),
+            },
+            sort_keys=True,
+        )
+    )
+    return 0
+
+
+async def seal_benchmark_threshold_policy(arguments: argparse.Namespace) -> int:
+    content = BenchmarkThresholdPolicyContent.model_validate_json(
+        arguments.path.read_text(encoding="utf-8")
+    )
+    database, service = _clinical_adjudication_service(arguments)
+    try:
+        policy = await service.seal_threshold_policy(content)
+    finally:
+        await database.close()
+    _write_json_output(arguments.output, policy)
+    print(
+        json.dumps(
+            {
+                "valid": True,
+                "policy_id": content.policy_id,
+                "revision": content.revision,
+                "policy_sha256": policy.policy_sha256,
+                "output": str(arguments.output),
+            },
+            sort_keys=True,
+        )
+    )
+    return 0
+
+
+async def import_clinical_reviews(arguments: argparse.Namespace) -> int:
+    imported = ClinicalReviewImport.model_validate_json(
+        arguments.path.read_text(encoding="utf-8")
+    )
+    database, service = _clinical_adjudication_service(arguments)
+    try:
+        await service.import_review_decisions(
+            imported,
+            access_policy_sha256=arguments.access_policy_sha256,
+            adjudication_process_sha256=arguments.adjudication_process_sha256,
+        )
+    finally:
+        await database.close()
+    print(
+        json.dumps(
+            {
+                "valid": True,
+                "review_count": len(imported.decisions),
+                "case_count": len({item.content.case_id for item in imported.decisions}),
+            },
+            sort_keys=True,
+        )
+    )
+    return 0
+
+
+async def import_disagreement_resolutions(arguments: argparse.Namespace) -> int:
+    imported = DisagreementResolutionImport.model_validate_json(
+        arguments.path.read_text(encoding="utf-8")
+    )
+    database, service = _clinical_adjudication_service(arguments)
+    try:
+        await service.import_disagreement_resolutions(
+            imported,
+            access_policy_sha256=arguments.access_policy_sha256,
+            adjudication_process_sha256=arguments.adjudication_process_sha256,
+        )
+    finally:
+        await database.close()
+    print(
+        json.dumps(
+            {
+                "valid": True,
+                "resolution_count": len(imported.resolutions),
+            },
+            sort_keys=True,
+        )
+    )
+    return 0
+
+
+async def seal_clinical_adjudication(arguments: argparse.Namespace) -> int:
+    request = AdjudicationSealRequest.model_validate_json(
+        arguments.path.read_text(encoding="utf-8")
+    )
+    database, service = _clinical_adjudication_service(arguments)
+    try:
+        record = await service.seal_adjudication(request)
+    finally:
+        await database.close()
+    _write_json_output(arguments.output, record)
+    print(
+        json.dumps(
+            {
+                "valid": True,
+                "adjudication_record_id": record.content.adjudication_record_id,
+                "adjudication_record_sha256": record.adjudication_record_sha256,
+                "case_count": len(record.content.cases),
+                "development_case_count": sum(
+                    item.suite_partition.value == "DEVELOPMENT"
+                    for item in record.content.cases
+                ),
+                "sealed_holdout_case_count": sum(
+                    item.suite_partition.value == "SEALED_HOLDOUT"
+                    for item in record.content.cases
+                ),
+                "output": str(arguments.output),
+            },
+            sort_keys=True,
+        )
+    )
+    return 0
+
+
+async def build_clinical_benchmark_suite(arguments: argparse.Namespace) -> int:
+    request = BenchmarkSuiteBuildRequest.model_validate_json(
+        arguments.path.read_text(encoding="utf-8")
+    )
+    bundle = CorpusReleaseBundle.model_validate_json(
+        arguments.bundle.read_text(encoding="utf-8")
+    )
+    database, service = _clinical_adjudication_service(arguments)
+    try:
+        result = await service.build_suite(request, bundle)
+    finally:
+        await database.close()
+    _write_json_output(arguments.output, result.suite)
+    print(
+        json.dumps(
+            {
+                "valid": True,
+                "benchmark_id": result.suite.content.benchmark_id,
+                "suite_partition": result.suite.content.suite_partition.value,
+                "suite_sha256": result.suite.suite_sha256,
+                "case_count": len(result.suite.content.cases),
+                "artifact_sha256": result.artifact_sha256,
+                "storage_key": result.storage_key,
                 "output": str(arguments.output),
             },
             sort_keys=True,
@@ -1080,6 +1369,15 @@ def _add_database_argument(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--database-url", default=get_settings().database_url)
 
 
+def _add_adjudication_runtime_arguments(parser: argparse.ArgumentParser) -> None:
+    _add_database_argument(parser)
+    parser.add_argument(
+        "--artifact-store",
+        type=Path,
+        default=get_settings().steward_artifact_store_path,
+    )
+
+
 def _required_embedding_argument(arguments: argparse.Namespace, name: str):
     value = getattr(arguments, name)
     if value is None:
@@ -1329,6 +1627,11 @@ def build_parser() -> argparse.ArgumentParser:
         description="Export the signed benchmark-acceptance JSON Schema.",
     )
     export_benchmark_acceptance.add_argument("path", type=Path)
+    export_adjudication = subparsers.add_parser(
+        "export-benchmark-adjudication-schemas",
+        description="Export the clinical adjudication workflow JSON Schemas.",
+    )
+    export_adjudication.add_argument("directory", type=Path)
     export_model_artifact = subparsers.add_parser(
         "export-model-artifact-schema",
         description="Export the sealed local model-artifact manifest JSON Schema.",
@@ -1379,6 +1682,72 @@ def build_parser() -> argparse.ArgumentParser:
     )
     seal_benchmark.add_argument("path", type=Path)
     seal_benchmark.add_argument("--output", type=Path, required=True)
+    seal_review = subparsers.add_parser(
+        "benchmark-seal-review",
+        description="Validate and digest-seal one imported clinical reviewer decision.",
+    )
+    seal_review.add_argument("path", type=Path)
+    seal_review.add_argument("--output", type=Path, required=True)
+    seal_resolution = subparsers.add_parser(
+        "benchmark-seal-resolution",
+        description="Validate and digest-seal one clinical disagreement resolution.",
+    )
+    seal_resolution.add_argument("path", type=Path)
+    seal_resolution.add_argument("--output", type=Path, required=True)
+    access_policy = subparsers.add_parser(
+        "benchmark-register-access-policy",
+        description="Seal and register an immutable benchmark access policy.",
+    )
+    access_policy.add_argument("path", type=Path)
+    access_policy.add_argument("--output", type=Path, required=True)
+    _add_adjudication_runtime_arguments(access_policy)
+    process_policy = subparsers.add_parser(
+        "benchmark-register-adjudication-process",
+        description="Seal and register an immutable adjudication process policy.",
+    )
+    process_policy.add_argument("path", type=Path)
+    process_policy.add_argument("--output", type=Path, required=True)
+    _add_adjudication_runtime_arguments(process_policy)
+    threshold_policy = subparsers.add_parser(
+        "benchmark-register-threshold-policy",
+        description="Seal and register prespecified clinical benchmark thresholds.",
+    )
+    threshold_policy.add_argument("path", type=Path)
+    threshold_policy.add_argument("--output", type=Path, required=True)
+    _add_adjudication_runtime_arguments(threshold_policy)
+    import_reviews = subparsers.add_parser(
+        "benchmark-import-reviews",
+        description="Import immutable reviewer decisions under registered policies.",
+    )
+    import_reviews.add_argument("path", type=Path)
+    import_reviews.add_argument("--access-policy-sha256", required=True)
+    import_reviews.add_argument("--adjudication-process-sha256", required=True)
+    _add_adjudication_runtime_arguments(import_reviews)
+    import_resolutions = subparsers.add_parser(
+        "benchmark-import-resolutions",
+        description="Import immutable disagreement resolutions under registered policies.",
+    )
+    import_resolutions.add_argument("path", type=Path)
+    import_resolutions.add_argument("--access-policy-sha256", required=True)
+    import_resolutions.add_argument("--adjudication-process-sha256", required=True)
+    _add_adjudication_runtime_arguments(import_resolutions)
+    seal_adjudication = subparsers.add_parser(
+        "benchmark-seal-adjudication",
+        description="Resolve the review ledger into one immutable adjudication record.",
+    )
+    seal_adjudication.add_argument("path", type=Path)
+    seal_adjudication.add_argument("--output", type=Path, required=True)
+    _add_adjudication_runtime_arguments(seal_adjudication)
+    build_clinical_suite = subparsers.add_parser(
+        "benchmark-build-clinical-suite",
+        description=(
+            "Build a policy-guarded development or one-time sealed-holdout suite."
+        ),
+    )
+    build_clinical_suite.add_argument("path", type=Path)
+    build_clinical_suite.add_argument("--bundle", type=Path, required=True)
+    build_clinical_suite.add_argument("--output", type=Path, required=True)
+    _add_adjudication_runtime_arguments(build_clinical_suite)
     seal_candidate = subparsers.add_parser(
         "candidate-seal",
         description="Validate and seal an exact retrieval candidate configuration.",
@@ -1545,6 +1914,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return export_schema(arguments.path, candidate_schema_document())
     if arguments.command == "export-benchmark-acceptance-schema":
         return export_schema(arguments.path, benchmark_acceptance_schema_document())
+    if arguments.command == "export-benchmark-adjudication-schemas":
+        return export_benchmark_adjudication_schemas(arguments.directory)
     if arguments.command == "export-model-artifact-schema":
         return export_schema(arguments.path, model_artifact_schema_document())
     try:
@@ -1558,6 +1929,24 @@ def main(argv: Sequence[str] | None = None) -> int:
             return asyncio.run(produce_index_vectors(arguments))
         if arguments.command == "benchmark-seal-suite":
             return seal_benchmark_suite(arguments)
+        if arguments.command == "benchmark-seal-review":
+            return seal_clinical_review(arguments)
+        if arguments.command == "benchmark-seal-resolution":
+            return seal_disagreement_resolution(arguments)
+        if arguments.command == "benchmark-register-access-policy":
+            return asyncio.run(seal_benchmark_access_policy(arguments))
+        if arguments.command == "benchmark-register-adjudication-process":
+            return asyncio.run(seal_adjudication_process_policy(arguments))
+        if arguments.command == "benchmark-register-threshold-policy":
+            return asyncio.run(seal_benchmark_threshold_policy(arguments))
+        if arguments.command == "benchmark-import-reviews":
+            return asyncio.run(import_clinical_reviews(arguments))
+        if arguments.command == "benchmark-import-resolutions":
+            return asyncio.run(import_disagreement_resolutions(arguments))
+        if arguments.command == "benchmark-seal-adjudication":
+            return asyncio.run(seal_clinical_adjudication(arguments))
+        if arguments.command == "benchmark-build-clinical-suite":
+            return asyncio.run(build_clinical_benchmark_suite(arguments))
         if arguments.command == "candidate-seal":
             return seal_retrieval_candidate(arguments)
         if arguments.command == "register-trust-root":

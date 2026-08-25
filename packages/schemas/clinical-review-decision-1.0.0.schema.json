@@ -1,0 +1,448 @@
+{
+  "$defs": {
+    "AdjudicatorReview": {
+      "additionalProperties": false,
+      "properties": {
+        "adjudicator_identity": {
+          "maxLength": 300,
+          "minLength": 1,
+          "title": "Adjudicator Identity",
+          "type": "string"
+        },
+        "clinical_role": {
+          "maxLength": 300,
+          "minLength": 1,
+          "title": "Clinical Role",
+          "type": "string"
+        },
+        "decided_at": {
+          "format": "date-time",
+          "title": "Decided At",
+          "type": "string"
+        },
+        "evidence_access_revision_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Evidence Access Revision Sha256",
+          "type": "string"
+        },
+        "independent_of_candidate_team": {
+          "title": "Independent Of Candidate Team",
+          "type": "boolean"
+        },
+        "instructions_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Instructions Sha256",
+          "type": "string"
+        },
+        "review_id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Review Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "review_id",
+        "adjudicator_identity",
+        "clinical_role",
+        "independent_of_candidate_team",
+        "instructions_sha256",
+        "evidence_access_revision_sha256",
+        "decided_at"
+      ],
+      "title": "AdjudicatorReview",
+      "type": "object"
+    },
+    "BenchmarkCase": {
+      "additionalProperties": false,
+      "properties": {
+        "adjudication": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CaseAdjudication"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "case_id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Case Id",
+          "type": "string"
+        },
+        "evidence_expectation": {
+          "$ref": "#/$defs/EvidenceExpectation",
+          "default": "ANSWERABLE"
+        },
+        "forbidden_evidence_ids": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Forbidden Evidence Ids",
+          "type": "array"
+        },
+        "gold_evidence": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/BenchmarkGoldEvidence"
+          },
+          "title": "Gold Evidence",
+          "type": "array"
+        },
+        "minimum_complete_evidence_sets": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/MinimumCompleteEvidenceSet"
+          },
+          "title": "Minimum Complete Evidence Sets",
+          "type": "array"
+        },
+        "question": {
+          "maxLength": 10000,
+          "minLength": 1,
+          "title": "Question",
+          "type": "string"
+        },
+        "required_evidence_roles": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/EvidenceRole"
+          },
+          "title": "Required Evidence Roles",
+          "type": "array"
+        },
+        "retrieval_filter": {
+          "$ref": "#/$defs/BenchmarkFilter"
+        },
+        "safety_topics": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/ClinicalSafetyTopic"
+          },
+          "title": "Safety Topics",
+          "type": "array"
+        },
+        "strata": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Strata",
+          "type": "object"
+        }
+      },
+      "required": [
+        "case_id",
+        "question"
+      ],
+      "title": "BenchmarkCase",
+      "type": "object"
+    },
+    "BenchmarkFilter": {
+      "additionalProperties": false,
+      "properties": {
+        "jurisdictions": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Jurisdictions",
+          "type": "array"
+        },
+        "languages": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Languages",
+          "type": "array"
+        },
+        "publisher_ids": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Publisher Ids",
+          "type": "array"
+        },
+        "source_classes": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Source Classes",
+          "type": "array"
+        }
+      },
+      "title": "BenchmarkFilter",
+      "type": "object"
+    },
+    "BenchmarkGoldEvidence": {
+      "additionalProperties": false,
+      "properties": {
+        "evidence_id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Evidence Id",
+          "type": "string"
+        },
+        "relevance_grade": {
+          "default": 1,
+          "maximum": 3,
+          "minimum": 1,
+          "title": "Relevance Grade",
+          "type": "integer"
+        },
+        "required": {
+          "default": true,
+          "title": "Required",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "evidence_id"
+      ],
+      "title": "BenchmarkGoldEvidence",
+      "type": "object"
+    },
+    "BenchmarkSuitePartition": {
+      "enum": [
+        "DEVELOPMENT",
+        "SEALED_HOLDOUT",
+        "SYNTHETIC"
+      ],
+      "title": "BenchmarkSuitePartition",
+      "type": "string"
+    },
+    "CaseAdjudication": {
+      "additionalProperties": false,
+      "properties": {
+        "disagreement_observed": {
+          "title": "Disagreement Observed",
+          "type": "boolean"
+        },
+        "resolution": {
+          "enum": [
+            "NOT_REQUIRED",
+            "RESOLVED"
+          ],
+          "title": "Resolution",
+          "type": "string"
+        },
+        "resolution_note_sha256": {
+          "anyOf": [
+            {
+              "pattern": "^[a-f0-9]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Resolution Note Sha256"
+        },
+        "resolved_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Resolved At"
+        },
+        "resolver_identity": {
+          "anyOf": [
+            {
+              "maxLength": 300,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Resolver Identity"
+        },
+        "reviews": {
+          "items": {
+            "$ref": "#/$defs/AdjudicatorReview"
+          },
+          "minItems": 1,
+          "title": "Reviews",
+          "type": "array"
+        }
+      },
+      "required": [
+        "reviews",
+        "disagreement_observed",
+        "resolution"
+      ],
+      "title": "CaseAdjudication",
+      "type": "object"
+    },
+    "ClinicalReviewDecisionContent": {
+      "additionalProperties": false,
+      "properties": {
+        "adjudicator_identity": {
+          "maxLength": 300,
+          "minLength": 1,
+          "title": "Adjudicator Identity",
+          "type": "string"
+        },
+        "case_id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Case Id",
+          "type": "string"
+        },
+        "clinical_role": {
+          "maxLength": 300,
+          "minLength": 1,
+          "title": "Clinical Role",
+          "type": "string"
+        },
+        "decided_at": {
+          "format": "date-time",
+          "title": "Decided At",
+          "type": "string"
+        },
+        "decided_case": {
+          "$ref": "#/$defs/BenchmarkCase"
+        },
+        "evidence_access_revision_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Evidence Access Revision Sha256",
+          "type": "string"
+        },
+        "independent_of_candidate_team": {
+          "const": true,
+          "default": true,
+          "title": "Independent Of Candidate Team",
+          "type": "boolean"
+        },
+        "instructions_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Instructions Sha256",
+          "type": "string"
+        },
+        "review_id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Review Id",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "1.0.0",
+          "default": "1.0.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "suite_partition": {
+          "$ref": "#/$defs/BenchmarkSuitePartition"
+        }
+      },
+      "required": [
+        "review_id",
+        "case_id",
+        "suite_partition",
+        "adjudicator_identity",
+        "clinical_role",
+        "instructions_sha256",
+        "evidence_access_revision_sha256",
+        "decided_case",
+        "decided_at"
+      ],
+      "title": "ClinicalReviewDecisionContent",
+      "type": "object"
+    },
+    "ClinicalSafetyTopic": {
+      "enum": [
+        "CONTRAINDICATION",
+        "APPLICABILITY",
+        "DOSE",
+        "MONITORING",
+        "TERMINOLOGY",
+        "MULTILINGUAL_CROSS_LINGUAL",
+        "STALE_SOURCE",
+        "WRONG_JURISDICTION",
+        "CONFLICTING_EVIDENCE",
+        "INSUFFICIENT_EVIDENCE",
+        "NEGATION"
+      ],
+      "title": "ClinicalSafetyTopic",
+      "type": "string"
+    },
+    "EvidenceExpectation": {
+      "enum": [
+        "ANSWERABLE",
+        "INSUFFICIENT_EVIDENCE"
+      ],
+      "title": "EvidenceExpectation",
+      "type": "string"
+    },
+    "EvidenceRole": {
+      "enum": [
+        "PRIMARY_SUPPORT",
+        "APPLICABILITY",
+        "EXCEPTION_OR_CONTRAINDICATION",
+        "DOSE_OR_THRESHOLD",
+        "MONITORING",
+        "RATIONALE"
+      ],
+      "title": "EvidenceRole",
+      "type": "string"
+    },
+    "MinimumCompleteEvidenceSet": {
+      "additionalProperties": false,
+      "properties": {
+        "evidence_ids": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Evidence Ids",
+          "type": "array"
+        },
+        "set_id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Set Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "set_id",
+        "evidence_ids"
+      ],
+      "title": "MinimumCompleteEvidenceSet",
+      "type": "object"
+    }
+  },
+  "$id": "https://med-rag.local/contracts/clinical-review-decision-1.0.0.schema.json",
+  "additionalProperties": false,
+  "properties": {
+    "content": {
+      "$ref": "#/$defs/ClinicalReviewDecisionContent"
+    },
+    "decision_sha256": {
+      "pattern": "^[a-f0-9]{64}$",
+      "title": "Decision Sha256",
+      "type": "string"
+    }
+  },
+  "required": [
+    "content",
+    "decision_sha256"
+  ],
+  "title": "ClinicalReviewDecision",
+  "type": "object",
+  "x-contract-version": "1.0.0"
+}

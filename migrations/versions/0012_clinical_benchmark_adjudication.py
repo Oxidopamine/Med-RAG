@@ -1,6 +1,6 @@
 """Add immutable clinical benchmark adjudication and suite-build ledgers.
 
-Revision ID: 0012_clinical_benchmark_adjudication
+Revision ID: 0012_benchmark_adjudication
 Revises: 0011_benchmark_acceptance_gate
 Create Date: 2026-08-26
 """
@@ -8,7 +8,7 @@ Create Date: 2026-08-26
 import sqlalchemy as sa
 from alembic import op
 
-revision = "0012_clinical_benchmark_adjudication"
+revision = "0012_benchmark_adjudication"
 down_revision = "0011_benchmark_acceptance_gate"
 branch_labels = None
 depends_on = None

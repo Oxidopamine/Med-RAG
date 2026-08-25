@@ -119,6 +119,10 @@
   gate binding suite/report/runner/candidate/vector/release/manifest/index relationships
 - complete: negative activation coverage for missing, stale, mismatched, and stored-tampered
   benchmark acceptance records
+- complete: immutable clinical reviewer-decision and disagreement-resolution ledger,
+  separately sealed access/adjudication/threshold policies, and content-addressed artifacts
+- complete: policy-guarded development and one-time sealed-holdout suite builders with exact
+  release validation, full safety-topic coverage targets, and access audit events
 
 The completed BGE-M3/BM25 path is candidate A and a control, not a clinically accepted or
 best-available stack. Public leaderboards cannot establish clinical retrieval quality.
@@ -138,6 +142,9 @@ to a clinical adjudicator.
   contracts pass unchanged or are deliberately versioned
 
 ### Next: trustworthy clinical benchmark contract and evidence
+
+The adjudication repository and guarded suite-construction workflow are implemented. The
+remaining work in this section is operational clinical review and real evidence population:
 
 - clinical adjudicators review cases and resolve disagreements through the ordinary review
   workflow; they do not hold signing keys or cryptographically sign cases, suites, reports,

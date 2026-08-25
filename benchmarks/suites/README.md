@@ -5,7 +5,7 @@ digest-bound form. It exercises the runner against `data/fixtures/corpus-release
 but is not evidence for choosing a clinical retrieval model.
 
 Clinical suites must be frozen per corpus release and independently adjudicated. Seal a
-suite with:
+synthetic/manual suite with:
 
 ```powershell
 corpus-steward benchmark-seal-suite benchmarks\suites\candidate.content.json `
@@ -23,3 +23,9 @@ binomial safety outcomes.
 The checked-in synthetic suite is bound to
 `models/configs/synthetic-candidate-v1.json`. It remains plumbing coverage and must never
 be used as a clinical acceptance holdout.
+
+Real clinical suites must be produced through the adjudication repository rather than the
+manual sealing command. `benchmark-build-clinical-suite` binds the registered policy and
+adjudication artifacts, verifies release evidence, enforces all safety-topic sample targets,
+checks the requesting identity, and prevents a second holdout build from the same record.
+See `docs/corpus-steward.md` for the import and construction sequence.

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 from collections.abc import Sequence
+from datetime import datetime, timezone
 from typing import TypeVar
 
 from sqlalchemy import select
@@ -68,6 +69,10 @@ _POLICY_METADATA: dict[type[PolicyArtifact], tuple[BenchmarkPolicyKind, Artifact
         ArtifactKind.BENCHMARK_THRESHOLD_POLICY,
     ),
 }
+
+
+def _as_utc(value: datetime) -> datetime:
+    return value if value.tzinfo is not None else value.replace(tzinfo=timezone.utc)
 
 
 class SQLBenchmarkAdjudicationRepository:
@@ -559,7 +564,7 @@ class SQLBenchmarkAdjudicationRepository:
             artifact_sha256=artifact.sha256,
             storage_key=artifact.storage_key,
             built_by=row.built_by,
-            built_at=row.built_at,
+            built_at=_as_utc(row.built_at),
         )
 
     async def _record_artifact(self, session, artifact: StoredStewardArtifact, *, now) -> None:

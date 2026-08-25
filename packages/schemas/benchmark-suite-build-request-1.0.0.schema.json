@@ -1,0 +1,145 @@
+{
+  "$defs": {
+    "BenchmarkSuitePartition": {
+      "enum": [
+        "DEVELOPMENT",
+        "SEALED_HOLDOUT",
+        "SYNTHETIC"
+      ],
+      "title": "BenchmarkSuitePartition",
+      "type": "string"
+    },
+    "RRFWeights": {
+      "additionalProperties": false,
+      "properties": {
+        "dense": {
+          "default": 1.0,
+          "minimum": 0,
+          "title": "Dense",
+          "type": "number"
+        },
+        "sparse": {
+          "default": 1.0,
+          "minimum": 0,
+          "title": "Sparse",
+          "type": "number"
+        }
+      },
+      "title": "RRFWeights",
+      "type": "object"
+    },
+    "RetrievalMode": {
+      "enum": [
+        "sparse",
+        "dense",
+        "hybrid"
+      ],
+      "title": "RetrievalMode",
+      "type": "string"
+    }
+  },
+  "$id": "https://med-rag.local/contracts/benchmark-suite-build-request-1.0.0.schema.json",
+  "additionalProperties": false,
+  "properties": {
+    "actor_identity": {
+      "maxLength": 300,
+      "minLength": 1,
+      "title": "Actor Identity",
+      "type": "string"
+    },
+    "adjudication_record_sha256": {
+      "pattern": "^[a-f0-9]{64}$",
+      "title": "Adjudication Record Sha256",
+      "type": "string"
+    },
+    "benchmark_id": {
+      "maxLength": 100,
+      "minLength": 1,
+      "title": "Benchmark Id",
+      "type": "string"
+    },
+    "candidate_configuration_sha256": {
+      "pattern": "^[a-f0-9]{64}$",
+      "title": "Candidate Configuration Sha256",
+      "type": "string"
+    },
+    "candidate_limit": {
+      "default": 50,
+      "exclusiveMinimum": 0,
+      "maximum": 10000,
+      "title": "Candidate Limit",
+      "type": "integer"
+    },
+    "candidate_mode": {
+      "$ref": "#/$defs/RetrievalMode",
+      "default": "hybrid"
+    },
+    "corpus_release_id": {
+      "maxLength": 64,
+      "minLength": 1,
+      "title": "Corpus Release Id",
+      "type": "string"
+    },
+    "manifest_sha256": {
+      "pattern": "^[a-f0-9]{64}$",
+      "title": "Manifest Sha256",
+      "type": "string"
+    },
+    "modes": {
+      "default": [
+        "sparse",
+        "dense",
+        "hybrid"
+      ],
+      "items": {
+        "$ref": "#/$defs/RetrievalMode"
+      },
+      "title": "Modes",
+      "type": "array"
+    },
+    "requested_at": {
+      "format": "date-time",
+      "title": "Requested At",
+      "type": "string"
+    },
+    "rrf_k": {
+      "default": 60,
+      "exclusiveMinimum": 0,
+      "maximum": 100000,
+      "title": "Rrf K",
+      "type": "integer"
+    },
+    "rrf_weights": {
+      "$ref": "#/$defs/RRFWeights"
+    },
+    "suite_partition": {
+      "$ref": "#/$defs/BenchmarkSuitePartition"
+    },
+    "threshold_policy_sha256": {
+      "pattern": "^[a-f0-9]{64}$",
+      "title": "Threshold Policy Sha256",
+      "type": "string"
+    },
+    "top_k": {
+      "default": 10,
+      "exclusiveMinimum": 0,
+      "maximum": 1000,
+      "title": "Top K",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "benchmark_id",
+    "suite_partition",
+    "adjudication_record_sha256",
+    "threshold_policy_sha256",
+    "candidate_configuration_sha256",
+    "corpus_release_id",
+    "manifest_sha256",
+    "actor_identity",
+    "requested_at"
+  ],
+  "title": "BenchmarkSuiteBuildRequest",
+  "type": "object",
+  "x-contract-version": "1.0.0"
+}

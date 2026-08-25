@@ -465,6 +465,78 @@ set `QDRANT_API_KEY` or pass `--qdrant-api-key`; the local stack is pinned to Qd
 `1.15.4`, and a different version fails closed unless the expected version is explicitly
 changed after compatibility review.
 
+## Clinical benchmark adjudication and suite construction
+
+Migration `0012_clinical_benchmark_adjudication` adds an immutable evidence-production
+ledger in front of the retrieval runner. It records separately sealed access,
+adjudication-process, and threshold policies; imported reviewer decisions; disagreement
+resolutions; final adjudication records; suite artifacts; and access audit events. Clinical
+reviewers are ordinary workflow participants. Their identity, role, independence,
+instructions, evidence-access revision, and decision time are retained, but they neither
+hold signing keys nor sign benchmark artifacts.
+
+Export the versioned workflow schemas:
+
+```powershell
+corpus-steward export-benchmark-adjudication-schemas packages\schemas
+```
+
+Register the three policies before importing reviews. The threshold policy must set sample
+targets and safety-stratum gates for every `ClinicalSafetyTopic`, identify both development
+and holdout acceptance thresholds, and prespecify the uncertainty methods before candidate
+evaluation:
+
+```powershell
+corpus-steward benchmark-register-access-policy `
+  data\local\benchmark\access-policy.content.json `
+  --output data\local\benchmark\access-policy.json
+corpus-steward benchmark-register-adjudication-process `
+  data\local\benchmark\adjudication-process.content.json `
+  --output data\local\benchmark\adjudication-process.json
+corpus-steward benchmark-register-threshold-policy `
+  data\local\benchmark\threshold-policy.content.json `
+  --output data\local\benchmark\threshold-policy.json
+```
+
+Seal reviewer decisions and disagreement resolutions from their content contracts, collect
+them into `{"decisions": [...]}` and `{"resolutions": [...]}` import envelopes, then import
+and finalize the adjudication ledger:
+
+```powershell
+corpus-steward benchmark-seal-review review.content.json --output review.json
+corpus-steward benchmark-import-reviews reviews.json `
+  --access-policy-sha256 <access-policy-sha256> `
+  --adjudication-process-sha256 <adjudication-process-sha256>
+corpus-steward benchmark-seal-resolution resolution.content.json `
+  --output resolution.json
+corpus-steward benchmark-import-resolutions resolutions.json `
+  --access-policy-sha256 <access-policy-sha256> `
+  --adjudication-process-sha256 <adjudication-process-sha256>
+corpus-steward benchmark-seal-adjudication adjudication-request.json `
+  --output adjudication-record.json
+```
+
+Every case needs the process policy's minimum number of distinct independent clinicians.
+Exact decision agreement finalizes without a resolution. Any disagreement requires one
+sealed resolution over the exact decision-digest set; a missing, stale, partial, or
+candidate-team resolution fails closed.
+
+The suite builder selects only the adjudication record's declared partition, validates all
+gold/forbidden evidence and required roles against the exact corpus release, enforces every
+sample-size and safety-topic target, and records the authorized actor. Development builders
+can produce candidate-bound development suites. Only access-policy custodians can build the
+holdout, and one adjudication record can produce exactly one immutable holdout suite:
+
+```powershell
+corpus-steward benchmark-build-clinical-suite suite-build-request.json `
+  --bundle data\local\validated-corpus-release.json `
+  --output data\restricted\clinical-holdout.json
+```
+
+The application policy is in addition to filesystem or object-store ACLs: a holdout output
+path must remain in custodian-controlled storage. The later acceptance run should consume
+that sealed artifact exactly once after the candidate is frozen.
+
 ## Retrieval benchmark runner
 
 Benchmark suites are sealed and bound to one corpus release and manifest. A suite carries

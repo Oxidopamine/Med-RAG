@@ -1,0 +1,107 @@
+{
+  "$defs": {
+    "AdjudicationProcessPolicyContent": {
+      "additionalProperties": false,
+      "properties": {
+        "allowed_clinical_roles": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Allowed Clinical Roles",
+          "type": "array"
+        },
+        "allowed_resolver_roles": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Allowed Resolver Roles",
+          "type": "array"
+        },
+        "case_decision_rule": {
+          "const": "EXACT_AGREEMENT_OR_RECORDED_RESOLUTION",
+          "default": "EXACT_AGREEMENT_OR_RECORDED_RESOLUTION",
+          "title": "Case Decision Rule",
+          "type": "string"
+        },
+        "effective_at": {
+          "format": "date-time",
+          "title": "Effective At",
+          "type": "string"
+        },
+        "instructions_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Instructions Sha256",
+          "type": "string"
+        },
+        "minimum_independent_reviews_per_case": {
+          "default": 2,
+          "maximum": 20,
+          "minimum": 2,
+          "title": "Minimum Independent Reviews Per Case",
+          "type": "integer"
+        },
+        "policy_id": {
+          "maxLength": 100,
+          "minLength": 1,
+          "title": "Policy Id",
+          "type": "string"
+        },
+        "prohibit_candidate_team_adjudicators": {
+          "const": true,
+          "default": true,
+          "title": "Prohibit Candidate Team Adjudicators",
+          "type": "boolean"
+        },
+        "require_resolution_for_disagreement": {
+          "const": true,
+          "default": true,
+          "title": "Require Resolution For Disagreement",
+          "type": "boolean"
+        },
+        "revision": {
+          "maxLength": 100,
+          "minLength": 1,
+          "title": "Revision",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "1.0.0",
+          "default": "1.0.0",
+          "title": "Schema Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "policy_id",
+        "revision",
+        "instructions_sha256",
+        "allowed_clinical_roles",
+        "allowed_resolver_roles",
+        "effective_at"
+      ],
+      "title": "AdjudicationProcessPolicyContent",
+      "type": "object"
+    }
+  },
+  "$id": "https://med-rag.local/contracts/adjudication-process-policy-1.0.0.schema.json",
+  "additionalProperties": false,
+  "properties": {
+    "content": {
+      "$ref": "#/$defs/AdjudicationProcessPolicyContent"
+    },
+    "policy_sha256": {
+      "pattern": "^[a-f0-9]{64}$",
+      "title": "Policy Sha256",
+      "type": "string"
+    }
+  },
+  "required": [
+    "content",
+    "policy_sha256"
+  ],
+  "title": "AdjudicationProcessPolicy",
+  "type": "object",
+  "x-contract-version": "1.0.0"
+}

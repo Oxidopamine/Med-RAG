@@ -1,0 +1,102 @@
+{
+  "$defs": {
+    "BenchmarkAccessPolicyContent": {
+      "additionalProperties": false,
+      "properties": {
+        "candidate_team_identities": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Candidate Team Identities",
+          "type": "array"
+        },
+        "development_builder_identities": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Development Builder Identities",
+          "type": "array"
+        },
+        "effective_at": {
+          "format": "date-time",
+          "title": "Effective At",
+          "type": "string"
+        },
+        "holdout_access_mode": {
+          "const": "CUSTODIAN_ONLY_UNTIL_ACCEPTANCE",
+          "default": "CUSTODIAN_ONLY_UNTIL_ACCEPTANCE",
+          "title": "Holdout Access Mode",
+          "type": "string"
+        },
+        "holdout_custodian_identities": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Holdout Custodian Identities",
+          "type": "array"
+        },
+        "policy_id": {
+          "maxLength": 100,
+          "minLength": 1,
+          "title": "Policy Id",
+          "type": "string"
+        },
+        "prohibit_candidate_team_holdout_access": {
+          "const": true,
+          "default": true,
+          "title": "Prohibit Candidate Team Holdout Access",
+          "type": "boolean"
+        },
+        "require_access_audit_event": {
+          "const": true,
+          "default": true,
+          "title": "Require Access Audit Event",
+          "type": "boolean"
+        },
+        "revision": {
+          "maxLength": 100,
+          "minLength": 1,
+          "title": "Revision",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "1.0.0",
+          "default": "1.0.0",
+          "title": "Schema Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "policy_id",
+        "revision",
+        "development_builder_identities",
+        "holdout_custodian_identities",
+        "effective_at"
+      ],
+      "title": "BenchmarkAccessPolicyContent",
+      "type": "object"
+    }
+  },
+  "$id": "https://med-rag.local/contracts/benchmark-access-policy-1.0.0.schema.json",
+  "additionalProperties": false,
+  "properties": {
+    "content": {
+      "$ref": "#/$defs/BenchmarkAccessPolicyContent"
+    },
+    "policy_sha256": {
+      "pattern": "^[a-f0-9]{64}$",
+      "title": "Policy Sha256",
+      "type": "string"
+    }
+  },
+  "required": [
+    "content",
+    "policy_sha256"
+  ],
+  "title": "BenchmarkAccessPolicy",
+  "type": "object",
+  "x-contract-version": "1.0.0"
+}

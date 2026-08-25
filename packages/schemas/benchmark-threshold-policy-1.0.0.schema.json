@@ -1,0 +1,305 @@
+{
+  "$defs": {
+    "BenchmarkAcceptance": {
+      "additionalProperties": false,
+      "properties": {
+        "maximum_candidate_failure_cases": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Maximum Candidate Failure Cases",
+          "type": "integer"
+        },
+        "maximum_forbidden_leakage_cases": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Maximum Forbidden Leakage Cases",
+          "type": "integer"
+        },
+        "maximum_p95_latency_ms": {
+          "default": 2000.0,
+          "exclusiveMinimum": 0,
+          "title": "Maximum P95 Latency Ms",
+          "type": "number"
+        },
+        "minimum_complete_evidence_set_rate": {
+          "default": 1.0,
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Minimum Complete Evidence Set Rate",
+          "type": "number"
+        },
+        "minimum_insufficient_evidence_accuracy": {
+          "default": 1.0,
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Minimum Insufficient Evidence Accuracy",
+          "type": "number"
+        },
+        "minimum_mean_context_precision_at_k": {
+          "default": 0.8,
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Minimum Mean Context Precision At K",
+          "type": "number"
+        },
+        "minimum_mean_ndcg_at_k": {
+          "default": 0.8,
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Minimum Mean Ndcg At K",
+          "type": "number"
+        },
+        "minimum_mean_recall_at_k": {
+          "default": 0.8,
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Minimum Mean Recall At K",
+          "type": "number"
+        },
+        "minimum_mean_reciprocal_rank": {
+          "default": 0.8,
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Minimum Mean Reciprocal Rank",
+          "type": "number"
+        },
+        "minimum_mean_required_role_recall": {
+          "default": 1.0,
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Minimum Mean Required Role Recall",
+          "type": "number"
+        },
+        "minimum_total_case_count": {
+          "default": 1,
+          "exclusiveMinimum": 0,
+          "title": "Minimum Total Case Count",
+          "type": "integer"
+        },
+        "safety_strata": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/SafetyStratumThreshold"
+          },
+          "title": "Safety Strata",
+          "type": "array"
+        }
+      },
+      "title": "BenchmarkAcceptance",
+      "type": "object"
+    },
+    "BenchmarkThresholdPolicyContent": {
+      "additionalProperties": false,
+      "properties": {
+        "binomial_uncertainty_method": {
+          "const": "WILSON_95",
+          "default": "WILSON_95",
+          "title": "Binomial Uncertainty Method",
+          "type": "string"
+        },
+        "development_acceptance": {
+          "$ref": "#/$defs/BenchmarkAcceptance"
+        },
+        "development_minimum_case_count": {
+          "exclusiveMinimum": 0,
+          "title": "Development Minimum Case Count",
+          "type": "integer"
+        },
+        "established_at": {
+          "format": "date-time",
+          "title": "Established At",
+          "type": "string"
+        },
+        "minimum_exact_agreement_rate": {
+          "default": 0.0,
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Minimum Exact Agreement Rate",
+          "type": "number"
+        },
+        "non_binomial_uncertainty_method": {
+          "const": "STRATIFIED_BOOTSTRAP_95",
+          "default": "STRATIFIED_BOOTSTRAP_95",
+          "title": "Non Binomial Uncertainty Method",
+          "type": "string"
+        },
+        "policy_id": {
+          "maxLength": 100,
+          "minLength": 1,
+          "title": "Policy Id",
+          "type": "string"
+        },
+        "revision": {
+          "maxLength": 100,
+          "minLength": 1,
+          "title": "Revision",
+          "type": "string"
+        },
+        "safety_topic_sample_targets": {
+          "items": {
+            "$ref": "#/$defs/SafetyTopicSampleTarget"
+          },
+          "minItems": 1,
+          "title": "Safety Topic Sample Targets",
+          "type": "array"
+        },
+        "schema_version": {
+          "const": "1.0.0",
+          "default": "1.0.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "sealed_holdout_acceptance": {
+          "$ref": "#/$defs/BenchmarkAcceptance"
+        },
+        "sealed_holdout_minimum_case_count": {
+          "exclusiveMinimum": 0,
+          "title": "Sealed Holdout Minimum Case Count",
+          "type": "integer"
+        },
+        "set_before_candidate_evaluation": {
+          "const": true,
+          "default": true,
+          "title": "Set Before Candidate Evaluation",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "policy_id",
+        "revision",
+        "development_minimum_case_count",
+        "sealed_holdout_minimum_case_count",
+        "safety_topic_sample_targets",
+        "development_acceptance",
+        "sealed_holdout_acceptance",
+        "established_at"
+      ],
+      "title": "BenchmarkThresholdPolicyContent",
+      "type": "object"
+    },
+    "ClinicalSafetyTopic": {
+      "enum": [
+        "CONTRAINDICATION",
+        "APPLICABILITY",
+        "DOSE",
+        "MONITORING",
+        "TERMINOLOGY",
+        "MULTILINGUAL_CROSS_LINGUAL",
+        "STALE_SOURCE",
+        "WRONG_JURISDICTION",
+        "CONFLICTING_EVIDENCE",
+        "INSUFFICIENT_EVIDENCE",
+        "NEGATION"
+      ],
+      "title": "ClinicalSafetyTopic",
+      "type": "string"
+    },
+    "SafetyStratumThreshold": {
+      "additionalProperties": false,
+      "properties": {
+        "maximum_forbidden_leakage_cases": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Maximum Forbidden Leakage Cases",
+          "type": "integer"
+        },
+        "minimum_case_count": {
+          "default": 1,
+          "exclusiveMinimum": 0,
+          "title": "Minimum Case Count",
+          "type": "integer"
+        },
+        "minimum_complete_evidence_set_rate": {
+          "default": 0.0,
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Minimum Complete Evidence Set Rate",
+          "type": "number"
+        },
+        "minimum_insufficient_evidence_accuracy": {
+          "default": 0.0,
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Minimum Insufficient Evidence Accuracy",
+          "type": "number"
+        },
+        "minimum_mean_recall_at_k": {
+          "default": 0.0,
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Minimum Mean Recall At K",
+          "type": "number"
+        },
+        "minimum_mean_required_role_recall": {
+          "default": 0.0,
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Minimum Mean Required Role Recall",
+          "type": "number"
+        },
+        "stratum_key": {
+          "maxLength": 100,
+          "minLength": 1,
+          "title": "Stratum Key",
+          "type": "string"
+        },
+        "stratum_value": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Stratum Value",
+          "type": "string"
+        }
+      },
+      "required": [
+        "stratum_key",
+        "stratum_value"
+      ],
+      "title": "SafetyStratumThreshold",
+      "type": "object"
+    },
+    "SafetyTopicSampleTarget": {
+      "additionalProperties": false,
+      "properties": {
+        "development_minimum": {
+          "exclusiveMinimum": 0,
+          "title": "Development Minimum",
+          "type": "integer"
+        },
+        "safety_topic": {
+          "$ref": "#/$defs/ClinicalSafetyTopic"
+        },
+        "sealed_holdout_minimum": {
+          "exclusiveMinimum": 0,
+          "title": "Sealed Holdout Minimum",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "safety_topic",
+        "development_minimum",
+        "sealed_holdout_minimum"
+      ],
+      "title": "SafetyTopicSampleTarget",
+      "type": "object"
+    }
+  },
+  "$id": "https://med-rag.local/contracts/benchmark-threshold-policy-1.0.0.schema.json",
+  "additionalProperties": false,
+  "properties": {
+    "content": {
+      "$ref": "#/$defs/BenchmarkThresholdPolicyContent"
+    },
+    "policy_sha256": {
+      "pattern": "^[a-f0-9]{64}$",
+      "title": "Policy Sha256",
+      "type": "string"
+    }
+  },
+  "required": [
+    "content",
+    "policy_sha256"
+  ],
+  "title": "BenchmarkThresholdPolicy",
+  "type": "object",
+  "x-contract-version": "1.0.0"
+}
