@@ -1,19 +1,22 @@
 import asyncio
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Awaitable, Callable
 from dataclasses import dataclass, field
 from datetime import datetime
 from uuid import uuid4
 
 from app.reasoning.context_extractor import extract_context_preview
+from app.schemas.corpus import ActiveCorpusRelease
 from app.schemas.domain import ClinicalContext, utc_now
 from app.schemas.questions import (
     TERMINAL_STATUSES,
     AbstentionDetail,
+    EvidenceDetail,
     ProgressEvent,
     QuestionAccepted,
     QuestionCreate,
     QuestionResult,
     QuestionStatus,
+    RenderedClaim,
     SourceFilters,
     VerificationSummary,
 )
@@ -31,7 +34,13 @@ class QuestionRecord:
     status: QuestionStatus
     created_at: datetime
     updated_at: datetime
+    corpus_release: ActiveCorpusRelease | None = None
+    approved_corpus_available: bool = False
     interpreted_context: ClinicalContext | None = None
+    claims: list[RenderedClaim] = field(default_factory=list)
+    evidence_details: list[EvidenceDetail] = field(default_factory=list)
+    conflicts: list[dict[str, str]] = field(default_factory=list)
+    verification_summary: VerificationSummary = field(default_factory=VerificationSummary)
     abstention: AbstentionDetail | None = None
     previous_question_id: str | None = None
     events: list[ProgressEvent] = field(default_factory=list)
@@ -45,13 +54,27 @@ class QuestionNotFoundError(KeyError):
 class QuestionService:
     """In-process research orchestrator; durable jobs arrive with the persistence slice."""
 
-    def __init__(self, *, approved_corpus_available: bool = False) -> None:
-        self._approved_corpus_available = approved_corpus_available
+    def __init__(
+        self,
+        *,
+        active_release_provider: Callable[
+            [], Awaitable[ActiveCorpusRelease | None]
+        ]
+        | None = None,
+        approved_corpus_available: bool = False,
+    ) -> None:
+        self._active_release_provider = active_release_provider
+        self._legacy_approved_corpus_available = approved_corpus_available
         self._records: dict[str, QuestionRecord] = {}
         self._tasks: set[asyncio.Task[None]] = set()
 
     async def submit(self, request: QuestionCreate) -> QuestionAccepted:
-        record = self._create_record(request)
+        approved_corpus_available, corpus_release = await self._resolve_active_release()
+        record = self._create_record(
+            request,
+            approved_corpus_available=approved_corpus_available,
+            corpus_release=corpus_release,
+        )
         await self._emit(record, QuestionStatus.QUEUED)
         task = asyncio.create_task(self._run(record))
         self._tasks.add(task)
@@ -64,10 +87,13 @@ class QuestionService:
         context: ClinicalContext,
     ) -> QuestionAccepted:
         prior = self._require(question_id)
+        approved_corpus_available, corpus_release = await self._resolve_active_release()
         record = self._create_record(
             QuestionCreate(question=prior.question, source_filters=prior.source_filters),
             context=context,
             previous_question_id=prior.question_id,
+            approved_corpus_available=approved_corpus_available,
+            corpus_release=corpus_release,
         )
         await self._emit(record, QuestionStatus.QUEUED)
         task = asyncio.create_task(self._run(record, preserve_context=True))
@@ -81,14 +107,12 @@ class QuestionService:
             question_id=record.question_id,
             question=record.question,
             status=record.status,
+            corpus_release=record.corpus_release,
             interpreted_context=record.interpreted_context,
-            claims=[],
-            conflicts=[],
-            verification_summary=VerificationSummary(
-                rendered_claims=0,
-                supported_claims=0,
-                withheld_claims=0,
-            ),
+            claims=record.claims,
+            evidence_details=record.evidence_details,
+            conflicts=record.conflicts,
+            verification_summary=record.verification_summary,
             abstention=record.abstention,
             created_at=record.created_at,
             updated_at=record.updated_at,
@@ -123,6 +147,8 @@ class QuestionService:
         *,
         context: ClinicalContext | None = None,
         previous_question_id: str | None = None,
+        approved_corpus_available: bool = False,
+        corpus_release: ActiveCorpusRelease | None = None,
     ) -> QuestionRecord:
         now = utc_now()
         record = QuestionRecord(
@@ -132,6 +158,8 @@ class QuestionService:
             status=QuestionStatus.QUEUED,
             created_at=now,
             updated_at=now,
+            corpus_release=corpus_release,
+            approved_corpus_available=approved_corpus_available,
             interpreted_context=context,
             previous_question_id=previous_question_id,
         )
@@ -156,7 +184,7 @@ class QuestionService:
 
             reason_code = (
                 "RETRIEVAL_PIPELINE_NOT_CONFIGURED"
-                if self._approved_corpus_available
+                if record.approved_corpus_available
                 else "NO_APPROVED_CORPUS"
             )
             record.abstention = AbstentionDetail(
@@ -182,6 +210,16 @@ class QuestionService:
             )
             await self._emit(record, QuestionStatus.FAILED)
 
+    async def _resolve_active_release(self) -> tuple[bool, ActiveCorpusRelease | None]:
+        if self._active_release_provider is None:
+            return self._legacy_approved_corpus_available, None
+        try:
+            release = await self._active_release_provider()
+            return release is not None, release
+        except Exception:
+            # Canonical release state being unavailable is never evidence of availability.
+            return False, None
+
     async def _emit(self, record: QuestionRecord, status: QuestionStatus) -> None:
         async with record.condition:
             record.status = status
@@ -200,4 +238,3 @@ class QuestionService:
             return self._records[question_id]
         except KeyError as error:
             raise QuestionNotFoundError(question_id) from error
-

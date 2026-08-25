@@ -1,0 +1,237 @@
+{
+  "$defs": {
+    "DenseVectorDefinition": {
+      "additionalProperties": false,
+      "properties": {
+        "dimension": {
+          "exclusiveMinimum": 0,
+          "maximum": 65536,
+          "title": "Dimension",
+          "type": "integer"
+        },
+        "distance": {
+          "default": "Cosine",
+          "enum": [
+            "Cosine",
+            "Dot",
+            "Euclid",
+            "Manhattan"
+          ],
+          "title": "Distance",
+          "type": "string"
+        },
+        "model": {
+          "$ref": "#/$defs/EmbeddingModelReference"
+        },
+        "name": {
+          "default": "dense",
+          "maxLength": 100,
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        }
+      },
+      "required": [
+        "dimension",
+        "model"
+      ],
+      "title": "DenseVectorDefinition",
+      "type": "object"
+    },
+    "EmbeddingModelReference": {
+      "additionalProperties": false,
+      "description": "Pinned identity for vector material generated outside the indexer.",
+      "properties": {
+        "artifact_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Artifact Sha256",
+          "type": "string"
+        },
+        "model_id": {
+          "maxLength": 300,
+          "minLength": 1,
+          "title": "Model Id",
+          "type": "string"
+        },
+        "revision": {
+          "maxLength": 300,
+          "minLength": 1,
+          "title": "Revision",
+          "type": "string"
+        }
+      },
+      "required": [
+        "model_id",
+        "revision",
+        "artifact_sha256"
+      ],
+      "title": "EmbeddingModelReference",
+      "type": "object"
+    },
+    "EvidenceVectorRecord": {
+      "additionalProperties": false,
+      "properties": {
+        "dense": {
+          "items": {
+            "type": "number"
+          },
+          "minItems": 1,
+          "title": "Dense",
+          "type": "array"
+        },
+        "evidence_id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Evidence Id",
+          "type": "string"
+        },
+        "evidence_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Evidence Sha256",
+          "type": "string"
+        },
+        "sparse": {
+          "$ref": "#/$defs/SparseVector"
+        }
+      },
+      "required": [
+        "evidence_id",
+        "evidence_sha256",
+        "dense",
+        "sparse"
+      ],
+      "title": "EvidenceVectorRecord",
+      "type": "object"
+    },
+    "IndexVectorBatchContent": {
+      "additionalProperties": false,
+      "properties": {
+        "corpus_release_id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Corpus Release Id",
+          "type": "string"
+        },
+        "dense": {
+          "$ref": "#/$defs/DenseVectorDefinition"
+        },
+        "generated_at": {
+          "format": "date-time",
+          "title": "Generated At",
+          "type": "string"
+        },
+        "manifest_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Manifest Sha256",
+          "type": "string"
+        },
+        "records": {
+          "items": {
+            "$ref": "#/$defs/EvidenceVectorRecord"
+          },
+          "minItems": 1,
+          "title": "Records",
+          "type": "array"
+        },
+        "schema_version": {
+          "const": "1.0.0",
+          "default": "1.0.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "sparse": {
+          "$ref": "#/$defs/SparseVectorDefinition"
+        }
+      },
+      "required": [
+        "corpus_release_id",
+        "manifest_sha256",
+        "generated_at",
+        "dense",
+        "sparse",
+        "records"
+      ],
+      "title": "IndexVectorBatchContent",
+      "type": "object"
+    },
+    "SparseVector": {
+      "additionalProperties": false,
+      "properties": {
+        "indices": {
+          "items": {
+            "type": "integer"
+          },
+          "minItems": 1,
+          "title": "Indices",
+          "type": "array"
+        },
+        "values": {
+          "items": {
+            "type": "number"
+          },
+          "minItems": 1,
+          "title": "Values",
+          "type": "array"
+        }
+      },
+      "required": [
+        "indices",
+        "values"
+      ],
+      "title": "SparseVector",
+      "type": "object"
+    },
+    "SparseVectorDefinition": {
+      "additionalProperties": false,
+      "properties": {
+        "dimension": {
+          "exclusiveMinimum": 0,
+          "maximum": 4294967296,
+          "title": "Dimension",
+          "type": "integer"
+        },
+        "model": {
+          "$ref": "#/$defs/EmbeddingModelReference"
+        },
+        "modifier": {
+          "const": "idf",
+          "default": "idf",
+          "title": "Modifier",
+          "type": "string"
+        },
+        "name": {
+          "default": "sparse",
+          "maxLength": 100,
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        }
+      },
+      "required": [
+        "dimension",
+        "model"
+      ],
+      "title": "SparseVectorDefinition",
+      "type": "object"
+    }
+  },
+  "$id": "https://med-rag.local/contracts/qdrant-vector-batch-1.0.0.schema.json",
+  "additionalProperties": false,
+  "properties": {
+    "batch_sha256": {
+      "pattern": "^[a-f0-9]{64}$",
+      "title": "Batch Sha256",
+      "type": "string"
+    },
+    "content": {
+      "$ref": "#/$defs/IndexVectorBatchContent"
+    }
+  },
+  "required": [
+    "content",
+    "batch_sha256"
+  ],
+  "title": "IndexVectorBatch",
+  "type": "object",
+  "x-contract-version": "1.0.0"
+}

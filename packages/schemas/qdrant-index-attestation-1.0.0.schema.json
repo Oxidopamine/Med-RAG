@@ -1,0 +1,465 @@
+{
+  "$defs": {
+    "AttestationPurpose": {
+      "enum": [
+        "STAGE",
+        "EXCEPTION",
+        "ACTIVATION"
+      ],
+      "title": "AttestationPurpose",
+      "type": "string"
+    },
+    "DenseVectorDefinition": {
+      "additionalProperties": false,
+      "properties": {
+        "dimension": {
+          "exclusiveMinimum": 0,
+          "maximum": 65536,
+          "title": "Dimension",
+          "type": "integer"
+        },
+        "distance": {
+          "default": "Cosine",
+          "enum": [
+            "Cosine",
+            "Dot",
+            "Euclid",
+            "Manhattan"
+          ],
+          "title": "Distance",
+          "type": "string"
+        },
+        "model": {
+          "$ref": "#/$defs/EmbeddingModelReference"
+        },
+        "name": {
+          "default": "dense",
+          "maxLength": 100,
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        }
+      },
+      "required": [
+        "dimension",
+        "model"
+      ],
+      "title": "DenseVectorDefinition",
+      "type": "object"
+    },
+    "EmbeddingModelReference": {
+      "additionalProperties": false,
+      "description": "Pinned identity for vector material generated outside the indexer.",
+      "properties": {
+        "artifact_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Artifact Sha256",
+          "type": "string"
+        },
+        "model_id": {
+          "maxLength": 300,
+          "minLength": 1,
+          "title": "Model Id",
+          "type": "string"
+        },
+        "revision": {
+          "maxLength": 300,
+          "minLength": 1,
+          "title": "Revision",
+          "type": "string"
+        }
+      },
+      "required": [
+        "model_id",
+        "revision",
+        "artifact_sha256"
+      ],
+      "title": "EmbeddingModelReference",
+      "type": "object"
+    },
+    "IndexAttestationContent": {
+      "additionalProperties": false,
+      "properties": {
+        "approved_count": {
+          "exclusiveMinimum": 0,
+          "title": "Approved Count",
+          "type": "integer"
+        },
+        "attested_at": {
+          "format": "date-time",
+          "title": "Attested At",
+          "type": "string"
+        },
+        "corpus_release_id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Corpus Release Id",
+          "type": "string"
+        },
+        "manifest_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Manifest Sha256",
+          "type": "string"
+        },
+        "materialized_count": {
+          "exclusiveMinimum": 0,
+          "title": "Materialized Count",
+          "type": "integer"
+        },
+        "outcome": {
+          "const": "VALIDATED",
+          "default": "VALIDATED",
+          "title": "Outcome",
+          "type": "string"
+        },
+        "point_count": {
+          "exclusiveMinimum": 0,
+          "title": "Point Count",
+          "type": "integer"
+        },
+        "qa_run_id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Qa Run Id",
+          "type": "string"
+        },
+        "qdrant_collection": {
+          "maxLength": 255,
+          "minLength": 1,
+          "title": "Qdrant Collection",
+          "type": "string"
+        },
+        "quarantined_count": {
+          "minimum": 0,
+          "title": "Quarantined Count",
+          "type": "integer"
+        },
+        "schema_version": {
+          "const": "1.0.0",
+          "default": "1.0.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "validation_report_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Validation Report Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "corpus_release_id",
+        "manifest_sha256",
+        "qdrant_collection",
+        "validation_report_sha256",
+        "qa_run_id",
+        "materialized_count",
+        "approved_count",
+        "quarantined_count",
+        "point_count",
+        "attested_at"
+      ],
+      "title": "IndexAttestationContent",
+      "type": "object"
+    },
+    "IndexValidationReport": {
+      "additionalProperties": false,
+      "properties": {
+        "content": {
+          "$ref": "#/$defs/IndexValidationReportContent"
+        },
+        "report_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Report Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "content",
+        "report_sha256"
+      ],
+      "title": "IndexValidationReport",
+      "type": "object"
+    },
+    "IndexValidationReportContent": {
+      "additionalProperties": false,
+      "properties": {
+        "bundle_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Bundle Sha256",
+          "type": "string"
+        },
+        "collection_config_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Collection Config Sha256",
+          "type": "string"
+        },
+        "collection_status": {
+          "const": "green",
+          "default": "green",
+          "title": "Collection Status",
+          "type": "string"
+        },
+        "corpus_release_id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Corpus Release Id",
+          "type": "string"
+        },
+        "dense": {
+          "$ref": "#/$defs/DenseVectorDefinition"
+        },
+        "evidence_set_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Evidence Set Sha256",
+          "type": "string"
+        },
+        "manifest_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Manifest Sha256",
+          "type": "string"
+        },
+        "outcome": {
+          "const": "VALIDATED",
+          "default": "VALIDATED",
+          "title": "Outcome",
+          "type": "string"
+        },
+        "payload_set_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Payload Set Sha256",
+          "type": "string"
+        },
+        "point_count": {
+          "exclusiveMinimum": 0,
+          "title": "Point Count",
+          "type": "integer"
+        },
+        "point_id_set_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Point Id Set Sha256",
+          "type": "string"
+        },
+        "qdrant_collection": {
+          "maxLength": 255,
+          "minLength": 1,
+          "title": "Qdrant Collection",
+          "type": "string"
+        },
+        "qdrant_version": {
+          "maxLength": 100,
+          "minLength": 1,
+          "title": "Qdrant Version",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "1.0.0",
+          "default": "1.0.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "smoke_results": {
+          "items": {
+            "$ref": "#/$defs/RetrievalSmokeResult"
+          },
+          "minItems": 1,
+          "title": "Smoke Results",
+          "type": "array"
+        },
+        "sparse": {
+          "$ref": "#/$defs/SparseVectorDefinition"
+        },
+        "validated_at": {
+          "format": "date-time",
+          "title": "Validated At",
+          "type": "string"
+        },
+        "vector_batch_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Vector Batch Sha256",
+          "type": "string"
+        },
+        "vector_set_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Vector Set Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "corpus_release_id",
+        "manifest_sha256",
+        "bundle_sha256",
+        "qdrant_collection",
+        "qdrant_version",
+        "collection_config_sha256",
+        "vector_batch_sha256",
+        "point_id_set_sha256",
+        "evidence_set_sha256",
+        "payload_set_sha256",
+        "vector_set_sha256",
+        "point_count",
+        "dense",
+        "sparse",
+        "smoke_results",
+        "validated_at"
+      ],
+      "title": "IndexValidationReportContent",
+      "type": "object"
+    },
+    "RetrievalSmokeResult": {
+      "additionalProperties": false,
+      "properties": {
+        "dense_rank": {
+          "exclusiveMinimum": 0,
+          "title": "Dense Rank",
+          "type": "integer"
+        },
+        "evidence_id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Evidence Id",
+          "type": "string"
+        },
+        "point_id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Point Id",
+          "type": "string"
+        },
+        "result_limit": {
+          "exclusiveMinimum": 0,
+          "title": "Result Limit",
+          "type": "integer"
+        },
+        "sparse_rank": {
+          "exclusiveMinimum": 0,
+          "title": "Sparse Rank",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "evidence_id",
+        "point_id",
+        "dense_rank",
+        "sparse_rank",
+        "result_limit"
+      ],
+      "title": "RetrievalSmokeResult",
+      "type": "object"
+    },
+    "SparseVectorDefinition": {
+      "additionalProperties": false,
+      "properties": {
+        "dimension": {
+          "exclusiveMinimum": 0,
+          "maximum": 4294967296,
+          "title": "Dimension",
+          "type": "integer"
+        },
+        "model": {
+          "$ref": "#/$defs/EmbeddingModelReference"
+        },
+        "modifier": {
+          "const": "idf",
+          "default": "idf",
+          "title": "Modifier",
+          "type": "string"
+        },
+        "name": {
+          "default": "sparse",
+          "maxLength": 100,
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        }
+      },
+      "required": [
+        "dimension",
+        "model"
+      ],
+      "title": "SparseVectorDefinition",
+      "type": "object"
+    },
+    "VerifiedAttestationReference": {
+      "additionalProperties": false,
+      "properties": {
+        "attestation_id": {
+          "minLength": 1,
+          "title": "Attestation Id",
+          "type": "string"
+        },
+        "predicate_type": {
+          "minLength": 1,
+          "title": "Predicate Type",
+          "type": "string"
+        },
+        "purpose": {
+          "$ref": "#/$defs/AttestationPurpose"
+        },
+        "signature_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Signature Sha256",
+          "type": "string"
+        },
+        "signer_identity": {
+          "minLength": 1,
+          "title": "Signer Identity",
+          "type": "string"
+        },
+        "signing_key_id": {
+          "minLength": 1,
+          "title": "Signing Key Id",
+          "type": "string"
+        },
+        "statement_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Statement Sha256",
+          "type": "string"
+        },
+        "verified_at": {
+          "format": "date-time",
+          "title": "Verified At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "attestation_id",
+        "purpose",
+        "predicate_type",
+        "statement_sha256",
+        "signature_sha256",
+        "signer_identity",
+        "signing_key_id",
+        "verified_at"
+      ],
+      "title": "VerifiedAttestationReference",
+      "type": "object"
+    }
+  },
+  "$id": "https://med-rag.local/contracts/qdrant-index-attestation-1.0.0.schema.json",
+  "additionalProperties": false,
+  "properties": {
+    "attestation": {
+      "$ref": "#/$defs/VerifiedAttestationReference"
+    },
+    "content": {
+      "$ref": "#/$defs/IndexAttestationContent"
+    },
+    "statement_sha256": {
+      "pattern": "^[a-f0-9]{64}$",
+      "title": "Statement Sha256",
+      "type": "string"
+    },
+    "validation_report": {
+      "$ref": "#/$defs/IndexValidationReport"
+    }
+  },
+  "required": [
+    "content",
+    "statement_sha256",
+    "validation_report",
+    "attestation"
+  ],
+  "title": "SignedIndexAttestation",
+  "type": "object",
+  "x-contract-version": "1.0.0"
+}

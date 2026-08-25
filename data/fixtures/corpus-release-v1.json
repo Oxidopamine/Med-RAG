@@ -1,0 +1,165 @@
+{
+  "manifest": {
+    "content": {
+      "corpus_release_id": "CR_FIXTURE_2026_08_25",
+      "created_at": "2026-08-25T00:00:00Z",
+      "cutoff_at": "2026-08-25T00:00:00Z",
+      "trust_root_registry_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+      "release_policy_sha256": "3333333333333333333333333333333333333333333333333333333333333333",
+      "qdrant_collection": "corpus_CR_FIXTURE_2026_08_25",
+      "inventory_snapshots": [
+        {
+          "trust_root_id": "TR_FIXTURE",
+          "publisher_id": "PUB_FIXTURE",
+          "cutoff_at": "2026-08-25T00:00:00Z",
+          "inventory_artifact_sha256": "4444444444444444444444444444444444444444444444444444444444444444",
+          "expected_item_ids": ["GUIDELINE_FIXTURE_001"],
+          "included_item_ids": ["GUIDELINE_FIXTURE_001"],
+          "complete": true
+        }
+      ],
+      "evidence": [
+        {
+          "evidence_id": "EV_FIXTURE_APPLICABILITY_001",
+          "source_version_id": "SV_FIXTURE_2026",
+          "evidence_sha256": "7d37bc511ab20c3749abd5d5a5cdf4721fa990f6c4222252b8ae1f023deca593",
+          "artifact_sha256": "7d37bc511ab20c3749abd5d5a5cdf4721fa990f6c4222252b8ae1f023deca593",
+          "qa_decision_sha256": "1111111111111111111111111111111111111111111111111111111111111111"
+        },
+        {
+          "evidence_id": "EV_FIXTURE_EXCEPTION_001",
+          "source_version_id": "SV_FIXTURE_2026",
+          "evidence_sha256": "3a2f929d2f3c808ede189af9d7ace04306a6a4f21b4cee324f9ea0e1d41222b9",
+          "artifact_sha256": "3a2f929d2f3c808ede189af9d7ace04306a6a4f21b4cee324f9ea0e1d41222b9",
+          "qa_decision_sha256": "1212121212121212121212121212121212121212121212121212121212121212"
+        },
+        {
+          "evidence_id": "EV_FIXTURE_PRIMARY_001",
+          "source_version_id": "SV_FIXTURE_2026",
+          "evidence_sha256": "3e9ef4f98c33962c070bf9f7f4ceaf0543a28e167d8d0d647e17974ce5905906",
+          "artifact_sha256": "3e9ef4f98c33962c070bf9f7f4ceaf0543a28e167d8d0d647e17974ce5905906",
+          "qa_decision_sha256": "1313131313131313131313131313131313131313131313131313131313131313"
+        }
+      ],
+      "attestations": [
+        {
+          "attestation_id": "ATT_FIXTURE_1",
+          "stage": "EVIDENCE_VERIFICATION",
+          "statement_sha256": "6666666666666666666666666666666666666666666666666666666666666666",
+          "signature_sha256": "9999999999999999999999999999999999999999999999999999999999999999",
+          "signer_identity": "fixture-only-control-plane"
+        },
+        {
+          "attestation_id": "ATT_FIXTURE_0",
+          "stage": "INVENTORY_RECONCILIATION",
+          "statement_sha256": "5555555555555555555555555555555555555555555555555555555555555555",
+          "signature_sha256": "8888888888888888888888888888888888888888888888888888888888888888",
+          "signer_identity": "fixture-only-control-plane"
+        },
+        {
+          "attestation_id": "ATT_FIXTURE_2",
+          "stage": "RELEASE_POLICY",
+          "statement_sha256": "7777777777777777777777777777777777777777777777777777777777777777",
+          "signature_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "signer_identity": "fixture-only-control-plane"
+        }
+      ]
+    },
+    "manifest_sha256": "7f9119c3af9d140264d4368ec113a2a1db978600bac269d772a62cfb01d7dc7a"
+  },
+  "evidence": [
+    {
+      "corpus_release_id": "CR_FIXTURE_2026_08_25",
+      "evidence_id": "EV_FIXTURE_APPLICABILITY_001",
+      "source_id": "SRC_FIXTURE_001",
+      "source_version_id": "SV_FIXTURE_2026",
+      "source_artifact_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "publisher_id": "PUB_FIXTURE",
+      "jurisdiction": "TEST",
+      "language": "en",
+      "lifecycle_status": "EFFECTIVE",
+      "evidence_roles": ["APPLICABILITY"],
+      "content_exact": "This recommendation applies only in the synthetic outpatient setting.",
+      "content_search": "Synthetic guideline > Recommendation 1. This recommendation applies only in the synthetic outpatient setting.",
+      "anchors": [
+        {
+          "kind": "PDF",
+          "source_uri": "https://fixtures.invalid/synthetic-guideline.pdf",
+          "pdf_page": 1,
+          "bbox": [72, 72, 500, 90]
+        }
+      ],
+      "render_allowed": true,
+      "verification": {
+        "approval_status": "APPROVED",
+        "checks": [
+          {"invariant": "CRITICAL_FIELDS", "outcome": "PASS", "verifier": "fixture-deterministic-verifier@1.0.0", "evidence_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
+          {"invariant": "EXACT_CONTENT", "outcome": "PASS", "verifier": "fixture-deterministic-verifier@1.0.0", "evidence_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
+          {"invariant": "PROVENANCE", "outcome": "PASS", "verifier": "fixture-deterministic-verifier@1.0.0", "evidence_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}
+        ]
+      }
+    },
+    {
+      "corpus_release_id": "CR_FIXTURE_2026_08_25",
+      "evidence_id": "EV_FIXTURE_EXCEPTION_001",
+      "source_id": "SRC_FIXTURE_001",
+      "source_version_id": "SV_FIXTURE_2026",
+      "source_artifact_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "publisher_id": "PUB_FIXTURE",
+      "jurisdiction": "TEST",
+      "language": "en",
+      "lifecycle_status": "EFFECTIVE",
+      "evidence_roles": ["EXCEPTION_OR_CONTRAINDICATION"],
+      "content_exact": "Do not use Example Intervention A when the synthetic exclusion is present.",
+      "content_search": "Synthetic guideline > Recommendation 1. Do not use Example Intervention A when the synthetic exclusion is present.",
+      "anchors": [
+        {
+          "kind": "PDF",
+          "source_uri": "https://fixtures.invalid/synthetic-guideline.pdf",
+          "pdf_page": 1,
+          "bbox": [72, 72, 500, 90]
+        }
+      ],
+      "render_allowed": true,
+      "verification": {
+        "approval_status": "APPROVED",
+        "checks": [
+          {"invariant": "CRITICAL_FIELDS", "outcome": "PASS", "verifier": "fixture-deterministic-verifier@1.0.0", "evidence_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
+          {"invariant": "EXACT_CONTENT", "outcome": "PASS", "verifier": "fixture-deterministic-verifier@1.0.0", "evidence_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
+          {"invariant": "PROVENANCE", "outcome": "PASS", "verifier": "fixture-deterministic-verifier@1.0.0", "evidence_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}
+        ]
+      }
+    },
+    {
+      "corpus_release_id": "CR_FIXTURE_2026_08_25",
+      "evidence_id": "EV_FIXTURE_PRIMARY_001",
+      "source_id": "SRC_FIXTURE_001",
+      "source_version_id": "SV_FIXTURE_2026",
+      "source_artifact_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "publisher_id": "PUB_FIXTURE",
+      "jurisdiction": "TEST",
+      "language": "en",
+      "lifecycle_status": "EFFECTIVE",
+      "evidence_roles": ["PRIMARY_SUPPORT"],
+      "content_exact": "For adults in the synthetic test population, offer Example Intervention A.",
+      "content_search": "Synthetic guideline > Recommendation 1. For adults in the synthetic test population, offer Example Intervention A.",
+      "anchors": [
+        {
+          "kind": "PDF",
+          "source_uri": "https://fixtures.invalid/synthetic-guideline.pdf",
+          "pdf_page": 1,
+          "bbox": [72, 72, 500, 90]
+        }
+      ],
+      "render_allowed": true,
+      "verification": {
+        "approval_status": "APPROVED",
+        "checks": [
+          {"invariant": "CRITICAL_FIELDS", "outcome": "PASS", "verifier": "fixture-deterministic-verifier@1.0.0", "evidence_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
+          {"invariant": "EXACT_CONTENT", "outcome": "PASS", "verifier": "fixture-deterministic-verifier@1.0.0", "evidence_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
+          {"invariant": "PROVENANCE", "outcome": "PASS", "verifier": "fixture-deterministic-verifier@1.0.0", "evidence_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}
+        ]
+      }
+    }
+  ]
+}

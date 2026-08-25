@@ -1,0 +1,43 @@
+{
+  "candidate_sha256": "fc635522576ff32e382eb3efffcf355126395fbb71f7cef39f800fd3893392be",
+  "content": {
+    "candidate_id": "synthetic-deterministic-v1",
+    "candidate_limit": 3,
+    "lanes": [
+      {
+        "adapter_id": "med-rag/deterministic-dense",
+        "adapter_revision": "1.0.0",
+        "kind": "DENSE",
+        "lane_id": "dense",
+        "model": {
+          "artifact_sha256": "e9fb4f239b99dc6a64656afdd1825d5242b24e460aa5b55ecb9ce23acdfcd611",
+          "model_id": "med-rag/baseline-hashing-dense",
+          "revision": "1.0.0"
+        },
+        "required": true,
+        "vector_name": "dense",
+        "weight": 1.0
+      },
+      {
+        "adapter_id": "med-rag/deterministic-sparse",
+        "adapter_revision": "1.0.0",
+        "kind": "BM25",
+        "lane_id": "sparse",
+        "model": {
+          "artifact_sha256": "1328e1f362c77fac62519481021e7ebea25b6f5f11f887c921772ad40d5df9c9",
+          "model_id": "med-rag/baseline-hashing-sparse",
+          "revision": "1.0.0"
+        },
+        "required": true,
+        "vector_name": "sparse",
+        "weight": 1.0
+      }
+    ],
+    "output_depth": 3,
+    "reranker": null,
+    "rrf_k": 60,
+    "safety_query_revision": null,
+    "schema_version": "1.0.0",
+    "terminology_revision": null
+  }
+}

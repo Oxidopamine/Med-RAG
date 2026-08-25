@@ -1,0 +1,262 @@
+{
+  "$defs": {
+    "CandidateLane": {
+      "additionalProperties": false,
+      "properties": {
+        "adapter_id": {
+          "maxLength": 300,
+          "minLength": 1,
+          "title": "Adapter Id",
+          "type": "string"
+        },
+        "adapter_revision": {
+          "maxLength": 300,
+          "minLength": 1,
+          "title": "Adapter Revision",
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/$defs/CandidateLaneKind"
+        },
+        "lane_id": {
+          "maxLength": 100,
+          "minLength": 1,
+          "title": "Lane Id",
+          "type": "string"
+        },
+        "model": {
+          "$ref": "#/$defs/EmbeddingModelReference"
+        },
+        "required": {
+          "default": true,
+          "title": "Required",
+          "type": "boolean"
+        },
+        "vector_name": {
+          "maxLength": 100,
+          "minLength": 1,
+          "title": "Vector Name",
+          "type": "string"
+        },
+        "weight": {
+          "default": 1.0,
+          "minimum": 0,
+          "title": "Weight",
+          "type": "number"
+        }
+      },
+      "required": [
+        "lane_id",
+        "kind",
+        "vector_name",
+        "model",
+        "adapter_id",
+        "adapter_revision"
+      ],
+      "title": "CandidateLane",
+      "type": "object"
+    },
+    "CandidateLaneKind": {
+      "enum": [
+        "DENSE",
+        "BM25",
+        "LEARNED_LEXICAL",
+        "EXACT_TERMINOLOGY",
+        "SAFETY_QUERY",
+        "BIOMEDICAL_SPECIALIST"
+      ],
+      "title": "CandidateLaneKind",
+      "type": "string"
+    },
+    "CandidateReranker": {
+      "additionalProperties": false,
+      "properties": {
+        "adapter_id": {
+          "maxLength": 300,
+          "minLength": 1,
+          "title": "Adapter Id",
+          "type": "string"
+        },
+        "adapter_revision": {
+          "maxLength": 300,
+          "minLength": 1,
+          "title": "Adapter Revision",
+          "type": "string"
+        },
+        "candidate_pool": {
+          "exclusiveMinimum": 0,
+          "maximum": 10000,
+          "title": "Candidate Pool",
+          "type": "integer"
+        },
+        "instruction_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Instruction Sha256",
+          "type": "string"
+        },
+        "model": {
+          "$ref": "#/$defs/EmbeddingModelReference"
+        },
+        "output_depth": {
+          "exclusiveMinimum": 0,
+          "maximum": 1000,
+          "title": "Output Depth",
+          "type": "integer"
+        },
+        "safety_role_preservation": {
+          "default": true,
+          "title": "Safety Role Preservation",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "model",
+        "adapter_id",
+        "adapter_revision",
+        "instruction_sha256",
+        "candidate_pool",
+        "output_depth"
+      ],
+      "title": "CandidateReranker",
+      "type": "object"
+    },
+    "EmbeddingModelReference": {
+      "additionalProperties": false,
+      "description": "Pinned identity for vector material generated outside the indexer.",
+      "properties": {
+        "artifact_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Artifact Sha256",
+          "type": "string"
+        },
+        "model_id": {
+          "maxLength": 300,
+          "minLength": 1,
+          "title": "Model Id",
+          "type": "string"
+        },
+        "revision": {
+          "maxLength": 300,
+          "minLength": 1,
+          "title": "Revision",
+          "type": "string"
+        }
+      },
+      "required": [
+        "model_id",
+        "revision",
+        "artifact_sha256"
+      ],
+      "title": "EmbeddingModelReference",
+      "type": "object"
+    },
+    "RetrievalCandidateContent": {
+      "additionalProperties": false,
+      "properties": {
+        "candidate_id": {
+          "maxLength": 100,
+          "minLength": 1,
+          "title": "Candidate Id",
+          "type": "string"
+        },
+        "candidate_limit": {
+          "default": 50,
+          "exclusiveMinimum": 0,
+          "maximum": 10000,
+          "title": "Candidate Limit",
+          "type": "integer"
+        },
+        "lanes": {
+          "items": {
+            "$ref": "#/$defs/CandidateLane"
+          },
+          "minItems": 2,
+          "title": "Lanes",
+          "type": "array"
+        },
+        "output_depth": {
+          "default": 10,
+          "exclusiveMinimum": 0,
+          "maximum": 1000,
+          "title": "Output Depth",
+          "type": "integer"
+        },
+        "reranker": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CandidateReranker"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "rrf_k": {
+          "default": 60,
+          "exclusiveMinimum": 0,
+          "maximum": 100000,
+          "title": "Rrf K",
+          "type": "integer"
+        },
+        "safety_query_revision": {
+          "anyOf": [
+            {
+              "maxLength": 300,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Safety Query Revision"
+        },
+        "schema_version": {
+          "const": "1.0.0",
+          "default": "1.0.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "terminology_revision": {
+          "anyOf": [
+            {
+              "maxLength": 300,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Terminology Revision"
+        }
+      },
+      "required": [
+        "candidate_id",
+        "lanes"
+      ],
+      "title": "RetrievalCandidateContent",
+      "type": "object"
+    }
+  },
+  "$id": "https://med-rag.local/contracts/retrieval-candidate-1.0.0.schema.json",
+  "additionalProperties": false,
+  "properties": {
+    "candidate_sha256": {
+      "pattern": "^[a-f0-9]{64}$",
+      "title": "Candidate Sha256",
+      "type": "string"
+    },
+    "content": {
+      "$ref": "#/$defs/RetrievalCandidateContent"
+    }
+  },
+  "required": [
+    "content",
+    "candidate_sha256"
+  ],
+  "title": "RetrievalCandidateManifest",
+  "type": "object",
+  "x-contract-version": "1.0.0"
+}

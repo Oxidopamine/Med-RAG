@@ -1,0 +1,96 @@
+{
+  "schema_version": 1,
+  "fixture_kind": "synthetic_foundation_applicability",
+  "cases": [
+    {
+      "case_id": "related_measurement_is_not_interchangeable",
+      "description": "An explicit eGFR value cannot satisfy a creatinine-clearance criterion.",
+      "rule": {
+        "eligibility_rule_id": "EL_FIXTURE_001",
+        "required_conditions": ["ATRIAL_FIBRILLATION"],
+        "measurements": [
+          {
+            "concept": "CRCL",
+            "operator": ">=",
+            "value": 30,
+            "unit": "mL/min"
+          }
+        ]
+      },
+      "context": {
+        "conditions": ["ATRIAL_FIBRILLATION"],
+        "measurements": [
+          {
+            "concept": "EGFR",
+            "value": 28,
+            "unit": "mL/min/1.73m2",
+            "provenance": "SYNTHETIC_FIXTURE"
+          }
+        ]
+      },
+      "expected": {
+        "status": "UNKNOWN",
+        "unknown": ["CRCL required; EGFR is not interchangeable"],
+        "mismatched": [],
+        "eligible_for_unconditional_render": false
+      }
+    },
+    {
+      "case_id": "unassessed_exclusion_is_unknown",
+      "description": "Silence about an exclusion cannot be interpreted as confirmed absence.",
+      "rule": {
+        "eligibility_rule_id": "EL_FIXTURE_002",
+        "excluded_conditions": ["MECHANICAL_HEART_VALVE"]
+      },
+      "context": {
+        "conditions": ["ATRIAL_FIBRILLATION"]
+      },
+      "expected": {
+        "status": "UNKNOWN",
+        "unknown": ["excluded condition not assessed: MECHANICAL_HEART_VALVE"],
+        "mismatched": [],
+        "eligible_for_unconditional_render": false
+      }
+    },
+    {
+      "case_id": "confirmed_absent_exclusion_matches",
+      "description": "An exclusion is satisfied only when its absence is explicit.",
+      "rule": {
+        "eligibility_rule_id": "EL_FIXTURE_003",
+        "excluded_conditions": ["MECHANICAL_HEART_VALVE"]
+      },
+      "context": {
+        "conditions": ["ATRIAL_FIBRILLATION"],
+        "known_absent_conditions": ["MECHANICAL_HEART_VALVE"]
+      },
+      "expected": {
+        "status": "MATCH",
+        "unknown": [],
+        "mismatched": [],
+        "eligible_for_unconditional_render": true
+      }
+    },
+    {
+      "case_id": "population_and_setting_mismatch",
+      "description": "Explicit pregnancy and an inpatient setting violate this synthetic rule.",
+      "rule": {
+        "eligibility_rule_id": "EL_FIXTURE_004",
+        "pregnancy_allowed": false,
+        "allowed_settings": ["OUTPATIENT"]
+      },
+      "context": {
+        "special_populations": ["PREGNANCY"],
+        "care_setting": "INPATIENT"
+      },
+      "expected": {
+        "status": "MISMATCH",
+        "unknown": [],
+        "mismatched": [
+          "pregnancy is excluded",
+          "care setting not allowed: INPATIENT"
+        ],
+        "eligible_for_unconditional_render": false
+      }
+    }
+  ]
+}

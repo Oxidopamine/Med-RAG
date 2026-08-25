@@ -1,0 +1,314 @@
+{
+  "$defs": {
+    "BenchmarkAcceptance": {
+      "additionalProperties": false,
+      "properties": {
+        "maximum_forbidden_leakage_cases": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Maximum Forbidden Leakage Cases",
+          "type": "integer"
+        },
+        "maximum_p95_latency_ms": {
+          "default": 2000.0,
+          "exclusiveMinimum": 0,
+          "title": "Maximum P95 Latency Ms",
+          "type": "number"
+        },
+        "minimum_complete_evidence_set_rate": {
+          "default": 1.0,
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Minimum Complete Evidence Set Rate",
+          "type": "number"
+        },
+        "minimum_mean_context_precision_at_k": {
+          "default": 0.8,
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Minimum Mean Context Precision At K",
+          "type": "number"
+        },
+        "minimum_mean_ndcg_at_k": {
+          "default": 0.8,
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Minimum Mean Ndcg At K",
+          "type": "number"
+        },
+        "minimum_mean_recall_at_k": {
+          "default": 0.8,
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Minimum Mean Recall At K",
+          "type": "number"
+        },
+        "minimum_mean_reciprocal_rank": {
+          "default": 0.8,
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Minimum Mean Reciprocal Rank",
+          "type": "number"
+        },
+        "minimum_mean_required_role_recall": {
+          "default": 1.0,
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Minimum Mean Required Role Recall",
+          "type": "number"
+        }
+      },
+      "title": "BenchmarkAcceptance",
+      "type": "object"
+    },
+    "BenchmarkCase": {
+      "additionalProperties": false,
+      "properties": {
+        "case_id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Case Id",
+          "type": "string"
+        },
+        "forbidden_evidence_ids": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Forbidden Evidence Ids",
+          "type": "array"
+        },
+        "gold_evidence": {
+          "items": {
+            "$ref": "#/$defs/BenchmarkGoldEvidence"
+          },
+          "minItems": 1,
+          "title": "Gold Evidence",
+          "type": "array"
+        },
+        "question": {
+          "maxLength": 10000,
+          "minLength": 1,
+          "title": "Question",
+          "type": "string"
+        },
+        "required_evidence_roles": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/EvidenceRole"
+          },
+          "title": "Required Evidence Roles",
+          "type": "array"
+        },
+        "retrieval_filter": {
+          "$ref": "#/$defs/BenchmarkFilter"
+        },
+        "strata": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Strata",
+          "type": "object"
+        }
+      },
+      "required": [
+        "case_id",
+        "question",
+        "gold_evidence"
+      ],
+      "title": "BenchmarkCase",
+      "type": "object"
+    },
+    "BenchmarkFilter": {
+      "additionalProperties": false,
+      "properties": {
+        "jurisdictions": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Jurisdictions",
+          "type": "array"
+        },
+        "languages": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Languages",
+          "type": "array"
+        },
+        "publisher_ids": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Publisher Ids",
+          "type": "array"
+        },
+        "source_classes": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Source Classes",
+          "type": "array"
+        }
+      },
+      "title": "BenchmarkFilter",
+      "type": "object"
+    },
+    "BenchmarkGoldEvidence": {
+      "additionalProperties": false,
+      "properties": {
+        "evidence_id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Evidence Id",
+          "type": "string"
+        },
+        "relevance_grade": {
+          "default": 1,
+          "maximum": 3,
+          "minimum": 1,
+          "title": "Relevance Grade",
+          "type": "integer"
+        },
+        "required": {
+          "default": true,
+          "title": "Required",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "evidence_id"
+      ],
+      "title": "BenchmarkGoldEvidence",
+      "type": "object"
+    },
+    "BenchmarkSuiteContent": {
+      "additionalProperties": false,
+      "properties": {
+        "acceptance": {
+          "$ref": "#/$defs/BenchmarkAcceptance"
+        },
+        "benchmark_id": {
+          "maxLength": 100,
+          "minLength": 1,
+          "title": "Benchmark Id",
+          "type": "string"
+        },
+        "candidate_limit": {
+          "default": 50,
+          "exclusiveMinimum": 0,
+          "maximum": 10000,
+          "title": "Candidate Limit",
+          "type": "integer"
+        },
+        "candidate_mode": {
+          "$ref": "#/$defs/RetrievalMode",
+          "default": "hybrid"
+        },
+        "cases": {
+          "items": {
+            "$ref": "#/$defs/BenchmarkCase"
+          },
+          "minItems": 1,
+          "title": "Cases",
+          "type": "array"
+        },
+        "corpus_release_id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Corpus Release Id",
+          "type": "string"
+        },
+        "manifest_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Manifest Sha256",
+          "type": "string"
+        },
+        "modes": {
+          "default": [
+            "sparse",
+            "dense",
+            "hybrid"
+          ],
+          "items": {
+            "$ref": "#/$defs/RetrievalMode"
+          },
+          "title": "Modes",
+          "type": "array"
+        },
+        "rrf_k": {
+          "default": 60,
+          "exclusiveMinimum": 0,
+          "maximum": 100000,
+          "title": "Rrf K",
+          "type": "integer"
+        },
+        "schema_version": {
+          "const": "1.0.0",
+          "default": "1.0.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "top_k": {
+          "default": 10,
+          "exclusiveMinimum": 0,
+          "maximum": 1000,
+          "title": "Top K",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "benchmark_id",
+        "corpus_release_id",
+        "manifest_sha256",
+        "cases"
+      ],
+      "title": "BenchmarkSuiteContent",
+      "type": "object"
+    },
+    "EvidenceRole": {
+      "enum": [
+        "PRIMARY_SUPPORT",
+        "APPLICABILITY",
+        "EXCEPTION_OR_CONTRAINDICATION",
+        "DOSE_OR_THRESHOLD",
+        "MONITORING",
+        "RATIONALE"
+      ],
+      "title": "EvidenceRole",
+      "type": "string"
+    },
+    "RetrievalMode": {
+      "enum": [
+        "sparse",
+        "dense",
+        "hybrid"
+      ],
+      "title": "RetrievalMode",
+      "type": "string"
+    }
+  },
+  "$id": "https://med-rag.local/contracts/retrieval-benchmark-suite-1.0.0.schema.json",
+  "additionalProperties": false,
+  "properties": {
+    "content": {
+      "$ref": "#/$defs/BenchmarkSuiteContent"
+    },
+    "suite_sha256": {
+      "pattern": "^[a-f0-9]{64}$",
+      "title": "Suite Sha256",
+      "type": "string"
+    }
+  },
+  "required": [
+    "content",
+    "suite_sha256"
+  ],
+  "title": "BenchmarkSuite",
+  "type": "object",
+  "x-contract-version": "1.0.0"
+}

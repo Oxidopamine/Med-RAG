@@ -1,0 +1,45 @@
+{
+  "allowed_domains": [
+    "fixtures.invalid"
+  ],
+  "connector_config": {
+    "items": [
+      {
+        "content": "synthetic-guideline-a-v1",
+        "item_id": "SYNTH_A",
+        "title": "Synthetic Guideline A",
+        "version": "1"
+      },
+      {
+        "content": "synthetic-guideline-b-v2",
+        "item_id": "SYNTH_B",
+        "title": "Synthetic Guideline B",
+        "version": "2"
+      }
+    ],
+    "page_size": 1
+  },
+  "connector_name": "synthetic",
+  "connector_version": "1.0.0",
+  "enabled": true,
+  "jurisdictions": [
+    "TEST"
+  ],
+  "licensing_policy": {
+    "acquisition_allowed": true,
+    "license_id": "CC0-1.0",
+    "policy_url": "https://fixtures.invalid/license",
+    "redistribution_allowed": true
+  },
+  "polling_interval_seconds": 300,
+  "product_families": [
+    "SYNTHETIC_GUIDELINE"
+  ],
+  "publisher_id": "PUB_FIXTURE",
+  "publisher_name": "Synthetic Guideline Publisher",
+  "schema_version": "1.0.0",
+  "trust_root_id": "SYNTHETIC",
+  "trusted_stage_key_ids": [
+    "local-steward-stage"
+  ]
+}

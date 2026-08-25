@@ -10,10 +10,11 @@
     "build:web": "npm run build --workspace @med-rag/web",
     "lint:web": "npm run lint --workspace @med-rag/web",
     "typecheck:web": "npm run typecheck --workspace @med-rag/web",
-    "test:web": "npm run test --workspace @med-rag/web"
+    "test:web": "npm run test --workspace @med-rag/web",
+    "test:e2e:web": "npm run test:e2e --workspace @med-rag/web",
+    "generate:api-types": "npm run generate:api-types --workspace @med-rag/web"
   },
   "engines": {
     "node": ">=20"
   }
 }
-

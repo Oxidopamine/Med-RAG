@@ -137,3 +137,88 @@ def test_fully_verified_claim_can_render() -> None:
     assert result.disposition is ClaimDisposition.RENDERABLE
     assert result.evidence_ids == ["EV_001"]
 
+
+def test_duplicate_required_check_cannot_overwrite_a_failure() -> None:
+    claim = Claim(
+        claim_id="C_006",
+        claim_type=ClaimType.DEFINITION,
+        text="A proposed definition",
+        candidate_evidence_ids=["EV_001"],
+    )
+    checks = passing_checks(claim, "EV_001")
+    checks.append(
+        VerificationCheck(
+            check_type=CheckType.PROVENANCE_VALID,
+            status=CheckStatus.FAIL,
+            evidence_ids=["EV_001"],
+            reason_code="PROVENANCE_MISMATCH",
+        )
+    )
+
+    result = evaluate_claim(
+        claim,
+        checks=checks,
+        canonical_evidence_ids={"EV_001"},
+        policy=POLICY,
+    )
+
+    assert result.disposition is ClaimDisposition.WITHHELD
+    assert "DUPLICATE_REQUIRED_CHECK" in result.withheld_reasons
+
+
+def test_every_candidate_must_be_covered_by_each_evidence_scoped_check() -> None:
+    claim = Claim(
+        claim_id="C_007",
+        claim_type=ClaimType.DEFINITION,
+        text="A proposed definition from two evidence objects",
+        candidate_evidence_ids=["EV_001", "EV_002"],
+    )
+    checks = [
+        VerificationCheck(
+            check_type=item.check_type,
+            status=item.status,
+            evidence_ids=(
+                ["EV_001"]
+                if item.check_type is CheckType.PROVENANCE_VALID
+                else ["EV_001", "EV_002"]
+            ),
+        )
+        for item in passing_checks(claim, "EV_001")
+    ]
+
+    result = evaluate_claim(
+        claim,
+        checks=checks,
+        canonical_evidence_ids={"EV_001", "EV_002"},
+        policy=POLICY,
+    )
+
+    assert result.disposition is ClaimDisposition.WITHHELD
+    assert "EVIDENCE_CHECK_COVERAGE_INCOMPLETE" in result.withheld_reasons
+
+
+def test_rendered_evidence_is_limited_to_claim_candidates() -> None:
+    claim = Claim(
+        claim_id="C_008",
+        claim_type=ClaimType.DEFINITION,
+        text="A source-supported definition",
+        candidate_evidence_ids=["EV_001"],
+    )
+    checks = [
+        VerificationCheck(
+            check_type=item.check_type,
+            status=item.status,
+            evidence_ids=["EV_001", "EV_UNRELATED"],
+        )
+        for item in passing_checks(claim, "EV_001")
+    ]
+
+    result = evaluate_claim(
+        claim,
+        checks=checks,
+        canonical_evidence_ids={"EV_001", "EV_UNRELATED"},
+        policy=POLICY,
+    )
+
+    assert result.disposition is ClaimDisposition.RENDERABLE
+    assert result.evidence_ids == ["EV_001"]

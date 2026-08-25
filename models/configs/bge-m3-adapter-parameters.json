@@ -1,0 +1,10 @@
+{
+  "batch_size": 8,
+  "device": "cpu",
+  "document_prefix": "",
+  "dtype": "float32",
+  "max_length": 512,
+  "normalize": true,
+  "pooling": "cls",
+  "query_prefix": ""
+}

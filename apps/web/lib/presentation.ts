@@ -35,8 +35,12 @@ export function contextRows(context: ClinicalContext | null): Array<[string, str
 
   const rows: Array<[string, string]> = [];
   if (context.age !== null) rows.push(["Age", String(context.age)]);
+  if (context.sex) rows.push(["Sex", humanizeConcept(context.sex)]);
   for (const condition of context.conditions) {
     rows.push(["Condition", humanizeConcept(condition)]);
+  }
+  for (const condition of context.known_absent_conditions) {
+    rows.push(["Known absent", humanizeConcept(condition)]);
   }
   for (const measurement of context.measurements) {
     rows.push([
@@ -47,6 +51,10 @@ export function contextRows(context: ClinicalContext | null): Array<[string, str
   for (const population of context.special_populations) {
     rows.push(["Population", humanizeConcept(population)]);
   }
+  for (const population of context.known_absent_special_populations) {
+    rows.push(["Known absent population", humanizeConcept(population)]);
+  }
+  if (context.care_setting) rows.push(["Care setting", humanizeConcept(context.care_setting)]);
   if (context.jurisdiction) rows.push(["Jurisdiction", context.jurisdiction]);
   return rows;
 }

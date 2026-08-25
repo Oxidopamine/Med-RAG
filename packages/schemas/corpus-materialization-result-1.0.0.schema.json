@@ -1,0 +1,1216 @@
+{
+  "$defs": {
+    "AssetCoverage": {
+      "additionalProperties": false,
+      "properties": {
+        "asset_id": {
+          "minLength": 1,
+          "title": "Asset Id",
+          "type": "string"
+        },
+        "complete": {
+          "title": "Complete",
+          "type": "boolean"
+        },
+        "empty_source_units": {
+          "minimum": 0,
+          "title": "Empty Source Units",
+          "type": "integer"
+        },
+        "evidence_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Evidence Ids",
+          "type": "array"
+        },
+        "expected_source_units": {
+          "minimum": 1,
+          "title": "Expected Source Units",
+          "type": "integer"
+        },
+        "materialized_source_units": {
+          "minimum": 0,
+          "title": "Materialized Source Units",
+          "type": "integer"
+        },
+        "source_artifact_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Source Artifact Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "asset_id",
+        "source_artifact_sha256",
+        "expected_source_units",
+        "materialized_source_units",
+        "empty_source_units",
+        "evidence_ids",
+        "complete"
+      ],
+      "title": "AssetCoverage",
+      "type": "object"
+    },
+    "AssetLicensingPolicy": {
+      "additionalProperties": false,
+      "description": "License and permitted processing operations for one logical source asset.",
+      "properties": {
+        "acquisition_allowed": {
+          "title": "Acquisition Allowed",
+          "type": "boolean"
+        },
+        "asset_id": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Asset Id",
+          "type": "string"
+        },
+        "asset_kind": {
+          "$ref": "#/$defs/LicensedAssetKind"
+        },
+        "credential_reference": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Credential Reference"
+        },
+        "evidence_materialization_allowed": {
+          "default": false,
+          "title": "Evidence Materialization Allowed",
+          "type": "boolean"
+        },
+        "license_id": {
+          "minLength": 1,
+          "title": "License Id",
+          "type": "string"
+        },
+        "notes": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Notes"
+        },
+        "policy_url": {
+          "minLength": 1,
+          "title": "Policy Url",
+          "type": "string"
+        },
+        "redistribution_allowed": {
+          "default": false,
+          "title": "Redistribution Allowed",
+          "type": "boolean"
+        },
+        "render_allowed": {
+          "default": false,
+          "title": "Render Allowed",
+          "type": "boolean"
+        },
+        "source_declared_license_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Declared License Id"
+        }
+      },
+      "required": [
+        "license_id",
+        "policy_url",
+        "acquisition_allowed",
+        "asset_id",
+        "asset_kind"
+      ],
+      "title": "AssetLicensingPolicy",
+      "type": "object"
+    },
+    "AttestationPurpose": {
+      "enum": [
+        "STAGE",
+        "EXCEPTION",
+        "ACTIVATION"
+      ],
+      "title": "AttestationPurpose",
+      "type": "string"
+    },
+    "AuthorityAssetBinding": {
+      "additionalProperties": false,
+      "properties": {
+        "asset_id": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Asset Id",
+          "type": "string"
+        },
+        "authority_role": {
+          "$ref": "#/$defs/AuthorityRole"
+        },
+        "authorized_use": {
+          "$ref": "#/$defs/AuthorizedUse"
+        },
+        "clinical_content_promotable": {
+          "title": "Clinical Content Promotable",
+          "type": "boolean"
+        },
+        "experimental": {
+          "default": false,
+          "title": "Experimental",
+          "type": "boolean"
+        },
+        "licensing": {
+          "$ref": "#/$defs/AssetLicensingPolicy"
+        },
+        "lifecycle_status": {
+          "$ref": "#/$defs/SourceStatus"
+        },
+        "media_type": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Media Type",
+          "type": "string"
+        },
+        "source_artifact_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Source Artifact Sha256",
+          "type": "string"
+        },
+        "source_uri": {
+          "minLength": 1,
+          "title": "Source Uri",
+          "type": "string"
+        },
+        "title": {
+          "maxLength": 1000,
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        }
+      },
+      "required": [
+        "asset_id",
+        "title",
+        "authority_role",
+        "authorized_use",
+        "source_artifact_sha256",
+        "media_type",
+        "source_uri",
+        "lifecycle_status",
+        "clinical_content_promotable",
+        "licensing"
+      ],
+      "title": "AuthorityAssetBinding",
+      "type": "object"
+    },
+    "AuthorityBindingContent": {
+      "additionalProperties": false,
+      "properties": {
+        "assets": {
+          "items": {
+            "$ref": "#/$defs/AuthorityAssetBinding"
+          },
+          "minItems": 2,
+          "title": "Assets",
+          "type": "array"
+        },
+        "bound_at": {
+          "format": "date-time",
+          "title": "Bound At",
+          "type": "string"
+        },
+        "controlling_source_id": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Controlling Source Id",
+          "type": "string"
+        },
+        "input_closure_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Input Closure Sha256",
+          "type": "string"
+        },
+        "licensing_trust_root_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Licensing Trust Root Sha256",
+          "type": "string"
+        },
+        "materialization_run_id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Materialization Run Id",
+          "type": "string"
+        },
+        "reconciliation_candidate_id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Reconciliation Candidate Id",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "1.0.0",
+          "default": "1.0.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "structured_companion_id": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Structured Companion Id",
+          "type": "string"
+        },
+        "structured_report_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Structured Report Sha256",
+          "type": "string"
+        },
+        "trust_root_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Trust Root Id",
+          "type": "string"
+        },
+        "trust_root_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Trust Root Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "materialization_run_id",
+        "reconciliation_candidate_id",
+        "trust_root_id",
+        "trust_root_sha256",
+        "licensing_trust_root_sha256",
+        "input_closure_sha256",
+        "structured_report_sha256",
+        "controlling_source_id",
+        "structured_companion_id",
+        "assets",
+        "bound_at"
+      ],
+      "title": "AuthorityBindingContent",
+      "type": "object"
+    },
+    "AuthorityRole": {
+      "enum": [
+        "CONTROLLING_CLINICAL_SOURCE",
+        "STRUCTURED_COMPANION"
+      ],
+      "title": "AuthorityRole",
+      "type": "string"
+    },
+    "AuthorizedUse": {
+      "enum": [
+        "CLINICAL_EVIDENCE",
+        "STRUCTURAL_MAPPING_ONLY"
+      ],
+      "title": "AuthorizedUse",
+      "type": "string"
+    },
+    "CorpusReleaseCandidateContent": {
+      "additionalProperties": false,
+      "properties": {
+        "authority_binding_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Authority Binding Sha256",
+          "type": "string"
+        },
+        "corpus_release_candidate_id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Corpus Release Candidate Id",
+          "type": "string"
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "evidence_entries": {
+          "items": {
+            "maxItems": 2,
+            "minItems": 2,
+            "prefixItems": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "type": "array"
+          },
+          "minItems": 1,
+          "title": "Evidence Entries",
+          "type": "array"
+        },
+        "materialization_report_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Materialization Report Sha256",
+          "type": "string"
+        },
+        "materialization_run_id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Materialization Run Id",
+          "type": "string"
+        },
+        "qa_required": {
+          "const": true,
+          "default": true,
+          "title": "Qa Required",
+          "type": "boolean"
+        },
+        "reconciliation_candidate_id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Reconciliation Candidate Id",
+          "type": "string"
+        },
+        "retrieval_eligible": {
+          "const": false,
+          "default": false,
+          "title": "Retrieval Eligible",
+          "type": "boolean"
+        },
+        "schema_version": {
+          "const": "1.0.0",
+          "default": "1.0.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "trust_root_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Trust Root Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "corpus_release_candidate_id",
+        "reconciliation_candidate_id",
+        "materialization_run_id",
+        "trust_root_sha256",
+        "materialization_report_sha256",
+        "authority_binding_sha256",
+        "evidence_entries",
+        "created_at"
+      ],
+      "title": "CorpusReleaseCandidateContent",
+      "type": "object"
+    },
+    "EvidenceCoverageReport": {
+      "additionalProperties": false,
+      "properties": {
+        "assets": {
+          "items": {
+            "$ref": "#/$defs/AssetCoverage"
+          },
+          "minItems": 1,
+          "title": "Assets",
+          "type": "array"
+        },
+        "authority_binding_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Authority Binding Sha256",
+          "type": "string"
+        },
+        "complete": {
+          "title": "Complete",
+          "type": "boolean"
+        },
+        "evidence_count": {
+          "minimum": 0,
+          "title": "Evidence Count",
+          "type": "integer"
+        },
+        "expected_asset_ids": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Expected Asset Ids",
+          "type": "array"
+        }
+      },
+      "required": [
+        "authority_binding_sha256",
+        "assets",
+        "expected_asset_ids",
+        "evidence_count",
+        "complete"
+      ],
+      "title": "EvidenceCoverageReport",
+      "type": "object"
+    },
+    "LicensedAssetKind": {
+      "enum": [
+        "INVENTORY_SOURCE",
+        "NARRATIVE_SOURCE",
+        "DEPENDENCY_SOURCE"
+      ],
+      "title": "LicensedAssetKind",
+      "type": "string"
+    },
+    "LocatorKind": {
+      "enum": [
+        "TEXT_SPAN",
+        "PDF",
+        "HTML",
+        "XML",
+        "FHIR",
+        "TABLE_CELL"
+      ],
+      "title": "LocatorKind",
+      "type": "string"
+    },
+    "MaterializationReport": {
+      "additionalProperties": false,
+      "properties": {
+        "content": {
+          "$ref": "#/$defs/MaterializationReportContent"
+        },
+        "report_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Report Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "content",
+        "report_sha256"
+      ],
+      "title": "MaterializationReport",
+      "type": "object"
+    },
+    "MaterializationReportContent": {
+      "additionalProperties": false,
+      "properties": {
+        "authority_binding": {
+          "$ref": "#/$defs/SignedAuthorityBinding"
+        },
+        "blockers": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Blockers",
+          "type": "array"
+        },
+        "completed_at": {
+          "format": "date-time",
+          "title": "Completed At",
+          "type": "string"
+        },
+        "coverage": {
+          "$ref": "#/$defs/EvidenceCoverageReport"
+        },
+        "evidence": {
+          "items": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/MaterializedEvidenceArtifactEntry"
+              },
+              {
+                "$ref": "#/$defs/MaterializedEvidenceRecord"
+              }
+            ]
+          },
+          "title": "Evidence",
+          "type": "array"
+        },
+        "materialization_run_id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Materialization Run Id",
+          "type": "string"
+        },
+        "materializer_name": {
+          "const": "authority-evidence-materializer",
+          "default": "authority-evidence-materializer",
+          "title": "Materializer Name",
+          "type": "string"
+        },
+        "materializer_version": {
+          "const": "1.0.0",
+          "default": "1.0.0",
+          "title": "Materializer Version",
+          "type": "string"
+        },
+        "ready_for_qa": {
+          "title": "Ready For Qa",
+          "type": "boolean"
+        },
+        "reconciliation_candidate_id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Reconciliation Candidate Id",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "1.0.0",
+          "default": "1.0.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "structural_mapping": {
+          "$ref": "#/$defs/StructuralMappingAttachment"
+        }
+      },
+      "required": [
+        "materialization_run_id",
+        "reconciliation_candidate_id",
+        "authority_binding",
+        "structural_mapping",
+        "evidence",
+        "coverage",
+        "completed_at",
+        "ready_for_qa"
+      ],
+      "title": "MaterializationReportContent",
+      "type": "object"
+    },
+    "MaterializationState": {
+      "enum": [
+        "READY_FOR_QA",
+        "BLOCKED"
+      ],
+      "title": "MaterializationState",
+      "type": "string"
+    },
+    "MaterializedEvidenceArtifactEntry": {
+      "additionalProperties": false,
+      "description": "Compact report entry; full evidence lives in its content-addressed artifact.",
+      "properties": {
+        "artifact_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Artifact Sha256",
+          "type": "string"
+        },
+        "asset_id": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Asset Id",
+          "type": "string"
+        },
+        "evidence_id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Evidence Id",
+          "type": "string"
+        },
+        "evidence_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Evidence Sha256",
+          "type": "string"
+        },
+        "source_artifact_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Source Artifact Sha256",
+          "type": "string"
+        },
+        "source_unit_id": {
+          "maxLength": 500,
+          "minLength": 1,
+          "title": "Source Unit Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "evidence_id",
+        "evidence_sha256",
+        "artifact_sha256",
+        "source_artifact_sha256",
+        "asset_id",
+        "source_unit_id"
+      ],
+      "title": "MaterializedEvidenceArtifactEntry",
+      "type": "object"
+    },
+    "MaterializedEvidenceContent": {
+      "additionalProperties": false,
+      "properties": {
+        "anchors": {
+          "items": {
+            "$ref": "#/$defs/SourceAnchor"
+          },
+          "minItems": 1,
+          "title": "Anchors",
+          "type": "array"
+        },
+        "asset_id": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Asset Id",
+          "type": "string"
+        },
+        "authority_binding_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Authority Binding Sha256",
+          "type": "string"
+        },
+        "authority_role": {
+          "const": "CONTROLLING_CLINICAL_SOURCE",
+          "default": "CONTROLLING_CLINICAL_SOURCE",
+          "title": "Authority Role",
+          "type": "string"
+        },
+        "content_exact": {
+          "minLength": 1,
+          "title": "Content Exact",
+          "type": "string"
+        },
+        "content_search": {
+          "minLength": 1,
+          "title": "Content Search",
+          "type": "string"
+        },
+        "evidence_id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Evidence Id",
+          "type": "string"
+        },
+        "jurisdiction": {
+          "maxLength": 32,
+          "minLength": 1,
+          "title": "Jurisdiction",
+          "type": "string"
+        },
+        "language": {
+          "maxLength": 20,
+          "minLength": 2,
+          "title": "Language",
+          "type": "string"
+        },
+        "lifecycle_status": {
+          "$ref": "#/$defs/SourceStatus"
+        },
+        "materialization_run_id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Materialization Run Id",
+          "type": "string"
+        },
+        "publisher_id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Publisher Id",
+          "type": "string"
+        },
+        "qa_status": {
+          "const": "AWAITING_QA",
+          "default": "AWAITING_QA",
+          "title": "Qa Status",
+          "type": "string"
+        },
+        "render_allowed": {
+          "title": "Render Allowed",
+          "type": "boolean"
+        },
+        "schema_version": {
+          "const": "1.0.0",
+          "default": "1.0.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "source_artifact_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Source Artifact Sha256",
+          "type": "string"
+        },
+        "source_title": {
+          "maxLength": 1000,
+          "minLength": 1,
+          "title": "Source Title",
+          "type": "string"
+        },
+        "source_unit_id": {
+          "maxLength": 500,
+          "minLength": 1,
+          "title": "Source Unit Id",
+          "type": "string"
+        },
+        "source_version_id": {
+          "maxLength": 300,
+          "minLength": 1,
+          "title": "Source Version Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "materialization_run_id",
+        "evidence_id",
+        "authority_binding_sha256",
+        "asset_id",
+        "source_artifact_sha256",
+        "source_unit_id",
+        "source_title",
+        "source_version_id",
+        "publisher_id",
+        "jurisdiction",
+        "language",
+        "lifecycle_status",
+        "content_exact",
+        "content_search",
+        "anchors",
+        "render_allowed"
+      ],
+      "title": "MaterializedEvidenceContent",
+      "type": "object"
+    },
+    "MaterializedEvidenceRecord": {
+      "additionalProperties": false,
+      "properties": {
+        "content": {
+          "$ref": "#/$defs/MaterializedEvidenceContent"
+        },
+        "evidence_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Evidence Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "content",
+        "evidence_sha256"
+      ],
+      "title": "MaterializedEvidenceRecord",
+      "type": "object"
+    },
+    "SignedAuthorityBinding": {
+      "additionalProperties": false,
+      "properties": {
+        "attestation": {
+          "$ref": "#/$defs/VerifiedAttestationReference"
+        },
+        "binding_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Binding Sha256",
+          "type": "string"
+        },
+        "content": {
+          "$ref": "#/$defs/AuthorityBindingContent"
+        }
+      },
+      "required": [
+        "content",
+        "binding_sha256",
+        "attestation"
+      ],
+      "title": "SignedAuthorityBinding",
+      "type": "object"
+    },
+    "SignedCorpusReleaseCandidate": {
+      "additionalProperties": false,
+      "properties": {
+        "attestation": {
+          "$ref": "#/$defs/VerifiedAttestationReference"
+        },
+        "candidate_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Candidate Sha256",
+          "type": "string"
+        },
+        "content": {
+          "$ref": "#/$defs/CorpusReleaseCandidateContent"
+        }
+      },
+      "required": [
+        "content",
+        "candidate_sha256",
+        "attestation"
+      ],
+      "title": "SignedCorpusReleaseCandidate",
+      "type": "object"
+    },
+    "SourceAnchor": {
+      "additionalProperties": false,
+      "description": "Generic source anchor with optional format-specific coordinates.",
+      "properties": {
+        "bbox": {
+          "anyOf": [
+            {
+              "maxItems": 4,
+              "minItems": 4,
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Bbox"
+        },
+        "char_end": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Char End"
+        },
+        "char_start": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Char Start"
+        },
+        "column_index": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Column Index"
+        },
+        "dom_selector": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Dom Selector"
+        },
+        "fhir_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Fhir Path"
+        },
+        "fhir_resource_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Fhir Resource Id"
+        },
+        "fhir_resource_type": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Fhir Resource Type"
+        },
+        "kind": {
+          "$ref": "#/$defs/LocatorKind"
+        },
+        "pdf_page": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Pdf Page"
+        },
+        "printed_page": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Printed Page"
+        },
+        "row_index": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Row Index"
+        },
+        "source_uri": {
+          "minLength": 1,
+          "title": "Source Uri",
+          "type": "string"
+        },
+        "table_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Table Id"
+        },
+        "xpath": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Xpath"
+        }
+      },
+      "required": [
+        "kind",
+        "source_uri"
+      ],
+      "title": "SourceAnchor",
+      "type": "object"
+    },
+    "SourceStatus": {
+      "enum": [
+        "DISCOVERED",
+        "DOWNLOADED",
+        "PARSING",
+        "QA_REQUIRED",
+        "APPROVED",
+        "EFFECTIVE",
+        "PARTIALLY_SUPERSEDED",
+        "SUPERSEDED",
+        "WITHDRAWN",
+        "ARCHIVED",
+        "REJECTED",
+        "QUARANTINED"
+      ],
+      "title": "SourceStatus",
+      "type": "string"
+    },
+    "StructuralMappingAttachment": {
+      "additionalProperties": false,
+      "properties": {
+        "asset_id": {
+          "minLength": 1,
+          "title": "Asset Id",
+          "type": "string"
+        },
+        "authorized_use": {
+          "const": "STRUCTURAL_MAPPING_ONLY",
+          "default": "STRUCTURAL_MAPPING_ONLY",
+          "title": "Authorized Use",
+          "type": "string"
+        },
+        "clinical_content_included": {
+          "const": false,
+          "default": false,
+          "title": "Clinical Content Included",
+          "type": "boolean"
+        },
+        "implementation_guide_experimental": {
+          "title": "Implementation Guide Experimental",
+          "type": "boolean"
+        },
+        "resource_count": {
+          "exclusiveMinimum": 0,
+          "title": "Resource Count",
+          "type": "integer"
+        },
+        "resource_inventory_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Resource Inventory Sha256",
+          "type": "string"
+        },
+        "structured_report_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Structured Report Sha256",
+          "type": "string"
+        },
+        "structured_run_id": {
+          "minLength": 1,
+          "title": "Structured Run Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "asset_id",
+        "structured_run_id",
+        "structured_report_sha256",
+        "resource_inventory_sha256",
+        "resource_count",
+        "implementation_guide_experimental"
+      ],
+      "title": "StructuralMappingAttachment",
+      "type": "object"
+    },
+    "VerifiedAttestationReference": {
+      "additionalProperties": false,
+      "properties": {
+        "attestation_id": {
+          "minLength": 1,
+          "title": "Attestation Id",
+          "type": "string"
+        },
+        "predicate_type": {
+          "minLength": 1,
+          "title": "Predicate Type",
+          "type": "string"
+        },
+        "purpose": {
+          "$ref": "#/$defs/AttestationPurpose"
+        },
+        "signature_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Signature Sha256",
+          "type": "string"
+        },
+        "signer_identity": {
+          "minLength": 1,
+          "title": "Signer Identity",
+          "type": "string"
+        },
+        "signing_key_id": {
+          "minLength": 1,
+          "title": "Signing Key Id",
+          "type": "string"
+        },
+        "statement_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Statement Sha256",
+          "type": "string"
+        },
+        "verified_at": {
+          "format": "date-time",
+          "title": "Verified At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "attestation_id",
+        "purpose",
+        "predicate_type",
+        "statement_sha256",
+        "signature_sha256",
+        "signer_identity",
+        "signing_key_id",
+        "verified_at"
+      ],
+      "title": "VerifiedAttestationReference",
+      "type": "object"
+    }
+  },
+  "$id": "https://med-rag.local/contracts/corpus-materialization-result-1.0.0.schema.json",
+  "additionalProperties": false,
+  "properties": {
+    "candidate_artifact_sha256": {
+      "anyOf": [
+        {
+          "pattern": "^[a-f0-9]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Candidate Artifact Sha256"
+    },
+    "corpus_release_candidate": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/SignedCorpusReleaseCandidate"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "report": {
+      "$ref": "#/$defs/MaterializationReport"
+    },
+    "report_artifact_sha256": {
+      "pattern": "^[a-f0-9]{64}$",
+      "title": "Report Artifact Sha256",
+      "type": "string"
+    },
+    "state": {
+      "$ref": "#/$defs/MaterializationState"
+    }
+  },
+  "required": [
+    "state",
+    "report",
+    "report_artifact_sha256"
+  ],
+  "title": "MaterializationResult",
+  "type": "object",
+  "x-contract-version": "1.0.0"
+}

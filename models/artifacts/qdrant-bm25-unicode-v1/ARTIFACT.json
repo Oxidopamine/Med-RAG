@@ -1,0 +1,9 @@
+{
+  "adapter_id": "med-rag/qdrant-bm25",
+  "adapter_revision": "1.0.0",
+  "description": "Unicode medical BM25 TF encoding for Qdrant native IDF",
+  "hash_algorithm": "sha256-uint32-le",
+  "model_id": "med-rag/qdrant-bm25-unicode",
+  "revision": "1.0.0",
+  "tokenizer": "unicode-medical-v1"
+}

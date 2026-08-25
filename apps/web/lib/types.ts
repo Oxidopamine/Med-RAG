@@ -1,37 +1,20 @@
-export type QuestionStatus =
-  | "QUEUED"
-  | "CONTEXT_EXTRACTED"
-  | "RETRIEVING"
-  | "RERANKING"
-  | "SEARCHING_COUNTER_EVIDENCE"
-  | "CHECKING_EVIDENCE_COMPLETENESS"
-  | "VERIFYING"
-  | "ANSWER_READY"
-  | "ABSTAINED"
-  | "FAILED";
+import type { components } from "@/lib/generated/api-schema";
 
-export interface Measurement {
-  concept: string;
-  value: number;
-  unit: string;
-  provenance: string;
-}
+type ApiSchemas = components["schemas"];
 
-export interface ClinicalContext {
-  age: number | null;
-  sex: string | null;
-  conditions: string[];
-  measurements: Measurement[];
-  special_populations: string[];
-  jurisdiction: string | null;
-  question_type: string | null;
-  topic: string | null;
-}
-
-export interface QuestionAccepted {
-  question_id: string;
-  status: QuestionStatus;
-}
+export type QuestionStatus = ApiSchemas["QuestionStatus"];
+export type SourceFilters = Required<ApiSchemas["SourceFilters"]>;
+export type Measurement = ApiSchemas["Measurement"];
+export type ClinicalContext = Required<ApiSchemas["ClinicalContext"]>;
+export type QuestionAccepted = ApiSchemas["QuestionAccepted"];
+export type RenderedClaim = ApiSchemas["RenderedClaim"];
+export type EvidenceLocator = Required<ApiSchemas["EvidenceLocator"]>;
+export type EvidenceDetail = Omit<Required<ApiSchemas["EvidenceDetail"]>, "locators"> & {
+  locators: EvidenceLocator[];
+};
+export type AbstentionDetail = Required<ApiSchemas["AbstentionDetail"]>;
+export type VerificationSummary = ApiSchemas["VerificationSummary"];
+export type ActiveCorpusRelease = Required<ApiSchemas["ActiveCorpusRelease"]>;
 
 export interface ProgressEvent {
   question_id: string;
@@ -40,32 +23,22 @@ export interface ProgressEvent {
   occurred_at: string;
 }
 
-export interface RenderedClaim {
-  claim_id: string;
-  text: string;
-  evidence_ids: string[];
-  verification_status: string;
+export interface CorpusReadiness {
+  approved_corpus_available: boolean;
+  clinical_use_allowed: boolean;
+  corpus_registry_available: boolean;
+  corpus_release_id: string | null;
+  status: string;
 }
 
-export interface QuestionResult {
-  question_id: string;
-  question: string;
-  status: QuestionStatus;
+type GeneratedQuestionResult = Required<ApiSchemas["QuestionResult"]>;
+
+export type QuestionResult = Omit<
+  GeneratedQuestionResult,
+  "abstention" | "corpus_release" | "evidence_details" | "interpreted_context"
+> & {
+  abstention: AbstentionDetail | null;
+  corpus_release: ActiveCorpusRelease | null;
+  evidence_details: EvidenceDetail[];
   interpreted_context: ClinicalContext | null;
-  claims: RenderedClaim[];
-  conflicts: Array<Record<string, string>>;
-  verification_summary: {
-    rendered_claims: number;
-    supported_claims: number;
-    withheld_claims: number;
-  };
-  abstention: {
-    reason_code: string;
-    message: string;
-    missing_evidence_roles: string[];
-    closest_evidence_ids: string[];
-  } | null;
-  created_at: string;
-  updated_at: string;
-}
-
+};

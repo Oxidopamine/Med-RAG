@@ -1,0 +1,68 @@
+{
+  "schema_version": "1.2.0",
+  "benchmark_id": "synthetic-retrieval-v1",
+  "suite_partition": "SYNTHETIC",
+  "access_policy_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+  "adjudication_process_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+  "adjudication_record_sha256": "3333333333333333333333333333333333333333333333333333333333333333",
+  "threshold_policy_sha256": "4444444444444444444444444444444444444444444444444444444444444444",
+  "candidate_configuration_sha256": "fc635522576ff32e382eb3efffcf355126395fbb71f7cef39f800fd3893392be",
+  "corpus_release_id": "CR_FIXTURE_2026_08_25",
+  "manifest_sha256": "7f9119c3af9d140264d4368ec113a2a1db978600bac269d772a62cfb01d7dc7a",
+  "cases": [
+    {
+      "case_id": "BQ_SYNTHETIC_001",
+      "question": "When should Example Intervention A be offered, who does the recommendation apply to, and when should it not be used?",
+      "gold_evidence": [
+        {
+          "evidence_id": "EV_FIXTURE_APPLICABILITY_001",
+          "relevance_grade": 3,
+          "required": true
+        },
+        {
+          "evidence_id": "EV_FIXTURE_EXCEPTION_001",
+          "relevance_grade": 3,
+          "required": true
+        },
+        {
+          "evidence_id": "EV_FIXTURE_PRIMARY_001",
+          "relevance_grade": 3,
+          "required": true
+        }
+      ],
+      "required_evidence_roles": [
+        "PRIMARY_SUPPORT",
+        "APPLICABILITY",
+        "EXCEPTION_OR_CONTRAINDICATION"
+      ],
+      "retrieval_filter": {
+        "jurisdictions": ["TEST"],
+        "languages": ["en"],
+        "publisher_ids": ["PUB_FIXTURE"],
+        "source_classes": ["E1"]
+      },
+      "forbidden_evidence_ids": [],
+      "strata": {
+        "clinical_risk": "synthetic-only",
+        "format": "fixture",
+        "language": "en",
+        "publisher": "synthetic"
+      }
+    }
+  ],
+  "modes": ["sparse", "dense", "hybrid"],
+  "candidate_mode": "hybrid",
+  "top_k": 3,
+  "candidate_limit": 3,
+  "rrf_k": 60,
+  "acceptance": {
+    "minimum_mean_recall_at_k": 1.0,
+    "minimum_mean_ndcg_at_k": 1.0,
+    "minimum_mean_reciprocal_rank": 1.0,
+    "minimum_mean_context_precision_at_k": 1.0,
+    "minimum_complete_evidence_set_rate": 1.0,
+    "minimum_mean_required_role_recall": 1.0,
+    "maximum_forbidden_leakage_cases": 0,
+    "maximum_p95_latency_ms": 2000.0
+  }
+}

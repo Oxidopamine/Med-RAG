@@ -1,0 +1,893 @@
+{
+  "$defs": {
+    "ApplicabilityScope": {
+      "additionalProperties": false,
+      "properties": {
+        "care_settings": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Care Settings",
+          "type": "array"
+        },
+        "exclusion_criteria": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Exclusion Criteria",
+          "type": "array"
+        },
+        "inclusion_criteria": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Inclusion Criteria",
+          "type": "array"
+        },
+        "population": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Population",
+          "type": "array"
+        }
+      },
+      "title": "ApplicabilityScope",
+      "type": "object"
+    },
+    "AttestationReference": {
+      "additionalProperties": false,
+      "properties": {
+        "attestation_id": {
+          "minLength": 1,
+          "title": "Attestation Id",
+          "type": "string"
+        },
+        "signature_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Signature Sha256",
+          "type": "string"
+        },
+        "signer_identity": {
+          "minLength": 1,
+          "title": "Signer Identity",
+          "type": "string"
+        },
+        "stage": {
+          "$ref": "#/$defs/AttestationStage"
+        },
+        "statement_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Statement Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "attestation_id",
+        "stage",
+        "statement_sha256",
+        "signature_sha256",
+        "signer_identity"
+      ],
+      "title": "AttestationReference",
+      "type": "object"
+    },
+    "AttestationStage": {
+      "enum": [
+        "INVENTORY_RECONCILIATION",
+        "EVIDENCE_VERIFICATION",
+        "RELEASE_POLICY"
+      ],
+      "title": "AttestationStage",
+      "type": "string"
+    },
+    "CorpusEvidenceRecord": {
+      "additionalProperties": false,
+      "properties": {
+        "anchors": {
+          "items": {
+            "$ref": "#/$defs/SourceAnchor"
+          },
+          "minItems": 1,
+          "title": "Anchors",
+          "type": "array"
+        },
+        "applicability": {
+          "$ref": "#/$defs/ApplicabilityScope"
+        },
+        "content_exact": {
+          "minLength": 1,
+          "title": "Content Exact",
+          "type": "string"
+        },
+        "content_search": {
+          "minLength": 1,
+          "title": "Content Search",
+          "type": "string"
+        },
+        "corpus_release_id": {
+          "minLength": 1,
+          "title": "Corpus Release Id",
+          "type": "string"
+        },
+        "evidence_id": {
+          "minLength": 1,
+          "title": "Evidence Id",
+          "type": "string"
+        },
+        "evidence_roles": {
+          "items": {
+            "$ref": "#/$defs/EvidenceRole"
+          },
+          "title": "Evidence Roles",
+          "type": "array"
+        },
+        "jurisdiction": {
+          "minLength": 1,
+          "title": "Jurisdiction",
+          "type": "string"
+        },
+        "language": {
+          "minLength": 2,
+          "title": "Language",
+          "type": "string"
+        },
+        "lifecycle_status": {
+          "$ref": "#/$defs/SourceStatus"
+        },
+        "publisher_id": {
+          "minLength": 1,
+          "title": "Publisher Id",
+          "type": "string"
+        },
+        "recommendation_grade": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/RecommendationGrade"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "render_allowed": {
+          "title": "Render Allowed",
+          "type": "boolean"
+        },
+        "schema_version": {
+          "const": "1.0.0",
+          "default": "1.0.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "source_artifact_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Source Artifact Sha256",
+          "type": "string"
+        },
+        "source_id": {
+          "minLength": 1,
+          "title": "Source Id",
+          "type": "string"
+        },
+        "source_version_id": {
+          "minLength": 1,
+          "title": "Source Version Id",
+          "type": "string"
+        },
+        "verification": {
+          "$ref": "#/$defs/EvidenceVerification"
+        }
+      },
+      "required": [
+        "corpus_release_id",
+        "evidence_id",
+        "source_id",
+        "source_version_id",
+        "source_artifact_sha256",
+        "publisher_id",
+        "jurisdiction",
+        "language",
+        "lifecycle_status",
+        "evidence_roles",
+        "content_exact",
+        "content_search",
+        "anchors",
+        "render_allowed",
+        "verification"
+      ],
+      "title": "CorpusEvidenceRecord",
+      "type": "object"
+    },
+    "CorpusReleaseManifest": {
+      "additionalProperties": false,
+      "properties": {
+        "content": {
+          "$ref": "#/$defs/CorpusReleaseManifestContent"
+        },
+        "manifest_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Manifest Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "content",
+        "manifest_sha256"
+      ],
+      "title": "CorpusReleaseManifest",
+      "type": "object"
+    },
+    "CorpusReleaseManifestContent": {
+      "additionalProperties": false,
+      "properties": {
+        "attestations": {
+          "items": {
+            "$ref": "#/$defs/AttestationReference"
+          },
+          "title": "Attestations",
+          "type": "array"
+        },
+        "corpus_release_id": {
+          "minLength": 1,
+          "title": "Corpus Release Id",
+          "type": "string"
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "cutoff_at": {
+          "format": "date-time",
+          "title": "Cutoff At",
+          "type": "string"
+        },
+        "evidence": {
+          "items": {
+            "$ref": "#/$defs/ManifestEvidenceEntry"
+          },
+          "title": "Evidence",
+          "type": "array"
+        },
+        "exceptions": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/CoverageException"
+          },
+          "title": "Exceptions",
+          "type": "array"
+        },
+        "inventory_snapshots": {
+          "items": {
+            "$ref": "#/$defs/InventorySnapshot"
+          },
+          "minItems": 1,
+          "title": "Inventory Snapshots",
+          "type": "array"
+        },
+        "previous_release_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Previous Release Id"
+        },
+        "qdrant_collection": {
+          "maxLength": 255,
+          "minLength": 1,
+          "title": "Qdrant Collection",
+          "type": "string"
+        },
+        "release_policy_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Release Policy Sha256",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "1.0.0",
+          "default": "1.0.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "trust_root_registry_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Trust Root Registry Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "corpus_release_id",
+        "created_at",
+        "cutoff_at",
+        "trust_root_registry_sha256",
+        "release_policy_sha256",
+        "qdrant_collection",
+        "inventory_snapshots",
+        "evidence",
+        "attestations"
+      ],
+      "title": "CorpusReleaseManifestContent",
+      "type": "object"
+    },
+    "CoverageException": {
+      "additionalProperties": false,
+      "properties": {
+        "approved_at": {
+          "format": "date-time",
+          "title": "Approved At",
+          "type": "string"
+        },
+        "approved_by": {
+          "minLength": 1,
+          "title": "Approved By",
+          "type": "string"
+        },
+        "details": {
+          "minLength": 1,
+          "title": "Details",
+          "type": "string"
+        },
+        "exception_id": {
+          "minLength": 1,
+          "title": "Exception Id",
+          "type": "string"
+        },
+        "inventory_item_id": {
+          "minLength": 1,
+          "title": "Inventory Item Id",
+          "type": "string"
+        },
+        "reason": {
+          "$ref": "#/$defs/ExceptionReason"
+        },
+        "signature_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Signature Sha256",
+          "type": "string"
+        },
+        "statement_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Statement Sha256",
+          "type": "string"
+        },
+        "trust_root_id": {
+          "minLength": 1,
+          "title": "Trust Root Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "exception_id",
+        "trust_root_id",
+        "inventory_item_id",
+        "reason",
+        "details",
+        "approved_by",
+        "approved_at",
+        "statement_sha256",
+        "signature_sha256"
+      ],
+      "title": "CoverageException",
+      "type": "object"
+    },
+    "EvidenceApprovalStatus": {
+      "enum": [
+        "APPROVED",
+        "QUARANTINED"
+      ],
+      "title": "EvidenceApprovalStatus",
+      "type": "string"
+    },
+    "EvidenceRole": {
+      "enum": [
+        "PRIMARY_SUPPORT",
+        "APPLICABILITY",
+        "EXCEPTION_OR_CONTRAINDICATION",
+        "DOSE_OR_THRESHOLD",
+        "MONITORING",
+        "RATIONALE"
+      ],
+      "title": "EvidenceRole",
+      "type": "string"
+    },
+    "EvidenceVerification": {
+      "additionalProperties": false,
+      "properties": {
+        "approval_status": {
+          "$ref": "#/$defs/EvidenceApprovalStatus"
+        },
+        "checks": {
+          "items": {
+            "$ref": "#/$defs/EvidenceVerificationCheck"
+          },
+          "title": "Checks",
+          "type": "array"
+        },
+        "unresolved_reasons": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Unresolved Reasons",
+          "type": "array"
+        }
+      },
+      "required": [
+        "approval_status",
+        "checks"
+      ],
+      "title": "EvidenceVerification",
+      "type": "object"
+    },
+    "EvidenceVerificationCheck": {
+      "additionalProperties": false,
+      "properties": {
+        "details": {
+          "additionalProperties": true,
+          "title": "Details",
+          "type": "object"
+        },
+        "evidence_digest": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Evidence Digest",
+          "type": "string"
+        },
+        "invariant": {
+          "$ref": "#/$defs/VerificationInvariant"
+        },
+        "outcome": {
+          "$ref": "#/$defs/VerificationOutcome"
+        },
+        "verifier": {
+          "minLength": 1,
+          "title": "Verifier",
+          "type": "string"
+        }
+      },
+      "required": [
+        "invariant",
+        "outcome",
+        "verifier",
+        "evidence_digest"
+      ],
+      "title": "EvidenceVerificationCheck",
+      "type": "object"
+    },
+    "ExceptionReason": {
+      "enum": [
+        "ACCESS",
+        "LICENSING",
+        "ACQUISITION",
+        "VALIDATION"
+      ],
+      "title": "ExceptionReason",
+      "type": "string"
+    },
+    "InventorySnapshot": {
+      "additionalProperties": false,
+      "properties": {
+        "complete": {
+          "title": "Complete",
+          "type": "boolean"
+        },
+        "cutoff_at": {
+          "format": "date-time",
+          "title": "Cutoff At",
+          "type": "string"
+        },
+        "excepted_item_ids": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Excepted Item Ids",
+          "type": "array"
+        },
+        "expected_item_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Expected Item Ids",
+          "type": "array"
+        },
+        "included_item_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Included Item Ids",
+          "type": "array"
+        },
+        "inventory_artifact_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Inventory Artifact Sha256",
+          "type": "string"
+        },
+        "publisher_id": {
+          "minLength": 1,
+          "title": "Publisher Id",
+          "type": "string"
+        },
+        "trust_root_id": {
+          "minLength": 1,
+          "title": "Trust Root Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "trust_root_id",
+        "publisher_id",
+        "cutoff_at",
+        "inventory_artifact_sha256",
+        "expected_item_ids",
+        "included_item_ids",
+        "complete"
+      ],
+      "title": "InventorySnapshot",
+      "type": "object"
+    },
+    "LocatorKind": {
+      "enum": [
+        "TEXT_SPAN",
+        "PDF",
+        "HTML",
+        "XML",
+        "FHIR",
+        "TABLE_CELL"
+      ],
+      "title": "LocatorKind",
+      "type": "string"
+    },
+    "ManifestEvidenceEntry": {
+      "additionalProperties": false,
+      "properties": {
+        "artifact_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Artifact Sha256",
+          "type": "string"
+        },
+        "evidence_id": {
+          "minLength": 1,
+          "title": "Evidence Id",
+          "type": "string"
+        },
+        "evidence_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Evidence Sha256",
+          "type": "string"
+        },
+        "qa_decision_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Qa Decision Sha256",
+          "type": "string"
+        },
+        "source_version_id": {
+          "minLength": 1,
+          "title": "Source Version Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "evidence_id",
+        "source_version_id",
+        "evidence_sha256",
+        "artifact_sha256",
+        "qa_decision_sha256"
+      ],
+      "title": "ManifestEvidenceEntry",
+      "type": "object"
+    },
+    "RecommendationGrade": {
+      "additionalProperties": false,
+      "properties": {
+        "certainty": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Certainty"
+        },
+        "grading_system": {
+          "minLength": 1,
+          "title": "Grading System",
+          "type": "string"
+        },
+        "normalized_strength": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Normalized Strength"
+        },
+        "publisher_value": {
+          "minLength": 1,
+          "title": "Publisher Value",
+          "type": "string"
+        }
+      },
+      "required": [
+        "grading_system",
+        "publisher_value"
+      ],
+      "title": "RecommendationGrade",
+      "type": "object"
+    },
+    "SourceAnchor": {
+      "additionalProperties": false,
+      "description": "Generic source anchor with optional format-specific coordinates.",
+      "properties": {
+        "bbox": {
+          "anyOf": [
+            {
+              "maxItems": 4,
+              "minItems": 4,
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Bbox"
+        },
+        "char_end": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Char End"
+        },
+        "char_start": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Char Start"
+        },
+        "column_index": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Column Index"
+        },
+        "dom_selector": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Dom Selector"
+        },
+        "fhir_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Fhir Path"
+        },
+        "fhir_resource_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Fhir Resource Id"
+        },
+        "fhir_resource_type": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Fhir Resource Type"
+        },
+        "kind": {
+          "$ref": "#/$defs/LocatorKind"
+        },
+        "pdf_page": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Pdf Page"
+        },
+        "printed_page": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Printed Page"
+        },
+        "row_index": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Row Index"
+        },
+        "source_uri": {
+          "minLength": 1,
+          "title": "Source Uri",
+          "type": "string"
+        },
+        "table_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Table Id"
+        },
+        "xpath": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Xpath"
+        }
+      },
+      "required": [
+        "kind",
+        "source_uri"
+      ],
+      "title": "SourceAnchor",
+      "type": "object"
+    },
+    "SourceStatus": {
+      "enum": [
+        "DISCOVERED",
+        "DOWNLOADED",
+        "PARSING",
+        "QA_REQUIRED",
+        "APPROVED",
+        "EFFECTIVE",
+        "PARTIALLY_SUPERSEDED",
+        "SUPERSEDED",
+        "WITHDRAWN",
+        "ARCHIVED",
+        "REJECTED",
+        "QUARANTINED"
+      ],
+      "title": "SourceStatus",
+      "type": "string"
+    },
+    "VerificationInvariant": {
+      "enum": [
+        "PROVENANCE",
+        "EXACT_CONTENT",
+        "CRITICAL_FIELDS",
+        "READING_ORDER",
+        "TABLE_STRUCTURE",
+        "NARRATIVE_CONSISTENCY"
+      ],
+      "title": "VerificationInvariant",
+      "type": "string"
+    },
+    "VerificationOutcome": {
+      "enum": [
+        "PASS",
+        "FAIL",
+        "UNRESOLVED"
+      ],
+      "title": "VerificationOutcome",
+      "type": "string"
+    }
+  },
+  "$id": "https://med-rag.local/contracts/corpus-release-bundle-1.0.0.schema.json",
+  "additionalProperties": false,
+  "properties": {
+    "evidence": {
+      "items": {
+        "$ref": "#/$defs/CorpusEvidenceRecord"
+      },
+      "title": "Evidence",
+      "type": "array"
+    },
+    "manifest": {
+      "$ref": "#/$defs/CorpusReleaseManifest"
+    }
+  },
+  "required": [
+    "manifest",
+    "evidence"
+  ],
+  "title": "CorpusReleaseBundle",
+  "type": "object",
+  "x-contract-version": "1.0.0"
+}

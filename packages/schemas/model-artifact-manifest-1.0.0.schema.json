@@ -1,0 +1,146 @@
+{
+  "$defs": {
+    "ModelArtifactFile": {
+      "additionalProperties": false,
+      "properties": {
+        "byte_size": {
+          "minimum": 0,
+          "title": "Byte Size",
+          "type": "integer"
+        },
+        "path": {
+          "maxLength": 1000,
+          "minLength": 1,
+          "title": "Path",
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "byte_size",
+        "sha256"
+      ],
+      "title": "ModelArtifactFile",
+      "type": "object"
+    },
+    "ModelArtifactKind": {
+      "enum": [
+        "DENSE",
+        "SPARSE"
+      ],
+      "title": "ModelArtifactKind",
+      "type": "string"
+    },
+    "ModelArtifactManifestContent": {
+      "additionalProperties": false,
+      "description": "Encoding contract plus an exact inventory of every local artifact byte.",
+      "properties": {
+        "adapter_id": {
+          "maxLength": 300,
+          "minLength": 1,
+          "title": "Adapter Id",
+          "type": "string"
+        },
+        "adapter_parameters": {
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "title": "Adapter Parameters",
+          "type": "object"
+        },
+        "adapter_revision": {
+          "maxLength": 300,
+          "minLength": 1,
+          "title": "Adapter Revision",
+          "type": "string"
+        },
+        "artifact_kind": {
+          "$ref": "#/$defs/ModelArtifactKind"
+        },
+        "dimension": {
+          "exclusiveMinimum": 0,
+          "maximum": 4294967296,
+          "title": "Dimension",
+          "type": "integer"
+        },
+        "files": {
+          "items": {
+            "$ref": "#/$defs/ModelArtifactFile"
+          },
+          "minItems": 1,
+          "title": "Files",
+          "type": "array"
+        },
+        "model_id": {
+          "maxLength": 300,
+          "minLength": 1,
+          "title": "Model Id",
+          "type": "string"
+        },
+        "revision": {
+          "maxLength": 300,
+          "minLength": 1,
+          "title": "Revision",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "1.0.0",
+          "default": "1.0.0",
+          "title": "Schema Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "artifact_kind",
+        "model_id",
+        "revision",
+        "dimension",
+        "adapter_id",
+        "adapter_revision",
+        "files"
+      ],
+      "title": "ModelArtifactManifestContent",
+      "type": "object"
+    }
+  },
+  "$id": "https://med-rag.local/contracts/model-artifact-manifest-1.0.0.schema.json",
+  "additionalProperties": false,
+  "properties": {
+    "artifact_sha256": {
+      "pattern": "^[a-f0-9]{64}$",
+      "title": "Artifact Sha256",
+      "type": "string"
+    },
+    "content": {
+      "$ref": "#/$defs/ModelArtifactManifestContent"
+    }
+  },
+  "required": [
+    "content",
+    "artifact_sha256"
+  ],
+  "title": "ModelArtifactManifest",
+  "type": "object",
+  "x-contract-version": "1.0.0"
+}

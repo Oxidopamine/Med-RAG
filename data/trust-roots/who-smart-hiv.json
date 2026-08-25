@@ -1,0 +1,177 @@
+{
+  "allowed_domains": [
+    "smart.who.int",
+    "who.int"
+  ],
+  "connector_config": {
+    "artifact_url": "https://smart.who.int/hiv/package.tgz",
+    "authority_role": "STRUCTURED_COMPANION",
+    "language": "en",
+    "structured_asset_id": "WHO_SMART_HIV_FHIR",
+    "controlling_narratives": [
+      {
+        "assets": [
+          {
+            "asset_id": "WHO_HIV_DAK_2_MAIN",
+            "media_type": "application/pdf",
+            "role": "PRIMARY",
+            "title": "Digital adaptation kit for HIV, second edition",
+            "url": "https://iris.who.int/server/api/core/bitstreams/9758b5d9-d243-44e0-b704-7e9b4dae72c8/content"
+          },
+          {
+            "asset_id": "WHO_HIV_DAK_2_ANNEX_A",
+            "media_type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            "role": "ANNEX",
+            "title": "Web Annex A: Data dictionary",
+            "url": "https://iris.who.int/server/api/core/bitstreams/e9b0d20e-32ab-4d66-a5b6-638d39b0b443/content"
+          },
+          {
+            "asset_id": "WHO_HIV_DAK_2_ANNEX_B",
+            "media_type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            "role": "ANNEX",
+            "title": "Web Annex B: Decision-support logic",
+            "url": "https://iris.who.int/server/api/core/bitstreams/59ecbbbe-7f86-44b7-9842-26a64808df2b/content"
+          },
+          {
+            "asset_id": "WHO_HIV_DAK_2_ANNEX_C",
+            "media_type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            "role": "ANNEX",
+            "title": "Web Annex C: Indicators table",
+            "url": "https://iris.who.int/server/api/core/bitstreams/dcb207bc-213e-4215-a1d7-d82666768879/content"
+          },
+          {
+            "asset_id": "WHO_HIV_DAK_2_ANNEX_D",
+            "media_type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            "role": "ANNEX",
+            "title": "Web Annex D: Functional and non-functional requirements",
+            "url": "https://iris.who.int/server/api/core/bitstreams/bb7d0c20-758b-4f39-aee3-7a4d934ea561/content"
+          }
+        ],
+        "identifier": "ISBN:978-92-4-008513-8",
+        "link_id": "WHO_HIV_DAK_2",
+        "title": "Digital adaptation kit for HIV, second edition",
+        "url": "https://www.who.int/publications/i/item/9789240085138",
+        "version": "2"
+      }
+    ],
+    "current_releases_only": true,
+    "dependency_registry": {
+      "allowed_domains": [
+        "packages.fhir.org"
+      ],
+      "base_url": "https://packages.fhir.org",
+      "concurrency": 4,
+      "max_depth": 10,
+      "max_packages": 100,
+      "max_total_bytes": 536870912,
+      "version_url_template": "https://packages.fhir.org/{package_id}/{version}"
+    },
+    "guide_url": "https://smart.who.int/hiv/",
+    "inventory_url": "https://smart.who.int/hiv/package-list.json",
+    "package_id": "smart.who.int.hiv",
+    "structured_policy": {
+      "allow_experimental": true,
+      "allowed_fhir_versions": [
+        "4.0.1"
+      ],
+      "allowed_publishers": [
+        "WHO"
+      ],
+      "require_declared_narrative_link": true,
+      "require_resolved_dependencies": true
+    },
+    "title": "WHO SMART Guidelines - HIV"
+  },
+  "connector_name": "who-smart-fhir",
+  "connector_version": "1.0.0",
+  "enabled": true,
+  "jurisdictions": [
+    "WORLD"
+  ],
+  "asset_licensing": [
+    {
+      "acquisition_allowed": true,
+      "asset_id": "WHO_SMART_HIV_FHIR",
+      "asset_kind": "INVENTORY_SOURCE",
+      "credential_reference": null,
+      "evidence_materialization_allowed": false,
+      "license_id": "CC-BY-NC-SA-3.0-IGO",
+      "notes": "Experimental structured companion. FHIR content is limited to structural mappings and cannot be promoted as clinical evidence.",
+      "policy_url": "https://smart.who.int/hiv/license.html",
+      "redistribution_allowed": false,
+      "render_allowed": false,
+      "source_declared_license_id": "CC-BY-SA-3.0"
+    },
+    {
+      "acquisition_allowed": true,
+      "asset_id": "WHO_HIV_DAK_2_MAIN",
+      "asset_kind": "NARRATIVE_SOURCE",
+      "credential_reference": null,
+      "evidence_materialization_allowed": true,
+      "license_id": "CC-BY-NC-SA-3.0-IGO",
+      "notes": "Controlling clinical source. Evidence may be materialized; downstream rendering remains disabled pending deployment-specific licence review.",
+      "policy_url": "https://iris.who.int/handle/10665/375230",
+      "redistribution_allowed": false,
+      "render_allowed": false
+    },
+    {
+      "acquisition_allowed": true,
+      "asset_id": "WHO_HIV_DAK_2_ANNEX_A",
+      "asset_kind": "NARRATIVE_SOURCE",
+      "credential_reference": null,
+      "evidence_materialization_allowed": true,
+      "license_id": "CC-BY-NC-SA-3.0-IGO",
+      "notes": "Controlling DAK annex; rendering remains disabled pending deployment-specific licence review.",
+      "policy_url": "https://www.who.int/publications/i/item/9789240085138",
+      "redistribution_allowed": false,
+      "render_allowed": false
+    },
+    {
+      "acquisition_allowed": true,
+      "asset_id": "WHO_HIV_DAK_2_ANNEX_B",
+      "asset_kind": "NARRATIVE_SOURCE",
+      "credential_reference": null,
+      "evidence_materialization_allowed": true,
+      "license_id": "CC-BY-NC-SA-3.0-IGO",
+      "notes": "Controlling DAK annex; rendering remains disabled pending deployment-specific licence review.",
+      "policy_url": "https://www.who.int/publications/i/item/9789240085138",
+      "redistribution_allowed": false,
+      "render_allowed": false
+    },
+    {
+      "acquisition_allowed": true,
+      "asset_id": "WHO_HIV_DAK_2_ANNEX_C",
+      "asset_kind": "NARRATIVE_SOURCE",
+      "credential_reference": null,
+      "evidence_materialization_allowed": true,
+      "license_id": "CC-BY-NC-SA-3.0-IGO",
+      "notes": "Controlling DAK annex; rendering remains disabled pending deployment-specific licence review.",
+      "policy_url": "https://www.who.int/publications/i/item/9789240085138",
+      "redistribution_allowed": false,
+      "render_allowed": false
+    },
+    {
+      "acquisition_allowed": true,
+      "asset_id": "WHO_HIV_DAK_2_ANNEX_D",
+      "asset_kind": "NARRATIVE_SOURCE",
+      "credential_reference": null,
+      "evidence_materialization_allowed": true,
+      "license_id": "CC-BY-NC-SA-3.0-IGO",
+      "notes": "Controlling DAK annex; rendering remains disabled pending deployment-specific licence review.",
+      "policy_url": "https://www.who.int/publications/i/item/9789240085138",
+      "redistribution_allowed": false,
+      "render_allowed": false
+    }
+  ],
+  "polling_interval_seconds": 86400,
+  "product_families": [
+    "CURRENT_RELEASED_FHIR_IMPLEMENTATION_GUIDE"
+  ],
+  "publisher_id": "PUB_WHO",
+  "publisher_name": "World Health Organization",
+  "schema_version": "1.0.0",
+  "trust_root_id": "WHO_SMART_HIV",
+  "trusted_stage_key_ids": [
+    "local-steward-stage"
+  ]
+}

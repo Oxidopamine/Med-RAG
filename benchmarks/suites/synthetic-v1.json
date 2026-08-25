@@ -1,0 +1,96 @@
+{
+  "content": {
+    "acceptance": {
+      "maximum_candidate_failure_cases": 0,
+      "maximum_forbidden_leakage_cases": 0,
+      "maximum_p95_latency_ms": 2000.0,
+      "minimum_complete_evidence_set_rate": 1.0,
+      "minimum_insufficient_evidence_accuracy": 1.0,
+      "minimum_mean_context_precision_at_k": 1.0,
+      "minimum_mean_ndcg_at_k": 1.0,
+      "minimum_mean_recall_at_k": 1.0,
+      "minimum_mean_reciprocal_rank": 1.0,
+      "minimum_mean_required_role_recall": 1.0,
+      "minimum_total_case_count": 1,
+      "safety_strata": []
+    },
+    "access_policy_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+    "adjudication_process_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+    "adjudication_record_sha256": "3333333333333333333333333333333333333333333333333333333333333333",
+    "benchmark_id": "synthetic-retrieval-v1",
+    "candidate_configuration_sha256": "fc635522576ff32e382eb3efffcf355126395fbb71f7cef39f800fd3893392be",
+    "candidate_limit": 3,
+    "candidate_mode": "hybrid",
+    "cases": [
+      {
+        "adjudication": null,
+        "case_id": "BQ_SYNTHETIC_001",
+        "evidence_expectation": "ANSWERABLE",
+        "forbidden_evidence_ids": [],
+        "gold_evidence": [
+          {
+            "evidence_id": "EV_FIXTURE_APPLICABILITY_001",
+            "relevance_grade": 3,
+            "required": true
+          },
+          {
+            "evidence_id": "EV_FIXTURE_EXCEPTION_001",
+            "relevance_grade": 3,
+            "required": true
+          },
+          {
+            "evidence_id": "EV_FIXTURE_PRIMARY_001",
+            "relevance_grade": 3,
+            "required": true
+          }
+        ],
+        "minimum_complete_evidence_sets": [],
+        "question": "When should Example Intervention A be offered, who does the recommendation apply to, and when should it not be used?",
+        "required_evidence_roles": [
+          "APPLICABILITY",
+          "EXCEPTION_OR_CONTRAINDICATION",
+          "PRIMARY_SUPPORT"
+        ],
+        "retrieval_filter": {
+          "jurisdictions": [
+            "TEST"
+          ],
+          "languages": [
+            "en"
+          ],
+          "publisher_ids": [
+            "PUB_FIXTURE"
+          ],
+          "source_classes": [
+            "E1"
+          ]
+        },
+        "safety_topics": [],
+        "strata": {
+          "clinical_risk": "synthetic-only",
+          "format": "fixture",
+          "language": "en",
+          "publisher": "synthetic"
+        }
+      }
+    ],
+    "corpus_release_id": "CR_FIXTURE_2026_08_25",
+    "manifest_sha256": "7f9119c3af9d140264d4368ec113a2a1db978600bac269d772a62cfb01d7dc7a",
+    "modes": [
+      "sparse",
+      "dense",
+      "hybrid"
+    ],
+    "required_safety_topics": [],
+    "rrf_k": 60,
+    "rrf_weights": {
+      "dense": 1.0,
+      "sparse": 1.0
+    },
+    "schema_version": "1.2.0",
+    "suite_partition": "SYNTHETIC",
+    "threshold_policy_sha256": "4444444444444444444444444444444444444444444444444444444444444444",
+    "top_k": 3
+  },
+  "suite_sha256": "7c3629c8c54121942e32b8d85ce392d13365d00a738b3aaa57592819ce738757"
+}

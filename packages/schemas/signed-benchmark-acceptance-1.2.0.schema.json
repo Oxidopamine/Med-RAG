@@ -1,0 +1,170 @@
+{
+  "$defs": {
+    "BenchmarkAcceptanceAttestationContent": {
+      "additionalProperties": false,
+      "properties": {
+        "acceptance_id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Acceptance Id",
+          "type": "string"
+        },
+        "accepted_at": {
+          "format": "date-time",
+          "title": "Accepted At",
+          "type": "string"
+        },
+        "adjudication_process_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Adjudication Process Sha256",
+          "type": "string"
+        },
+        "adjudication_record_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Adjudication Record Sha256",
+          "type": "string"
+        },
+        "benchmark_report_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Benchmark Report Sha256",
+          "type": "string"
+        },
+        "benchmark_suite_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Benchmark Suite Sha256",
+          "type": "string"
+        },
+        "candidate_configuration_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Candidate Configuration Sha256",
+          "type": "string"
+        },
+        "corpus_release_id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Corpus Release Id",
+          "type": "string"
+        },
+        "holdout_access_policy_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Holdout Access Policy Sha256",
+          "type": "string"
+        },
+        "index_attestation_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Index Attestation Sha256",
+          "type": "string"
+        },
+        "manifest_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Manifest Sha256",
+          "type": "string"
+        },
+        "outcome": {
+          "const": "ACCEPTED",
+          "default": "ACCEPTED",
+          "title": "Outcome",
+          "type": "string"
+        },
+        "qdrant_collection": {
+          "maxLength": 255,
+          "minLength": 1,
+          "title": "Qdrant Collection",
+          "type": "string"
+        },
+        "runner_version": {
+          "maxLength": 100,
+          "minLength": 1,
+          "title": "Runner Version",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "1.2.0",
+          "default": "1.2.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "suite_partition": {
+          "const": "SEALED_HOLDOUT",
+          "default": "SEALED_HOLDOUT",
+          "title": "Suite Partition",
+          "type": "string"
+        },
+        "threshold_policy_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Threshold Policy Sha256",
+          "type": "string"
+        },
+        "valid_until": {
+          "format": "date-time",
+          "title": "Valid Until",
+          "type": "string"
+        },
+        "vector_batch_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Vector Batch Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "acceptance_id",
+        "benchmark_suite_sha256",
+        "benchmark_report_sha256",
+        "runner_version",
+        "candidate_configuration_sha256",
+        "corpus_release_id",
+        "manifest_sha256",
+        "vector_batch_sha256",
+        "qdrant_collection",
+        "index_attestation_sha256",
+        "holdout_access_policy_sha256",
+        "adjudication_process_sha256",
+        "adjudication_record_sha256",
+        "threshold_policy_sha256",
+        "accepted_at",
+        "valid_until"
+      ],
+      "title": "BenchmarkAcceptanceAttestationContent",
+      "type": "object"
+    }
+  },
+  "$id": "https://med-rag.local/contracts/signed-benchmark-acceptance-1.2.0.schema.json",
+  "additionalProperties": false,
+  "properties": {
+    "content": {
+      "$ref": "#/$defs/BenchmarkAcceptanceAttestationContent"
+    },
+    "signature_sha256": {
+      "pattern": "^[a-f0-9]{64}$",
+      "title": "Signature Sha256",
+      "type": "string"
+    },
+    "signer_identity": {
+      "maxLength": 300,
+      "minLength": 1,
+      "title": "Signer Identity",
+      "type": "string"
+    },
+    "signing_key_id": {
+      "maxLength": 300,
+      "minLength": 1,
+      "title": "Signing Key Id",
+      "type": "string"
+    },
+    "statement_sha256": {
+      "pattern": "^[a-f0-9]{64}$",
+      "title": "Statement Sha256",
+      "type": "string"
+    }
+  },
+  "required": [
+    "content",
+    "statement_sha256",
+    "signature_sha256",
+    "signer_identity",
+    "signing_key_id"
+  ],
+  "title": "SignedBenchmarkAcceptance",
+  "type": "object",
+  "x-contract-version": "1.2.0"
+}

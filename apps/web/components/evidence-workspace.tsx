@@ -1,491 +1,475 @@
 "use client";
 
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+
+import { AnswerPanel } from "@/components/evidence-workspace/answer-panel";
+import { AppHeader } from "@/components/evidence-workspace/app-header";
+import { ContextDialog } from "@/components/evidence-workspace/context-dialog";
 import {
-  AlertTriangle,
-  Check,
-  ChevronRight,
-  CircleDashed,
-  FileSearch,
-  FileText,
-  Info,
-  Pencil,
-  RotateCw,
-  Search,
-  ShieldCheck,
-  X,
-} from "lucide-react";
-import { FormEvent, useEffect, useRef, useState } from "react";
-
+  EvidenceDetails,
+  InterpretedContextPanel,
+} from "@/components/evidence-workspace/evidence-details";
 import {
-  API_URL,
-  getQuestion,
-  replaceQuestionContext,
-  submitQuestion,
-} from "@/lib/api";
-import { contextRows, STATUS_LABELS, TERMINAL_STATUSES } from "@/lib/presentation";
-import type {
-  ClinicalContext,
-  ProgressEvent,
-  QuestionResult,
-  QuestionStatus,
-} from "@/lib/types";
+  FeedbackBanner,
+  type FeedbackTone,
+} from "@/components/evidence-workspace/feedback-banner";
+import {
+  GettingStarted,
+  type CorpusStatus,
+} from "@/components/evidence-workspace/getting-started";
+import { ProvenanceStrip } from "@/components/evidence-workspace/provenance-strip";
+import { QuestionComposer } from "@/components/evidence-workspace/question-composer";
+import { RunProgress } from "@/components/evidence-workspace/run-progress";
+import {
+  SourceViewer,
+  VerificationPanel,
+} from "@/components/evidence-workspace/source-verification-column";
+import { useEvidenceRun } from "@/components/evidence-workspace/use-evidence-run";
+import { getCorpusReadiness } from "@/lib/api";
+import type { ClinicalContext, QuestionResult, SourceFilters } from "@/lib/types";
 
-const STARTER_QUESTION =
-  "For a 74-year-old with atrial fibrillation and eGFR 28, what do current guidelines say about anticoagulation?";
+import styles from "./evidence-workspace/workspace.module.css";
 
-const PIPELINE_STAGES: QuestionStatus[] = [
-  "CONTEXT_EXTRACTED",
-  "RETRIEVING",
-  "SEARCHING_COUNTER_EVIDENCE",
-  "CHECKING_EVIDENCE_COMPLETENESS",
-  "VERIFYING",
-];
+const DEFAULT_SOURCE_FILTERS: SourceFilters = {
+  jurisdictions: ["US", "EU", "UK"],
+  organizations: [],
+};
 
-function delay(milliseconds: number) {
-  return new Promise((resolve) => window.setTimeout(resolve, milliseconds));
+interface TransientFeedback {
+  id: number;
+  message: string;
+  title: string;
+  tone: FeedbackTone;
 }
 
-function conceptInputValue(conditions: string[]): string {
-  return conditions.map((item) => item.replaceAll("_", " ").toLowerCase()).join(", ");
-}
-
-function parseConceptInput(value: string): string[] {
-  return value
-    .split(",")
-    .map((item) => item.trim().toUpperCase().replaceAll(/\s+/g, "_"))
-    .filter(Boolean);
-}
+const INITIAL_CORPUS_STATUS: CorpusStatus = {
+  approvedCorpusAvailable: false,
+  error: null,
+  isLoading: true,
+  registryAvailable: false,
+  releaseId: null,
+};
 
 export function EvidenceWorkspace() {
-  const [question, setQuestion] = useState(STARTER_QUESTION);
-  const [questionId, setQuestionId] = useState<string | null>(null);
-  const [status, setStatus] = useState<QuestionStatus | null>(null);
-  const [completedStages, setCompletedStages] = useState<QuestionStatus[]>([]);
-  const [result, setResult] = useState<QuestionResult | null>(null);
-  const [isRunning, setIsRunning] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [question, setQuestion] = useState("");
+  const [sourceFilters, setSourceFilters] = useState<SourceFilters>(DEFAULT_SOURCE_FILTERS);
   const [editOpen, setEditOpen] = useState(false);
   const [draftContext, setDraftContext] = useState<ClinicalContext | null>(null);
-  const eventSourceRef = useRef<EventSource | null>(null);
+  const [selectedClaimId, setSelectedClaimId] = useState<string | null>(null);
+  const [selectedEvidenceId, setSelectedEvidenceId] = useState<string | null>(null);
+  const [corpusStatus, setCorpusStatus] = useState<CorpusStatus>(INITIAL_CORPUS_STATUS);
+  const [transientFeedback, setTransientFeedback] = useState<TransientFeedback | null>(null);
+  const feedbackTimerRef = useRef<number | null>(null);
+  const previousLifecycleRef = useRef("idle");
+  const feedbackIdRef = useRef(0);
+  const run = useEvidenceRun();
+
+  const workspaceResult = run.result ?? run.previousResult;
+  const isPreviousResult = Boolean(workspaceResult && !run.result);
+
+  const selectedClaim = useMemo(
+    () =>
+      workspaceResult?.claims.find((claim) => claim.claim_id === selectedClaimId) ??
+      workspaceResult?.claims[0] ??
+      null,
+    [selectedClaimId, workspaceResult],
+  );
+  const selectedClaimEvidence = useMemo(
+    () =>
+      selectedClaim && workspaceResult
+        ? workspaceResult.evidence_details.filter((detail) =>
+            selectedClaim.evidence_ids.includes(detail.evidence_id),
+          )
+        : [],
+    [selectedClaim, workspaceResult],
+  );
+  const effectiveSelectedClaimId = selectedClaim?.claim_id ?? null;
+  const effectiveSelectedEvidenceId =
+    selectedClaim?.evidence_ids.includes(selectedEvidenceId ?? "")
+      ? selectedEvidenceId
+      : selectedClaim?.evidence_ids[0] ?? null;
+
+  const showTransient = useCallback(
+    (tone: FeedbackTone, title: string, message: string, duration = 4500) => {
+      if (feedbackTimerRef.current !== null) window.clearTimeout(feedbackTimerRef.current);
+      feedbackIdRef.current += 1;
+      setTransientFeedback({ id: feedbackIdRef.current, message, title, tone });
+      if (tone !== "error") {
+        feedbackTimerRef.current = window.setTimeout(() => {
+          setTransientFeedback(null);
+          feedbackTimerRef.current = null;
+        }, duration);
+      }
+    },
+    [],
+  );
 
   useEffect(() => {
-    return () => eventSourceRef.current?.close();
+    let active = true;
+    void getCorpusReadiness()
+      .then((readiness) => {
+        if (!active) return;
+        setCorpusStatus({
+          approvedCorpusAvailable: readiness.approved_corpus_available,
+          error: null,
+          isLoading: false,
+          registryAvailable: readiness.corpus_registry_available,
+          releaseId: readiness.corpus_release_id,
+        });
+      })
+      .catch((error: unknown) => {
+        if (!active) return;
+        setCorpusStatus({
+          approvedCorpusAvailable: false,
+          error: error instanceof Error ? error.message : "Corpus readiness could not be checked.",
+          isLoading: false,
+          registryAvailable: false,
+          releaseId: null,
+        });
+      });
+    return () => {
+      active = false;
+    };
   }, []);
 
-  async function finishRun(id: string) {
-    const payload = await getQuestion(id);
-    setResult(payload);
-    setStatus(payload.status);
-    setIsRunning(false);
-  }
+  useEffect(() => {
+    const previousLifecycle = previousLifecycleRef.current;
+    previousLifecycleRef.current = run.lifecycle;
+    if (previousLifecycle === run.lifecycle) return;
 
-  async function pollUntilTerminal(id: string) {
-    for (let attempt = 0; attempt < 24; attempt += 1) {
-      const payload = await getQuestion(id);
-      setStatus(payload.status);
-      if (TERMINAL_STATUSES.has(payload.status)) {
-        setResult(payload);
-        setIsRunning(false);
-        return;
-      }
-      await delay(250);
-    }
-    throw new Error("The evidence run did not reach a terminal state.");
-  }
-
-  function listenForProgress(id: string) {
-    eventSourceRef.current?.close();
-    const source = new EventSource(`${API_URL}/v1/questions/${id}/events`);
-    eventSourceRef.current = source;
-
-    source.addEventListener("progress", (message) => {
-      const event = JSON.parse((message as MessageEvent).data) as ProgressEvent;
-      setStatus(event.status);
-      setCompletedStages((current) =>
-        current.includes(event.status) ? current : [...current, event.status],
+    if (run.lifecycle === "completed") {
+      showTransient(
+        "success",
+        "Evidence review ready",
+        "Automated checks completed. Review the claim-linked source passages before use.",
       );
-      if (TERMINAL_STATUSES.has(event.status)) {
-        source.close();
-        void finishRun(id).catch((runError: unknown) => {
-          setError(runError instanceof Error ? runError.message : "Unable to load the result.");
-          setIsRunning(false);
-        });
-      }
-    });
-
-    source.onerror = () => {
-      source.close();
-      void pollUntilTerminal(id).catch((runError: unknown) => {
-        setError(runError instanceof Error ? runError.message : "Connection to the API failed.");
-        setIsRunning(false);
-      });
-    };
-  }
-
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const trimmedQuestion = question.trim();
-    if (!trimmedQuestion || isRunning) return;
-
-    setError(null);
-    setResult(null);
-    setStatus("QUEUED");
-    setCompletedStages(["QUEUED"]);
-    setIsRunning(true);
-
-    try {
-      const accepted = await submitQuestion(trimmedQuestion);
-      setQuestionId(accepted.question_id);
-      listenForProgress(accepted.question_id);
-    } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : "Unable to submit question.");
-      setIsRunning(false);
+    } else if (run.lifecycle === "cancelled") {
+      showTransient(
+        "info",
+        "Stopped waiting in this browser",
+        "Server processing may continue. Submit again if you need a new monitored review.",
+        6500,
+      );
     }
-  }
+  }, [run.lifecycle, showTransient]);
+
+  useEffect(
+    () => () => {
+      if (feedbackTimerRef.current !== null) window.clearTimeout(feedbackTimerRef.current);
+    },
+    [],
+  );
 
   function openContextEditor() {
-    if (!result?.interpreted_context) return;
-    setDraftContext(structuredClone(result.interpreted_context));
+    const context = run.result?.interpreted_context;
+    if (!context) return;
+    setDraftContext(structuredClone(context));
     setEditOpen(true);
   }
 
-  async function handleContextSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!questionId || !draftContext || isRunning) return;
+  async function replaceContext(nextContext: ClinicalContext): Promise<boolean> {
+    const accepted = await run.replaceContext(nextContext);
+    if (accepted) {
+      showTransient(
+        "info",
+        "Context update accepted",
+        "The previous review remains visible while the updated context is checked.",
+      );
+    }
+    return accepted;
+  }
 
-    setError(null);
-    setEditOpen(false);
-    setStatus("QUEUED");
-    setCompletedStages(["QUEUED"]);
-    setIsRunning(true);
+  function selectClaim(claimId: string) {
+    setSelectedClaimId(claimId);
+    const claim = workspaceResult?.claims.find((item) => item.claim_id === claimId);
+    setSelectedEvidenceId(claim?.evidence_ids[0] ?? null);
+  }
+
+  async function copyText(value: string, successTitle: string, successMessage: string) {
     try {
-      const accepted = await replaceQuestionContext(questionId, draftContext);
-      setQuestionId(accepted.question_id);
-      listenForProgress(accepted.question_id);
-    } catch (updateError) {
-      setError(updateError instanceof Error ? updateError.message : "Unable to update context.");
-      setIsRunning(false);
+      await navigator.clipboard.writeText(value);
+      showTransient("success", successTitle, successMessage, 3000);
+    } catch {
+      showTransient(
+        "error",
+        "Copy failed",
+        "Clipboard access was not available. Select and copy the text manually.",
+      );
     }
   }
 
-  const context = result?.interpreted_context ?? null;
-  const rows = contextRows(context);
+  function copyRunId() {
+    const questionId = run.questionId ?? workspaceResult?.question_id;
+    if (!questionId) return;
+    void copyText(questionId, "Run ID copied", "The run identifier is available on your clipboard.");
+  }
+
+  function copyAnswer() {
+    if (!workspaceResult || workspaceResult.status !== "ANSWER_READY") return;
+    const sourceById = new Map(
+      workspaceResult.evidence_details.map((detail) => [detail.evidence_id, detail]),
+    );
+    const claims = workspaceResult.claims
+      .map((claim, index) => {
+        const citations = claim.evidence_ids
+          .map((evidenceId) => sourceById.get(evidenceId))
+          .filter((detail) => detail !== undefined)
+          .map((detail) => `${detail.source_title} (${detail.source_url})`)
+          .join("; ");
+        return `${index + 1}. ${claim.text}${citations ? `\n   Sources: ${citations}` : ""}`;
+      })
+      .join("\n\n");
+    void copyText(
+      `${claims}\n\nResearch use only. Run ID: ${workspaceResult.question_id}`,
+      "Answer copied",
+      "The answer, source links, and research-use notice were copied.",
+    );
+  }
+
+  function exportAudit() {
+    if (!workspaceResult) return;
+    const payload = JSON.stringify(
+      {
+        exported_at: new Date().toISOString(),
+        research_use_only: true,
+        result: workspaceResult,
+      },
+      null,
+      2,
+    );
+    const blob = new Blob([payload], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    const safeQuestionId = workspaceResult.question_id.replaceAll(/[^a-zA-Z0-9_-]/g, "_");
+    anchor.download = `guideline-review-${safeQuestionId}.json`;
+    document.body.append(anchor);
+    anchor.click();
+    anchor.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 0);
+    showTransient(
+      "success",
+      "Audit record exported",
+      "A JSON record containing the question, context, provenance, checks, and evidence was downloaded.",
+    );
+  }
+
+  const errorFeedback = run.error ? friendlyError(run.error) : null;
+  const shouldShowGettingStarted =
+    run.lifecycle === "idle" ||
+    ((run.lifecycle === "cancelled" || run.lifecycle === "failed") && !workspaceResult);
 
   return (
-    <div className="app-shell">
-      <header className="topbar">
-        <div className="brand-lockup">
-          <div className="brand-mark" aria-hidden="true">
-            GE
-          </div>
-          <div>
-            <div className="brand-name">Guideline Evidence QA</div>
-            <div className="brand-subtitle">Clinical evidence workspace</div>
-          </div>
-        </div>
-        <div className="header-status">
-          <span className="environment-badge">Research prototype</span>
-          <span className="corpus-count">
-            <span className="status-dot" aria-hidden="true" />0 approved sources
-          </span>
-        </div>
-      </header>
+    <div className={styles.appShell}>
+      <AppHeader />
 
-      <div className="research-notice" role="note">
-        <Info size={16} aria-hidden="true" />
-        <span>Research use only. Not authorized for patient care. Do not enter PHI.</span>
-      </div>
+      <main id="main-content">
+        <QuestionComposer
+          isRunning={run.isRunning}
+          onChange={setQuestion}
+          onSourceFiltersChange={setSourceFilters}
+          onStopWaiting={run.stopWaiting}
+          onSubmit={run.submit}
+          question={question}
+          showExamples={shouldShowGettingStarted}
+          sourceFilters={sourceFilters}
+        />
 
-      <main>
-        <form className="question-bar" onSubmit={handleSubmit}>
-          <div className="question-field">
-            <label htmlFor="question">Guideline question</label>
-            <textarea
-              id="question"
-              value={question}
-              onChange={(event) => setQuestion(event.target.value)}
-              rows={2}
-              maxLength={4000}
-              disabled={isRunning}
+        {errorFeedback ? (
+          <>
+            <FeedbackBanner
+              actionLabel={run.canRetry ? "Try again" : undefined}
+              message={errorFeedback.message}
+              onAction={run.canRetry ? () => void run.retry() : undefined}
+              onDismiss={run.clearError}
+              title={errorFeedback.title}
+              tone="error"
             />
-            <div className="question-meta">
-              <span>Source scope: US, EU, UK</span>
-              <span>{question.length}/4,000</span>
-            </div>
-          </div>
-          <button className="ask-button" type="submit" disabled={isRunning || !question.trim()}>
-            {isRunning ? <CircleDashed className="spin" size={18} /> : <Search size={18} />}
-            {isRunning ? "Checking" : "Ask"}
-          </button>
-        </form>
+            <details className={styles["technical-error"]}>
+              <summary>Technical details</summary>
+              <code>{run.error}</code>
+            </details>
+          </>
+        ) : null}
 
-        {error ? (
-          <div className="error-banner" role="alert">
-            <AlertTriangle size={18} />
-            <span>{error}</span>
+        {transientFeedback ? (
+          <FeedbackBanner
+            key={transientFeedback.id}
+            message={transientFeedback.message}
+            onDismiss={() => setTransientFeedback(null)}
+            title={transientFeedback.title}
+            tone={transientFeedback.tone}
+          />
+        ) : null}
+
+        {shouldShowGettingStarted ? <GettingStarted corpusStatus={corpusStatus} /> : null}
+
+        {run.isRunning ? (
+          <div className={styles["running-workspace"]}>
+            <RunProgress
+              onCopyRunId={copyRunId}
+              progressEvents={run.progressEvents}
+              questionId={run.questionId}
+              status={run.status}
+            />
+            <VerificationPanel
+              isRunning
+              lifecycle={run.lifecycle}
+              progressEvents={run.progressEvents}
+              result={null}
+              status={run.status}
+            />
           </div>
         ) : null}
 
-        <div className="workspace-grid">
-          <div className="result-column">
-            <section className="workspace-section answer-section" aria-labelledby="answer-heading">
-              <div className="section-heading">
-                <div>
-                  <span className="section-kicker">Result</span>
-                  <h1 id="answer-heading">Answer</h1>
-                </div>
-                <StatusBadge status={status} />
-              </div>
-
-              {!status ? (
-                <div className="empty-answer">
-                  <FileSearch size={30} strokeWidth={1.5} />
-                  <span>No result</span>
-                </div>
-              ) : isRunning ? (
-                <PipelineProgress current={status} completed={completedStages} />
-              ) : result?.status === "ABSTAINED" ? (
-                <div className="abstention-state">
-                  <div className="abstention-title">
-                    <AlertTriangle size={21} aria-hidden="true" />
-                    <div>
-                      <h2>Evidence unavailable</h2>
-                      <span>{result.abstention?.reason_code.replaceAll("_", " ")}</span>
-                    </div>
-                  </div>
-                  <p>{result.abstention?.message}</p>
-                  <div className="missing-roles">
-                    <span>Missing evidence roles</span>
-                    <ul>
-                      {result.abstention?.missing_evidence_roles.map((role) => (
-                        <li key={role}>{role.replaceAll("_", " ").toLowerCase()}</li>
-                      ))}
-                    </ul>
-                  </div>
-                </div>
-              ) : result?.status === "ANSWER_READY" ? (
-                <div className="claim-list">
-                  {result.claims.map((claim) => (
-                    <p key={claim.claim_id}>{claim.text}</p>
-                  ))}
-                </div>
-              ) : (
-                <div className="failed-state">The run failed safely. No clinical claim was rendered.</div>
-              )}
-            </section>
-
-            <section className="workspace-section" aria-labelledby="context-heading">
-              <div className="section-heading compact">
-                <div>
-                  <span className="section-kicker">Reviewed input</span>
-                  <h2 id="context-heading">Interpreted clinical context</h2>
-                </div>
-                {context ? (
-                  <button
-                    className="icon-text-button"
-                    type="button"
-                    onClick={openContextEditor}
-                    title="Edit interpreted context"
-                  >
-                    <Pencil size={15} />
-                    Edit
-                  </button>
-                ) : null}
-              </div>
-              {rows.length ? (
-                <dl className="context-grid">
-                  {rows.map(([label, value], index) => (
-                    <div key={`${label}-${value}-${index}`}>
-                      <dt>{label}</dt>
-                      <dd>{value}</dd>
-                    </div>
-                  ))}
-                </dl>
-              ) : (
-                <div className="section-empty">No context extracted</div>
-              )}
-            </section>
-
-            <section className="workspace-section" aria-labelledby="evidence-heading">
-              <div className="section-heading compact">
-                <div>
-                  <span className="section-kicker">Sources</span>
-                  <h2 id="evidence-heading">Primary evidence</h2>
-                </div>
-                <span className="item-count">0 items</span>
-              </div>
-              <div className="section-empty">No verified evidence</div>
-            </section>
-          </div>
-
-          <aside className="source-column" aria-label="Source and verification">
-            <section className="source-viewer" aria-labelledby="source-heading">
-              <div className="viewer-toolbar">
-                <div>
-                  <span className="section-kicker">Document</span>
-                  <h2 id="source-heading">Source viewer</h2>
-                </div>
-                <span className="page-indicator">Page --</span>
-              </div>
-              <div className="viewer-canvas">
-                <FileText size={38} strokeWidth={1.35} />
-                <span>No source selected</span>
-              </div>
-            </section>
-
-            <section className="verification-section" aria-labelledby="verification-heading">
-              <div className="section-heading compact">
-                <div>
-                  <span className="section-kicker">Safety gate</span>
-                  <h2 id="verification-heading">Verification</h2>
-                </div>
-                <ShieldCheck size={20} />
-              </div>
-              <div className="verification-metrics">
-                <div>
-                  <strong>{result?.verification_summary.rendered_claims ?? 0}</strong>
-                  <span>Rendered</span>
-                </div>
-                <div>
-                  <strong>{result?.verification_summary.supported_claims ?? 0}</strong>
-                  <span>Supported</span>
-                </div>
-                <div>
-                  <strong>{result?.verification_summary.withheld_claims ?? 0}</strong>
-                  <span>Withheld</span>
-                </div>
-              </div>
-              <div className="verification-state">
-                {result?.status === "ANSWER_READY" ? (
-                  <><Check size={17} />Evidence gate passed</>
-                ) : (
-                  <><AlertTriangle size={17} />Evidence gate not passed</>
-                )}
-              </div>
-            </section>
-          </aside>
-        </div>
+        {workspaceResult ? (
+          <ResultWorkspace
+            allowContextEditing={Boolean(run.result) && !run.isRunning}
+            isPrevious={isPreviousResult}
+            onCopyAnswer={copyAnswer}
+            onCopyRunId={copyRunId}
+            onEditContext={openContextEditor}
+            onExportAudit={exportAudit}
+            onRetry={() => void run.retry()}
+            onSelectClaim={selectClaim}
+            onSelectEvidence={setSelectedEvidenceId}
+            progressEvents={run.result ? run.progressEvents : []}
+            result={workspaceResult}
+            runLifecycle={run.result ? run.lifecycle : "completed"}
+            runStatus={run.result ? run.status : workspaceResult.status}
+            selectedClaimEvidence={selectedClaimEvidence}
+            selectedClaimId={effectiveSelectedClaimId}
+            selectedEvidenceId={effectiveSelectedEvidenceId}
+          />
+        ) : null}
       </main>
 
-      {editOpen && draftContext ? (
-        <div className="modal-backdrop" role="presentation">
-          <form className="context-dialog" onSubmit={handleContextSubmit}>
-            <div className="dialog-heading">
-              <div>
-                <span className="section-kicker">Question context</span>
-                <h2>Edit interpreted context</h2>
-              </div>
-              <button
-                className="icon-button"
-                type="button"
-                onClick={() => setEditOpen(false)}
-                title="Close context editor"
-                aria-label="Close context editor"
-              >
-                <X size={18} />
-              </button>
-            </div>
-            <div className="dialog-fields">
-              <label>
-                <span>Age</span>
-                <input
-                  type="number"
-                  min={0}
-                  max={130}
-                  value={draftContext.age ?? ""}
-                  onChange={(event) =>
-                    setDraftContext({
-                      ...draftContext,
-                      age: event.target.value === "" ? null : Number(event.target.value),
-                    })
-                  }
-                />
-              </label>
-              <label>
-                <span>Conditions</span>
-                <input
-                  type="text"
-                  value={conceptInputValue(draftContext.conditions)}
-                  onChange={(event) =>
-                    setDraftContext({
-                      ...draftContext,
-                      conditions: parseConceptInput(event.target.value),
-                    })
-                  }
-                />
-              </label>
-              {draftContext.measurements.map((measurement, index) => (
-                <div className="measurement-fields" key={`${measurement.concept}-${index}`}>
-                  <label>
-                    <span>{measurement.concept}</span>
-                    <input
-                      type="number"
-                      step="any"
-                      value={measurement.value}
-                      onChange={(event) => {
-                        const measurements = [...draftContext.measurements];
-                        measurements[index] = { ...measurement, value: Number(event.target.value) };
-                        setDraftContext({ ...draftContext, measurements });
-                      }}
-                    />
-                  </label>
-                  <label>
-                    <span>Unit</span>
-                    <input
-                      type="text"
-                      value={measurement.unit}
-                      onChange={(event) => {
-                        const measurements = [...draftContext.measurements];
-                        measurements[index] = { ...measurement, unit: event.target.value };
-                        setDraftContext({ ...draftContext, measurements });
-                      }}
-                    />
-                  </label>
-                </div>
-              ))}
-            </div>
-            <div className="dialog-actions">
-              <button className="secondary-button" type="button" onClick={() => setEditOpen(false)}>
-                Cancel
-              </button>
-              <button className="primary-button" type="submit">
-                <RotateCw size={16} />Run again
-              </button>
-            </div>
-          </form>
-        </div>
+      {editOpen && draftContext && run.result?.interpreted_context ? (
+        <ContextDialog
+          context={draftContext}
+          originalContext={run.result.interpreted_context}
+          onChange={setDraftContext}
+          onOpenChange={setEditOpen}
+          onSubmit={replaceContext}
+          open={editOpen}
+        />
       ) : null}
     </div>
   );
 }
 
-function StatusBadge({ status }: { status: QuestionStatus | null }) {
-  const statusClass = status ? status.toLowerCase().replaceAll("_", "-") : "idle";
-  return <span className={`status-badge status-${statusClass}`}>{status ? STATUS_LABELS[status] : "Idle"}</span>;
-}
-
-function PipelineProgress({
-  current,
-  completed,
+function ResultWorkspace({
+  allowContextEditing,
+  isPrevious,
+  onCopyAnswer,
+  onCopyRunId,
+  onEditContext,
+  onExportAudit,
+  onRetry,
+  onSelectClaim,
+  onSelectEvidence,
+  progressEvents,
+  result,
+  runLifecycle,
+  runStatus,
+  selectedClaimEvidence,
+  selectedClaimId,
+  selectedEvidenceId,
 }: {
-  current: QuestionStatus;
-  completed: QuestionStatus[];
+  allowContextEditing: boolean;
+  isPrevious: boolean;
+  onCopyAnswer: () => void;
+  onCopyRunId: () => void;
+  onEditContext: () => void;
+  onExportAudit: () => void;
+  onRetry: () => void;
+  onSelectClaim: (claimId: string) => void;
+  onSelectEvidence: (evidenceId: string) => void;
+  progressEvents: ReturnType<typeof useEvidenceRun>["progressEvents"];
+  result: QuestionResult;
+  runLifecycle: ReturnType<typeof useEvidenceRun>["lifecycle"];
+  runStatus: ReturnType<typeof useEvidenceRun>["status"];
+  selectedClaimEvidence: QuestionResult["evidence_details"];
+  selectedClaimId: string | null;
+  selectedEvidenceId: string | null;
 }) {
+  const ready = result.status === "ANSWER_READY";
   return (
-    <ol className="pipeline-list">
-      {PIPELINE_STAGES.map((stage) => {
-        const isDone = completed.includes(stage) && stage !== current;
-        const isCurrent = stage === current;
-        return (
-          <li className={isDone ? "done" : isCurrent ? "current" : "pending"} key={stage}>
-            <span className="pipeline-icon">
-              {isDone ? <Check size={14} /> : isCurrent ? <CircleDashed className="spin" size={14} /> : <ChevronRight size={14} />}
-            </span>
-            <span>{STATUS_LABELS[stage]}</span>
-          </li>
-        );
-      })}
-    </ol>
+    <>
+      <ProvenanceStrip onCopyRunId={onCopyRunId} result={result} />
+      <div className={styles["workspace-grid"]}>
+        <div className={styles["result-column"]}>
+          <AnswerPanel
+            isPrevious={isPrevious}
+            onCopyAnswer={onCopyAnswer}
+            onExportAudit={onExportAudit}
+            onRetry={onRetry}
+            onSelectClaim={onSelectClaim}
+            result={result}
+            selectedClaimId={selectedClaimId}
+          />
+          {ready ? (
+            <EvidenceDetails
+              allowContextEditing={allowContextEditing}
+              context={result.interpreted_context}
+              onEditContext={onEditContext}
+              onSelectEvidence={onSelectEvidence}
+              result={result}
+              selectedClaimId={selectedClaimId}
+              selectedEvidenceId={selectedEvidenceId}
+            />
+          ) : (
+            <InterpretedContextPanel
+              allowEditing={allowContextEditing}
+              context={result.interpreted_context}
+              onEdit={onEditContext}
+            />
+          )}
+        </div>
+
+        <div className={styles["source-column"]}>
+          {ready ? (
+            <SourceViewer
+              evidence={selectedClaimEvidence}
+              onSelectEvidence={onSelectEvidence}
+              selectedEvidenceId={selectedEvidenceId}
+            />
+          ) : null}
+          <VerificationPanel
+            isRunning={false}
+            lifecycle={runLifecycle}
+            progressEvents={progressEvents}
+            result={result}
+            status={runStatus}
+          />
+        </div>
+      </div>
+    </>
   );
 }
 
+function friendlyError(error: string): { message: string; title: string } {
+  const normalized = error.toLowerCase();
+  if (normalized.includes("fetch") || normalized.includes("connection")) {
+    return {
+      title: "Could not reach the evidence service",
+      message: "Check the API connection, then try the review again. No clinical claim was displayed.",
+    };
+  }
+  if (normalized.includes("invalid") || normalized.includes("contract")) {
+    return {
+      title: "The evidence service returned an unexpected response",
+      message: "The response was rejected before it entered the interface. Try again or share the technical details with support.",
+    };
+  }
+  if (normalized.includes("five minutes")) {
+    return {
+      title: "This browser stopped waiting",
+      message: "The server may still be processing the run. Retry monitoring when the service is available.",
+    };
+  }
+  return {
+    title: "The review could not be started",
+    message: "Nothing unsafe was displayed. Try once more or share the run details if the problem continues.",
+  };
+}

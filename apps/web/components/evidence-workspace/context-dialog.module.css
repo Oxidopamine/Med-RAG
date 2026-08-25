@@ -1,0 +1,511 @@
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background: rgba(8, 19, 38, 0.58);
+  backdrop-filter: blur(2px);
+  animation: fadeIn 140ms ease-out;
+}
+
+.dialog {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  z-index: 41;
+  width: min(860px, calc(100% - 32px));
+  max-height: calc(100dvh - 36px);
+  overflow-y: auto;
+  transform: translate(-50%, -50%);
+  color: var(--ink);
+  background: var(--paper);
+  border: 1px solid var(--line-strong);
+  border-radius: 12px;
+  box-shadow: 0 26px 80px rgba(7, 22, 48, 0.26);
+  animation: dialogIn 160ms ease-out;
+}
+
+.dialog form {
+  min-width: 0;
+}
+
+.heading {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  padding: 20px 22px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  background: rgba(255, 255, 255, 0.98);
+  border-bottom: 1px solid var(--line);
+}
+
+.heading h2 {
+  margin: 0;
+  font-size: 20px;
+  line-height: 1.25;
+  letter-spacing: -0.02em;
+}
+
+.kicker {
+  display: block;
+  margin-bottom: 4px;
+  color: #647086;
+  font-size: 11px;
+  font-weight: 750;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.description {
+  margin: 0;
+  padding: 14px 22px 0;
+  color: var(--ink-soft);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.iconButton,
+.addButton,
+.outlineButton,
+.removeMeasurement,
+.secondaryButton,
+.primaryButton,
+.chip button {
+  min-width: 40px;
+  min-height: 40px;
+  font: inherit;
+  cursor: pointer;
+}
+
+.iconButton {
+  padding: 0;
+  display: grid;
+  place-items: center;
+  flex: 0 0 40px;
+  color: var(--ink);
+  background: white;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+}
+
+.iconButton:hover,
+.secondaryButton:hover,
+.outlineButton:hover {
+  background: #f5f7fa;
+}
+
+.validationSummary,
+.submitMessage {
+  margin: 14px 22px 0;
+  padding: 10px 12px;
+  color: #8b2f36;
+  background: var(--red-soft);
+  border: 1px solid #efc6ca;
+  border-radius: 8px;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.section {
+  margin: 18px 22px 0;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+}
+
+.sectionHeading {
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.sectionHeading h3,
+.changeSummary h3 {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.35;
+}
+
+.sectionHeading p {
+  margin: 3px 0 0;
+  color: var(--ink-soft);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.profileGrid,
+.terminologyGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.field {
+  min-width: 0;
+}
+
+.field > span:first-child,
+.terminologyField legend {
+  display: block;
+  margin-bottom: 6px;
+  color: #344159;
+  font-size: 12px;
+  font-weight: 680;
+}
+
+.field input,
+.field select,
+.termEntry input {
+  width: 100%;
+  min-height: 42px;
+  padding: 8px 11px;
+  color: var(--ink);
+  background: #fbfcfe;
+  border: 1px solid var(--line-strong);
+  border-radius: 7px;
+  outline: none;
+  font: inherit;
+}
+
+.field select {
+  cursor: pointer;
+}
+
+.field input:focus,
+.field select:focus,
+.termEntry input:focus {
+  border-color: #6d9de8;
+  box-shadow: 0 0 0 3px rgba(20, 98, 213, 0.12);
+}
+
+.field input[aria-invalid="true"],
+.termEntry input[aria-invalid="true"] {
+  border-color: #cb6a71;
+}
+
+.terminologyField {
+  min-width: 0;
+  margin: 0;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+}
+
+.terminologyField legend {
+  padding: 0 4px;
+}
+
+.termEntry {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+}
+
+.addButton,
+.outlineButton,
+.removeMeasurement,
+.secondaryButton,
+.primaryButton {
+  padding: 8px 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border-radius: 7px;
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.addButton,
+.primaryButton {
+  color: white;
+  background: var(--blue);
+  border: 1px solid var(--blue);
+}
+
+.addButton:hover,
+.primaryButton:hover:not(:disabled) {
+  background: var(--blue-dark);
+  border-color: var(--blue-dark);
+}
+
+.outlineButton,
+.secondaryButton {
+  color: var(--ink);
+  background: white;
+  border: 1px solid var(--line-strong);
+}
+
+.fieldHint,
+.emptyValue {
+  margin: 5px 0 0;
+  color: #6a7587;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.emptyValue {
+  padding: 7px 0 2px;
+}
+
+.chipList {
+  margin: 9px 0 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  list-style: none;
+}
+
+.chip {
+  min-height: 40px;
+  padding-left: 10px;
+  display: inline-flex;
+  align-items: center;
+  color: #163f7a;
+  background: var(--blue-soft);
+  border: 1px solid #ccdaf2;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.chip button {
+  padding: 0 7px;
+  display: grid;
+  place-items: center;
+  color: #335982;
+  background: transparent;
+  border: 0;
+  border-radius: 999px;
+}
+
+.chip button:hover {
+  color: #8b2f36;
+  background: rgba(177, 62, 68, 0.08);
+}
+
+.fieldError,
+.sectionError {
+  display: block;
+  margin: 6px 0 0;
+  color: #9a343b;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.measurementList {
+  display: grid;
+  gap: 10px;
+}
+
+.measurementCard {
+  position: relative;
+  min-width: 0;
+  margin: 0;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+}
+
+.measurementCard legend {
+  padding: 0 5px;
+  color: #344159;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.measurementGrid {
+  display: grid;
+  grid-template-columns: minmax(170px, 1.3fr) minmax(110px, 0.7fr) minmax(150px, 1fr);
+  gap: 12px;
+  padding-right: 96px;
+}
+
+.removeMeasurement {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  color: #8b2f36;
+  background: transparent;
+  border: 0;
+}
+
+.removeMeasurement:hover {
+  background: var(--red-soft);
+}
+
+.emptyMeasurements {
+  padding: 18px;
+  color: var(--ink-soft);
+  background: #f8fafc;
+  border: 1px dashed var(--line-strong);
+  border-radius: 8px;
+  text-align: center;
+  font-size: 12px;
+}
+
+.changeSummary {
+  margin: 18px 22px 0;
+  padding: 14px;
+  background: #f8fafc;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+}
+
+.changeSummary > p {
+  margin: 7px 0 0;
+  color: var(--ink-soft);
+  font-size: 12px;
+}
+
+.changeSummary ul {
+  margin: 10px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+  list-style: none;
+}
+
+.changeSummary li {
+  display: grid;
+  grid-template-columns: minmax(120px, 0.7fr) minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  color: #4f5b6e;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.changeSummary li strong {
+  color: var(--ink);
+}
+
+.changeSummary li span {
+  overflow-wrap: anywhere;
+}
+
+.actions {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  margin-top: 18px;
+  padding: 14px 22px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 9px;
+  background: rgba(255, 255, 255, 0.98);
+  border-top: 1px solid var(--line);
+}
+
+.primaryButton:disabled {
+  opacity: 0.66;
+  cursor: wait;
+}
+
+.dialog button:focus-visible,
+.dialog input:focus-visible,
+.dialog select:focus-visible {
+  outline: 3px solid rgba(20, 98, 213, 0.32);
+  outline-offset: 2px;
+}
+
+.spin {
+  animation: spin 900ms linear infinite;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes dialogIn {
+  from {
+    opacity: 0;
+    transform: translate(-50%, calc(-50% + 8px));
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (max-width: 720px) {
+  .dialog {
+    width: calc(100% - 16px);
+    max-height: calc(100dvh - 16px);
+    border-radius: 10px;
+  }
+
+  .heading {
+    padding: 16px;
+  }
+
+  .description {
+    padding: 12px 16px 0;
+  }
+
+  .validationSummary,
+  .submitMessage,
+  .section,
+  .changeSummary {
+    margin-right: 16px;
+    margin-left: 16px;
+  }
+
+  .profileGrid,
+  .terminologyGrid,
+  .measurementGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .sectionHeading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .outlineButton {
+    width: 100%;
+  }
+
+  .measurementGrid {
+    padding: 0;
+  }
+
+  .removeMeasurement {
+    position: static;
+    width: 100%;
+    margin-top: 10px;
+  }
+
+  .changeSummary li {
+    grid-template-columns: 1fr auto 1fr;
+  }
+
+  .changeSummary li strong {
+    grid-column: 1 / -1;
+  }
+
+  .actions {
+    padding: 12px 16px;
+  }
+
+  .actions button {
+    flex: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .backdrop,
+  .dialog,
+  .spin {
+    animation: none;
+  }
+}
