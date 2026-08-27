@@ -1,0 +1,16 @@
+{
+  "content": {
+    "allow_source_derived_negative_cases": true,
+    "derivation_rules_sha256": "db53befd452b02adca39e6c1ae6dfd71ddd732b3a042896bfd6b58bac77672a7",
+    "established_at": "2026-08-27T21:00:00Z",
+    "generator_name": "med-rag/source-derived-benchmark",
+    "generator_version": "1.2.0",
+    "maximum_query_characters": 320,
+    "partition_seed_sha256": "899b37db035da410791d84e3d3e725d1e05077828ade8e1c00494ef9c95ead1f",
+    "policy_id": "automated-source-derived-generation",
+    "require_disjoint_partition_source_evidence": true,
+    "revision": "2026-08-27-who-smart-hiv-v7",
+    "schema_version": "1.0.0"
+  },
+  "policy_sha256": "27e757fed56316750acf471f7b83b8712d6cad59255864997da0685e9b5ac3b8"
+}

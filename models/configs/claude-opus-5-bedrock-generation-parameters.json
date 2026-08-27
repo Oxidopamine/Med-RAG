@@ -1,0 +1,11 @@
+{
+  "schema_version": "1.0.0",
+  "provider": "AWS_BEDROCK",
+  "model_id": "claude-opus-5",
+  "max_tokens": 16000,
+  "effort": "high",
+  "adaptive_thinking": true,
+  "request_timeout_seconds": 120.0,
+  "cache_system_prompt": true,
+  "aws_region": "us-east-1"
+}

@@ -1,0 +1,18 @@
+{
+  "schema_version": "1.0.0",
+  "policy_id": "automated-source-benchmark-access",
+  "revision": "2026-08-26-who-smart-hiv-v1",
+  "development_builder_identities": [
+    "benchmark-automation-service"
+  ],
+  "holdout_custodian_identities": [
+    "benchmark-automation-service"
+  ],
+  "candidate_team_identities": [
+    "retrieval-engineering"
+  ],
+  "holdout_access_mode": "CUSTODIAN_ONLY_UNTIL_ACCEPTANCE",
+  "prohibit_candidate_team_holdout_access": true,
+  "require_access_audit_event": true,
+  "effective_at": "2026-08-26T12:00:00Z"
+}

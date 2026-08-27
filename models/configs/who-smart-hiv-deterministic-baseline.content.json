@@ -1,0 +1,40 @@
+{
+  "schema_version": "1.0.0",
+  "candidate_id": "who-smart-hiv-deterministic-development-baseline-v1",
+  "lanes": [
+    {
+      "lane_id": "deterministic-dense",
+      "kind": "DENSE",
+      "vector_name": "dense",
+      "model": {
+        "model_id": "med-rag/baseline-hashing-dense",
+        "revision": "1.0.0",
+        "artifact_sha256": "795713846525b3837f2d32d1abae4ec47f0ab0c7653da5802b98dede58ee6a42"
+      },
+      "adapter_id": "med-rag/deterministic-dense",
+      "adapter_revision": "1.0.0",
+      "weight": 1.0,
+      "required": true
+    },
+    {
+      "lane_id": "deterministic-sparse",
+      "kind": "BM25",
+      "vector_name": "sparse",
+      "model": {
+        "model_id": "med-rag/baseline-hashing-sparse",
+        "revision": "1.0.0",
+        "artifact_sha256": "6aac7ebf93aeace9038fb2325045fbef92e6d57a4cc4d7ec130b34dc61cdd291"
+      },
+      "adapter_id": "med-rag/deterministic-sparse",
+      "adapter_revision": "1.0.0",
+      "weight": 1.0,
+      "required": true
+    }
+  ],
+  "rrf_k": 60,
+  "candidate_limit": 50,
+  "output_depth": 10,
+  "reranker": null,
+  "safety_query_revision": null,
+  "terminology_revision": null
+}

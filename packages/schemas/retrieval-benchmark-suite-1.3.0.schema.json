@@ -1,0 +1,847 @@
+{
+  "$defs": {
+    "AdjudicatorReview": {
+      "additionalProperties": false,
+      "properties": {
+        "adjudicator_identity": {
+          "maxLength": 300,
+          "minLength": 1,
+          "title": "Adjudicator Identity",
+          "type": "string"
+        },
+        "clinical_role": {
+          "maxLength": 300,
+          "minLength": 1,
+          "title": "Clinical Role",
+          "type": "string"
+        },
+        "decided_at": {
+          "format": "date-time",
+          "title": "Decided At",
+          "type": "string"
+        },
+        "evidence_access_revision_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Evidence Access Revision Sha256",
+          "type": "string"
+        },
+        "independent_of_candidate_team": {
+          "title": "Independent Of Candidate Team",
+          "type": "boolean"
+        },
+        "instructions_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Instructions Sha256",
+          "type": "string"
+        },
+        "review_id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Review Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "review_id",
+        "adjudicator_identity",
+        "clinical_role",
+        "independent_of_candidate_team",
+        "instructions_sha256",
+        "evidence_access_revision_sha256",
+        "decided_at"
+      ],
+      "title": "AdjudicatorReview",
+      "type": "object"
+    },
+    "AutomatedSourceDerivedProvenance": {
+      "additionalProperties": false,
+      "properties": {
+        "derivation_rule_id": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Derivation Rule Id",
+          "type": "string"
+        },
+        "derivation_rules_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Derivation Rules Sha256",
+          "type": "string"
+        },
+        "generator_name": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Generator Name",
+          "type": "string"
+        },
+        "generator_version": {
+          "maxLength": 100,
+          "minLength": 1,
+          "title": "Generator Version",
+          "type": "string"
+        },
+        "partition_assignment_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Partition Assignment Sha256",
+          "type": "string"
+        },
+        "provenance_type": {
+          "const": "AUTOMATED_SOURCE_DERIVED",
+          "default": "AUTOMATED_SOURCE_DERIVED",
+          "title": "Provenance Type",
+          "type": "string"
+        },
+        "source_evidence": {
+          "items": {
+            "$ref": "#/$defs/AutomatedSourceEvidenceReference"
+          },
+          "minItems": 1,
+          "title": "Source Evidence",
+          "type": "array"
+        }
+      },
+      "required": [
+        "generator_name",
+        "generator_version",
+        "derivation_rule_id",
+        "derivation_rules_sha256",
+        "source_evidence",
+        "partition_assignment_sha256"
+      ],
+      "title": "AutomatedSourceDerivedProvenance",
+      "type": "object"
+    },
+    "AutomatedSourceEvidenceReference": {
+      "additionalProperties": false,
+      "properties": {
+        "evidence_id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Evidence Id",
+          "type": "string"
+        },
+        "evidence_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Evidence Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "evidence_id",
+        "evidence_sha256"
+      ],
+      "title": "AutomatedSourceEvidenceReference",
+      "type": "object"
+    },
+    "BenchmarkAcceptance": {
+      "additionalProperties": false,
+      "properties": {
+        "maximum_candidate_failure_cases": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Maximum Candidate Failure Cases",
+          "type": "integer"
+        },
+        "maximum_forbidden_leakage_cases": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Maximum Forbidden Leakage Cases",
+          "type": "integer"
+        },
+        "maximum_p95_latency_ms": {
+          "default": 2000.0,
+          "exclusiveMinimum": 0,
+          "title": "Maximum P95 Latency Ms",
+          "type": "number"
+        },
+        "minimum_complete_evidence_set_rate": {
+          "default": 1.0,
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Minimum Complete Evidence Set Rate",
+          "type": "number"
+        },
+        "minimum_insufficient_evidence_accuracy": {
+          "default": 1.0,
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Minimum Insufficient Evidence Accuracy",
+          "type": "number"
+        },
+        "minimum_mean_context_precision_at_k": {
+          "default": 0.8,
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Minimum Mean Context Precision At K",
+          "type": "number"
+        },
+        "minimum_mean_ndcg_at_k": {
+          "default": 0.8,
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Minimum Mean Ndcg At K",
+          "type": "number"
+        },
+        "minimum_mean_recall_at_k": {
+          "default": 0.8,
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Minimum Mean Recall At K",
+          "type": "number"
+        },
+        "minimum_mean_reciprocal_rank": {
+          "default": 0.8,
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Minimum Mean Reciprocal Rank",
+          "type": "number"
+        },
+        "minimum_mean_required_role_recall": {
+          "default": 1.0,
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Minimum Mean Required Role Recall",
+          "type": "number"
+        },
+        "minimum_total_case_count": {
+          "default": 1,
+          "exclusiveMinimum": 0,
+          "title": "Minimum Total Case Count",
+          "type": "integer"
+        },
+        "safety_strata": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/SafetyStratumThreshold"
+          },
+          "title": "Safety Strata",
+          "type": "array"
+        }
+      },
+      "title": "BenchmarkAcceptance",
+      "type": "object"
+    },
+    "BenchmarkCase": {
+      "additionalProperties": false,
+      "properties": {
+        "adjudication": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CaseAdjudication"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "automated_provenance": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AutomatedSourceDerivedProvenance"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "case_id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Case Id",
+          "type": "string"
+        },
+        "evidence_expectation": {
+          "$ref": "#/$defs/EvidenceExpectation",
+          "default": "ANSWERABLE"
+        },
+        "forbidden_evidence_ids": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Forbidden Evidence Ids",
+          "type": "array"
+        },
+        "gold_evidence": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/BenchmarkGoldEvidence"
+          },
+          "title": "Gold Evidence",
+          "type": "array"
+        },
+        "minimum_complete_evidence_sets": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/MinimumCompleteEvidenceSet"
+          },
+          "title": "Minimum Complete Evidence Sets",
+          "type": "array"
+        },
+        "question": {
+          "maxLength": 10000,
+          "minLength": 1,
+          "title": "Question",
+          "type": "string"
+        },
+        "required_evidence_roles": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/EvidenceRole"
+          },
+          "title": "Required Evidence Roles",
+          "type": "array"
+        },
+        "retrieval_filter": {
+          "$ref": "#/$defs/BenchmarkFilter"
+        },
+        "safety_topics": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/ClinicalSafetyTopic"
+          },
+          "title": "Safety Topics",
+          "type": "array"
+        },
+        "strata": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Strata",
+          "type": "object"
+        }
+      },
+      "required": [
+        "case_id",
+        "question"
+      ],
+      "title": "BenchmarkCase",
+      "type": "object"
+    },
+    "BenchmarkFilter": {
+      "additionalProperties": false,
+      "properties": {
+        "jurisdictions": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Jurisdictions",
+          "type": "array"
+        },
+        "languages": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Languages",
+          "type": "array"
+        },
+        "lifecycle_statuses": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Lifecycle Statuses",
+          "type": "array"
+        },
+        "publisher_ids": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Publisher Ids",
+          "type": "array"
+        },
+        "source_classes": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Source Classes",
+          "type": "array"
+        },
+        "source_version_ids": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Source Version Ids",
+          "type": "array"
+        }
+      },
+      "title": "BenchmarkFilter",
+      "type": "object"
+    },
+    "BenchmarkGoldEvidence": {
+      "additionalProperties": false,
+      "properties": {
+        "evidence_id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Evidence Id",
+          "type": "string"
+        },
+        "relevance_grade": {
+          "default": 1,
+          "maximum": 3,
+          "minimum": 1,
+          "title": "Relevance Grade",
+          "type": "integer"
+        },
+        "required": {
+          "default": true,
+          "title": "Required",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "evidence_id"
+      ],
+      "title": "BenchmarkGoldEvidence",
+      "type": "object"
+    },
+    "BenchmarkProvenanceMode": {
+      "enum": [
+        "SYNTHETIC",
+        "INDEPENDENT_REVIEWED",
+        "AUTOMATED_SOURCE_DERIVED"
+      ],
+      "title": "BenchmarkProvenanceMode",
+      "type": "string"
+    },
+    "BenchmarkSuiteContent": {
+      "additionalProperties": false,
+      "properties": {
+        "acceptance": {
+          "$ref": "#/$defs/BenchmarkAcceptance"
+        },
+        "access_policy_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Access Policy Sha256",
+          "type": "string"
+        },
+        "adjudication_process_sha256": {
+          "anyOf": [
+            {
+              "pattern": "^[a-f0-9]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Adjudication Process Sha256"
+        },
+        "adjudication_record_sha256": {
+          "anyOf": [
+            {
+              "pattern": "^[a-f0-9]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Adjudication Record Sha256"
+        },
+        "benchmark_id": {
+          "maxLength": 100,
+          "minLength": 1,
+          "title": "Benchmark Id",
+          "type": "string"
+        },
+        "candidate_configuration_sha256": {
+          "anyOf": [
+            {
+              "pattern": "^[a-f0-9]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Candidate Configuration Sha256"
+        },
+        "candidate_limit": {
+          "default": 50,
+          "exclusiveMinimum": 0,
+          "maximum": 10000,
+          "title": "Candidate Limit",
+          "type": "integer"
+        },
+        "candidate_mode": {
+          "$ref": "#/$defs/RetrievalMode",
+          "default": "hybrid"
+        },
+        "cases": {
+          "items": {
+            "$ref": "#/$defs/BenchmarkCase"
+          },
+          "minItems": 1,
+          "title": "Cases",
+          "type": "array"
+        },
+        "corpus_release_id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Corpus Release Id",
+          "type": "string"
+        },
+        "generation_policy_sha256": {
+          "anyOf": [
+            {
+              "pattern": "^[a-f0-9]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Generation Policy Sha256"
+        },
+        "generation_record_sha256": {
+          "anyOf": [
+            {
+              "pattern": "^[a-f0-9]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Generation Record Sha256"
+        },
+        "manifest_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Manifest Sha256",
+          "type": "string"
+        },
+        "modes": {
+          "default": [
+            "sparse",
+            "dense",
+            "hybrid"
+          ],
+          "items": {
+            "$ref": "#/$defs/RetrievalMode"
+          },
+          "title": "Modes",
+          "type": "array"
+        },
+        "provenance_mode": {
+          "$ref": "#/$defs/BenchmarkProvenanceMode"
+        },
+        "required_safety_topics": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/ClinicalSafetyTopic"
+          },
+          "title": "Required Safety Topics",
+          "type": "array"
+        },
+        "rrf_k": {
+          "default": 60,
+          "exclusiveMinimum": 0,
+          "maximum": 100000,
+          "title": "Rrf K",
+          "type": "integer"
+        },
+        "rrf_weights": {
+          "$ref": "#/$defs/RRFWeights"
+        },
+        "schema_version": {
+          "const": "1.3.0",
+          "default": "1.3.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "suite_partition": {
+          "$ref": "#/$defs/BenchmarkSuitePartition"
+        },
+        "threshold_policy_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Threshold Policy Sha256",
+          "type": "string"
+        },
+        "top_k": {
+          "default": 10,
+          "exclusiveMinimum": 0,
+          "maximum": 1000,
+          "title": "Top K",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "benchmark_id",
+        "suite_partition",
+        "provenance_mode",
+        "access_policy_sha256",
+        "threshold_policy_sha256",
+        "corpus_release_id",
+        "manifest_sha256",
+        "cases"
+      ],
+      "title": "BenchmarkSuiteContent",
+      "type": "object"
+    },
+    "BenchmarkSuitePartition": {
+      "enum": [
+        "DEVELOPMENT",
+        "SEALED_HOLDOUT",
+        "SYNTHETIC"
+      ],
+      "title": "BenchmarkSuitePartition",
+      "type": "string"
+    },
+    "CaseAdjudication": {
+      "additionalProperties": false,
+      "properties": {
+        "disagreement_observed": {
+          "title": "Disagreement Observed",
+          "type": "boolean"
+        },
+        "resolution": {
+          "enum": [
+            "NOT_REQUIRED",
+            "RESOLVED"
+          ],
+          "title": "Resolution",
+          "type": "string"
+        },
+        "resolution_note_sha256": {
+          "anyOf": [
+            {
+              "pattern": "^[a-f0-9]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Resolution Note Sha256"
+        },
+        "resolved_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Resolved At"
+        },
+        "resolver_identity": {
+          "anyOf": [
+            {
+              "maxLength": 300,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Resolver Identity"
+        },
+        "reviews": {
+          "items": {
+            "$ref": "#/$defs/AdjudicatorReview"
+          },
+          "minItems": 1,
+          "title": "Reviews",
+          "type": "array"
+        }
+      },
+      "required": [
+        "reviews",
+        "disagreement_observed",
+        "resolution"
+      ],
+      "title": "CaseAdjudication",
+      "type": "object"
+    },
+    "ClinicalSafetyTopic": {
+      "enum": [
+        "CONTRAINDICATION",
+        "APPLICABILITY",
+        "DOSE",
+        "MONITORING",
+        "TERMINOLOGY",
+        "MULTILINGUAL_CROSS_LINGUAL",
+        "STALE_SOURCE",
+        "WRONG_JURISDICTION",
+        "CONFLICTING_EVIDENCE",
+        "INSUFFICIENT_EVIDENCE",
+        "NEGATION"
+      ],
+      "title": "ClinicalSafetyTopic",
+      "type": "string"
+    },
+    "EvidenceExpectation": {
+      "enum": [
+        "ANSWERABLE",
+        "INSUFFICIENT_EVIDENCE"
+      ],
+      "title": "EvidenceExpectation",
+      "type": "string"
+    },
+    "EvidenceRole": {
+      "enum": [
+        "PRIMARY_SUPPORT",
+        "APPLICABILITY",
+        "EXCEPTION_OR_CONTRAINDICATION",
+        "DOSE_OR_THRESHOLD",
+        "MONITORING",
+        "RATIONALE"
+      ],
+      "title": "EvidenceRole",
+      "type": "string"
+    },
+    "MinimumCompleteEvidenceSet": {
+      "additionalProperties": false,
+      "properties": {
+        "evidence_ids": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Evidence Ids",
+          "type": "array"
+        },
+        "set_id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Set Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "set_id",
+        "evidence_ids"
+      ],
+      "title": "MinimumCompleteEvidenceSet",
+      "type": "object"
+    },
+    "RRFWeights": {
+      "additionalProperties": false,
+      "properties": {
+        "dense": {
+          "default": 1.0,
+          "minimum": 0,
+          "title": "Dense",
+          "type": "number"
+        },
+        "sparse": {
+          "default": 1.0,
+          "minimum": 0,
+          "title": "Sparse",
+          "type": "number"
+        }
+      },
+      "title": "RRFWeights",
+      "type": "object"
+    },
+    "RetrievalMode": {
+      "enum": [
+        "sparse",
+        "dense",
+        "hybrid"
+      ],
+      "title": "RetrievalMode",
+      "type": "string"
+    },
+    "SafetyStratumThreshold": {
+      "additionalProperties": false,
+      "properties": {
+        "maximum_forbidden_leakage_cases": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Maximum Forbidden Leakage Cases",
+          "type": "integer"
+        },
+        "minimum_case_count": {
+          "default": 1,
+          "exclusiveMinimum": 0,
+          "title": "Minimum Case Count",
+          "type": "integer"
+        },
+        "minimum_complete_evidence_set_rate": {
+          "default": 0.0,
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Minimum Complete Evidence Set Rate",
+          "type": "number"
+        },
+        "minimum_insufficient_evidence_accuracy": {
+          "default": 0.0,
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Minimum Insufficient Evidence Accuracy",
+          "type": "number"
+        },
+        "minimum_mean_recall_at_k": {
+          "default": 0.0,
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Minimum Mean Recall At K",
+          "type": "number"
+        },
+        "minimum_mean_required_role_recall": {
+          "default": 0.0,
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Minimum Mean Required Role Recall",
+          "type": "number"
+        },
+        "stratum_key": {
+          "maxLength": 100,
+          "minLength": 1,
+          "title": "Stratum Key",
+          "type": "string"
+        },
+        "stratum_value": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Stratum Value",
+          "type": "string"
+        }
+      },
+      "required": [
+        "stratum_key",
+        "stratum_value"
+      ],
+      "title": "SafetyStratumThreshold",
+      "type": "object"
+    }
+  },
+  "$id": "https://med-rag.local/contracts/retrieval-benchmark-suite-1.3.0.schema.json",
+  "additionalProperties": false,
+  "properties": {
+    "content": {
+      "$ref": "#/$defs/BenchmarkSuiteContent"
+    },
+    "suite_sha256": {
+      "pattern": "^[a-f0-9]{64}$",
+      "title": "Suite Sha256",
+      "type": "string"
+    }
+  },
+  "required": [
+    "content",
+    "suite_sha256"
+  ],
+  "title": "BenchmarkSuite",
+  "type": "object",
+  "x-contract-version": "1.3.0"
+}

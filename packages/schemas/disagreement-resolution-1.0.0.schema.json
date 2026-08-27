@@ -53,6 +53,85 @@
       "title": "AdjudicatorReview",
       "type": "object"
     },
+    "AutomatedSourceDerivedProvenance": {
+      "additionalProperties": false,
+      "properties": {
+        "derivation_rule_id": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Derivation Rule Id",
+          "type": "string"
+        },
+        "derivation_rules_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Derivation Rules Sha256",
+          "type": "string"
+        },
+        "generator_name": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Generator Name",
+          "type": "string"
+        },
+        "generator_version": {
+          "maxLength": 100,
+          "minLength": 1,
+          "title": "Generator Version",
+          "type": "string"
+        },
+        "partition_assignment_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Partition Assignment Sha256",
+          "type": "string"
+        },
+        "provenance_type": {
+          "const": "AUTOMATED_SOURCE_DERIVED",
+          "default": "AUTOMATED_SOURCE_DERIVED",
+          "title": "Provenance Type",
+          "type": "string"
+        },
+        "source_evidence": {
+          "items": {
+            "$ref": "#/$defs/AutomatedSourceEvidenceReference"
+          },
+          "minItems": 1,
+          "title": "Source Evidence",
+          "type": "array"
+        }
+      },
+      "required": [
+        "generator_name",
+        "generator_version",
+        "derivation_rule_id",
+        "derivation_rules_sha256",
+        "source_evidence",
+        "partition_assignment_sha256"
+      ],
+      "title": "AutomatedSourceDerivedProvenance",
+      "type": "object"
+    },
+    "AutomatedSourceEvidenceReference": {
+      "additionalProperties": false,
+      "properties": {
+        "evidence_id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Evidence Id",
+          "type": "string"
+        },
+        "evidence_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Evidence Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "evidence_id",
+        "evidence_sha256"
+      ],
+      "title": "AutomatedSourceEvidenceReference",
+      "type": "object"
+    },
     "BenchmarkCase": {
       "additionalProperties": false,
       "properties": {
@@ -60,6 +139,17 @@
           "anyOf": [
             {
               "$ref": "#/$defs/CaseAdjudication"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "automated_provenance": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AutomatedSourceDerivedProvenance"
             },
             {
               "type": "null"
@@ -160,6 +250,14 @@
           "title": "Languages",
           "type": "array"
         },
+        "lifecycle_statuses": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Lifecycle Statuses",
+          "type": "array"
+        },
         "publisher_ids": {
           "default": [],
           "items": {
@@ -174,6 +272,14 @@
             "type": "string"
           },
           "title": "Source Classes",
+          "type": "array"
+        },
+        "source_version_ids": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Source Version Ids",
           "type": "array"
         }
       },
@@ -291,7 +397,8 @@
         "WRONG_JURISDICTION",
         "CONFLICTING_EVIDENCE",
         "INSUFFICIENT_EVIDENCE",
-        "NEGATION"
+        "NEGATION",
+        "PARAPHRASED_INTENT"
       ],
       "title": "ClinicalSafetyTopic",
       "type": "string"

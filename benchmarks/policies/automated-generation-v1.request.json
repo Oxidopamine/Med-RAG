@@ -1,0 +1,20 @@
+{
+  "generation_id": "ABG_WHO_SMART_HIV_20260827_V7",
+  "development_benchmark_id": "who-smart-hiv-source-derived-development-v7",
+  "holdout_benchmark_id": "who-smart-hiv-source-derived-holdout-v7",
+  "actor_identity": "benchmark-automation-service",
+  "generated_at": "2026-08-27T22:00:00Z",
+  "modes": [
+    "sparse",
+    "dense",
+    "hybrid"
+  ],
+  "candidate_mode": "hybrid",
+  "top_k": 10,
+  "candidate_limit": 50,
+  "rrf_k": 60,
+  "rrf_weights": {
+    "dense": 1.0,
+    "sparse": 1.0
+  }
+}

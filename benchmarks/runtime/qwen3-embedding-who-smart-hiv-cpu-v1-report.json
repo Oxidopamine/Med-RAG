@@ -1,0 +1,103 @@
+{
+  "content": {
+    "corpus_release_id": "CR_b6155a25415b25f3ba787b3b036da10d",
+    "development_suite_sha256": "563f4a3ee2853a478674894557019184a7e89088d165e9aef2126af20d644e27",
+    "environment": {
+      "cuda_available": false,
+      "cuda_device_names": [],
+      "operating_system": "Linux-6.18.33.2-microsoft-standard-WSL2-x86_64-with-glibc2.41",
+      "processor": "x86_64",
+      "python_version": "3.11.15",
+      "torch_version": "2.13.0+cpu",
+      "transformers_version": "5.15.1"
+    },
+    "executed_at": "2026-08-26T09:34:04.086419Z",
+    "manifest_sha256": "c233322a6e7224e16cafed25d4e5a8c6850fd20a790de5e09081bbeab46ce98c",
+    "matrix_id": "qwen3-embedding-who-smart-hiv-cpu-v1",
+    "outcome": "BLOCKED",
+    "request_sha256": "4f665364c7cbdf13f73cb77bd76a6e0d32ed66f3e04689c7e693ddae48654353",
+    "results": [
+      {
+        "artifact_sha256": "9ec38140d99f44343a3cdc19a0fc249843e37b86764fd411e168487b2d364b6a",
+        "blockers": [],
+        "measurements": {
+          "document_count": 32,
+          "document_items_per_second": 0.4046915291311467,
+          "document_mean_latency_ms": 79072.57181464229,
+          "document_p95_latency_ms": 100837.51266205218,
+          "maximum_norm_deviation": 2.220446049250313e-15,
+          "peak_cuda_memory_bytes": null,
+          "peak_process_rss_bytes": 5772599296,
+          "query_count": 32,
+          "query_items_per_second": 1.4710847513905783,
+          "query_mean_latency_ms": 21752.655630310375,
+          "query_p95_latency_ms": 35755.76361594722,
+          "truncated_document_count": 0,
+          "truncated_query_count": 0
+        },
+        "status": "MEASURED",
+        "target": {
+          "artifact_manifest_path": "data/local/model-manifests/qwen3-embedding-0.6b-cpu-float32.json",
+          "artifact_root": "models/local/qwen3-embedding-0.6b",
+          "batch_size": 8,
+          "device": "cpu",
+          "dimension": 1024,
+          "dtype": "float32",
+          "expected_artifact_sha256": "9ec38140d99f44343a3cdc19a0fc249843e37b86764fd411e168487b2d364b6a",
+          "max_length": 8192,
+          "model_id": "Qwen/Qwen3-Embedding-0.6B",
+          "model_revision": "97b0c614be4d77ee51c0cef4e5f07c00f9eb65b3",
+          "target_id": "qwen3-embedding-0.6b-cpu-float32"
+        }
+      },
+      {
+        "artifact_sha256": null,
+        "blockers": [
+          "ARTIFACT_SHA256_PIN_MISSING",
+          "LOCAL_MODEL_ROOT_MISSING",
+          "MODEL_ARTIFACT_MANIFEST_MISSING"
+        ],
+        "measurements": null,
+        "status": "BLOCKED",
+        "target": {
+          "artifact_manifest_path": "data/local/model-manifests/qwen3-embedding-4b-cpu-float32.json",
+          "artifact_root": "models/local/qwen3-embedding-4b",
+          "batch_size": 2,
+          "device": "cpu",
+          "dimension": 2560,
+          "dtype": "float32",
+          "expected_artifact_sha256": null,
+          "max_length": 8192,
+          "model_id": "Qwen/Qwen3-Embedding-4B",
+          "model_revision": "5cf2132abc99cad020ac570b19d031efec650f2b",
+          "target_id": "qwen3-embedding-4b-cpu-float32"
+        }
+      },
+      {
+        "artifact_sha256": null,
+        "blockers": [
+          "ARTIFACT_SHA256_PIN_MISSING",
+          "LOCAL_MODEL_ROOT_MISSING",
+          "MODEL_ARTIFACT_MANIFEST_MISSING"
+        ],
+        "measurements": null,
+        "status": "BLOCKED",
+        "target": {
+          "artifact_manifest_path": "data/local/model-manifests/qwen3-embedding-8b-cpu-float32.json",
+          "artifact_root": "models/local/qwen3-embedding-8b",
+          "batch_size": 1,
+          "device": "cpu",
+          "dimension": 4096,
+          "dtype": "float32",
+          "expected_artifact_sha256": null,
+          "max_length": 8192,
+          "model_id": "Qwen/Qwen3-Embedding-8B",
+          "model_revision": "1d8ad4ca9b3dd8059ad90a75d4983776a23d44af",
+          "target_id": "qwen3-embedding-8b-cpu-float32"
+        }
+      }
+    ],
+    "schema_version": "1.0.0"
+  },
+  "report_sha256": "76cc9655f35916c5a116d2bf00b57f2a5ba25e488dd5a706fed956091968383b"
+}

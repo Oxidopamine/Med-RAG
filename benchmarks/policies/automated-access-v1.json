@@ -1,0 +1,21 @@
+{
+  "content": {
+    "candidate_team_identities": [
+      "retrieval-engineering"
+    ],
+    "development_builder_identities": [
+      "benchmark-automation-service"
+    ],
+    "effective_at": "2026-08-26T12:00:00Z",
+    "holdout_access_mode": "CUSTODIAN_ONLY_UNTIL_ACCEPTANCE",
+    "holdout_custodian_identities": [
+      "benchmark-automation-service"
+    ],
+    "policy_id": "automated-source-benchmark-access",
+    "prohibit_candidate_team_holdout_access": true,
+    "require_access_audit_event": true,
+    "revision": "2026-08-26-who-smart-hiv-v1",
+    "schema_version": "1.0.0"
+  },
+  "policy_sha256": "c26fb48afb9e0e0f23d5ffcd033518f034d8a4eab0db648af73d22505938adb7"
+}

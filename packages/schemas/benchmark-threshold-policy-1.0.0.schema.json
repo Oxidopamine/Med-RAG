@@ -2,7 +2,63 @@
   "$defs": {
     "BenchmarkAcceptance": {
       "additionalProperties": false,
+      "description": "Prespecified gates for one benchmark run.\n\nAbsolute score floors are not transferable between corpora: retrieval effectiveness\nvaries more with collection and topic difficulty than with system quality, so a bar\ncopied from a leaderboard measures the corpus rather than the stack. Every gate here\nis therefore expected to be one of three defensible forms - derived from what a\ndownstream consumer actually needs, stated as a confidence bound rather than a point\nestimate, or expressed relative to a named comparator that was measured on this same\nsuite. Ranking-quality metrics that no safety argument depends on are reported rather\nthan gated.",
       "properties": {
+        "comparator_answerable_complete_evidence_rate": {
+          "anyOf": [
+            {
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Comparator Answerable Complete Evidence Rate"
+        },
+        "comparator_candidate_id": {
+          "anyOf": [
+            {
+              "maxLength": 100,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Comparator Candidate Id"
+        },
+        "comparator_report_sha256": {
+          "anyOf": [
+            {
+              "pattern": "^[a-f0-9]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Comparator Report Sha256"
+        },
+        "generation_context_budget": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "maximum": 1000,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Generation Context Budget"
+        },
         "maximum_candidate_failure_cases": {
           "default": 0,
           "minimum": 0,
@@ -21,6 +77,34 @@
           "title": "Maximum P95 Latency Ms",
           "type": "number"
         },
+        "minimum_answerable_complete_evidence_at_budget_rate": {
+          "default": 0.0,
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Minimum Answerable Complete Evidence At Budget Rate",
+          "type": "number"
+        },
+        "minimum_answerable_complete_evidence_set_rate": {
+          "default": 0.0,
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Minimum Answerable Complete Evidence Set Rate",
+          "type": "number"
+        },
+        "minimum_answerable_mean_recall_at_k": {
+          "default": 0.0,
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Minimum Answerable Mean Recall At K",
+          "type": "number"
+        },
+        "minimum_comparator_margin": {
+          "default": 0.0,
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Minimum Comparator Margin",
+          "type": "number"
+        },
         "minimum_complete_evidence_set_rate": {
           "default": 1.0,
           "maximum": 1,
@@ -36,7 +120,7 @@
           "type": "number"
         },
         "minimum_mean_context_precision_at_k": {
-          "default": 0.8,
+          "default": 0.0,
           "maximum": 1,
           "minimum": 0,
           "title": "Minimum Mean Context Precision At K",
@@ -47,6 +131,13 @@
           "maximum": 1,
           "minimum": 0,
           "title": "Minimum Mean Ndcg At K",
+          "type": "number"
+        },
+        "minimum_mean_r_precision": {
+          "default": 0.0,
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Minimum Mean R Precision",
           "type": "number"
         },
         "minimum_mean_recall_at_k": {
@@ -70,11 +161,64 @@
           "title": "Minimum Mean Required Role Recall",
           "type": "number"
         },
+        "minimum_naive_comparator_margin": {
+          "default": 0.0,
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Minimum Naive Comparator Margin",
+          "type": "number"
+        },
         "minimum_total_case_count": {
           "default": 1,
           "exclusiveMinimum": 0,
           "title": "Minimum Total Case Count",
           "type": "integer"
+        },
+        "naive_comparator_answerable_complete_evidence_rate": {
+          "anyOf": [
+            {
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Naive Comparator Answerable Complete Evidence Rate"
+        },
+        "naive_comparator_candidate_id": {
+          "anyOf": [
+            {
+              "maxLength": 100,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Naive Comparator Candidate Id"
+        },
+        "naive_comparator_report_sha256": {
+          "anyOf": [
+            {
+              "pattern": "^[a-f0-9]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Naive Comparator Report Sha256"
+        },
+        "require_confidence_lower_bound": {
+          "default": true,
+          "title": "Require Confidence Lower Bound",
+          "type": "boolean"
         },
         "safety_strata": {
           "default": [],
@@ -96,6 +240,25 @@
           "default": "WILSON_95",
           "title": "Binomial Uncertainty Method",
           "type": "string"
+        },
+        "candidates_under_test_unevaluated": {
+          "const": true,
+          "default": true,
+          "title": "Candidates Under Test Unevaluated",
+          "type": "boolean"
+        },
+        "comparator_measured_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Comparator Measured At"
         },
         "development_acceptance": {
           "$ref": "#/$defs/BenchmarkAcceptance"
@@ -157,11 +320,8 @@
           "title": "Sealed Holdout Minimum Case Count",
           "type": "integer"
         },
-        "set_before_candidate_evaluation": {
-          "const": true,
-          "default": true,
-          "title": "Set Before Candidate Evaluation",
-          "type": "boolean"
+        "threshold_derivation": {
+          "$ref": "#/$defs/ThresholdDerivation"
         }
       },
       "required": [
@@ -172,6 +332,7 @@
         "safety_topic_sample_targets",
         "development_acceptance",
         "sealed_holdout_acceptance",
+        "threshold_derivation",
         "established_at"
       ],
       "title": "BenchmarkThresholdPolicyContent",
@@ -189,7 +350,8 @@
         "WRONG_JURISDICTION",
         "CONFLICTING_EVIDENCE",
         "INSUFFICIENT_EVIDENCE",
-        "NEGATION"
+        "NEGATION",
+        "PARAPHRASED_INTENT"
       ],
       "title": "ClinicalSafetyTopic",
       "type": "string"
@@ -281,6 +443,16 @@
       ],
       "title": "SafetyTopicSampleTarget",
       "type": "object"
+    },
+    "ThresholdDerivation": {
+      "description": "How the numeric gates in this policy were arrived at.\n\nThe distinction is not cosmetic. ``PRESPECIFIED_ABSOLUTE`` asserts that no\nmeasurement informed the numbers, which is the strong pre-registration claim.\n``COMPARATOR_WILSON_95_LOWER_BOUND`` asserts something weaker and different: the\ngates are the Wilson-95 lower bounds of a comparator that was measured on this same\nsuite, so they are posterior quantities and the policy is a non-inferiority design\nrather than an absolute one. Recording the weaker claim as the stronger one would\nmake the sealed artifact misdescribe its own provenance.",
+      "enum": [
+        "PRESPECIFIED_ABSOLUTE",
+        "CONSUMER_REQUIREMENT",
+        "COMPARATOR_WILSON_95_LOWER_BOUND"
+      ],
+      "title": "ThresholdDerivation",
+      "type": "string"
     }
   },
   "$id": "https://med-rag.local/contracts/benchmark-threshold-policy-1.0.0.schema.json",

@@ -79,6 +79,7 @@
 - bundle, PostgreSQL release membership, and immutable QA-ledger reconciliation
 - stable evidence-to-Qdrant UUID mapping and approval-only payload construction
 - no-delete, safely resumable collection creation with exact vector and payload indexes
+- candidate-vector-profile isolation with final attestation selecting one immutable serving collection
 - exhaustive point, payload, evidence, vector, dimension, and collection validation
 - dense and sparse self-retrieval smoke tests under release/approval filters
 - signed index validation attestation and `NOT_BUILT` to `VALIDATED` registration
@@ -110,72 +111,205 @@
 - complete: allowlisted manifest-driven adapter registry and sealed candidate configuration
 - complete: Qwen3 Embedding 0.6B/4B/8B adapter family with instruction formatting,
   last-token pooling, left padding, truncation, MRL dimension bounds, and post-truncation normalization
-- complete: benchmark contract 1.2 with development/holdout partition identity, adjudicator
-  provenance and agreement, access/process/threshold revisions, insufficient-evidence cases,
-  alternative minimum evidence sets, per-safety-stratum gates, and Wilson uncertainty reporting
+- complete: benchmark contract 1.3 with `AUTOMATED_SOURCE_DERIVED` provenance,
+  development/holdout partition identity, source-evidence derivation links, insufficient-evidence
+  cases, alternative minimum evidence sets, per-safety-stratum gates, and Wilson uncertainty
+  reporting
 - complete: configurable weighted RRF, deterministic ties, isolated lane failures, and
   failure-default acceptance blocking
 - complete: signed, expiring sealed-holdout acceptance contract and transactional activation
   gate binding suite/report/runner/candidate/vector/release/manifest/index relationships
 - complete: negative activation coverage for missing, stale, mismatched, and stored-tampered
   benchmark acceptance records
-- complete: immutable clinical reviewer-decision and disagreement-resolution ledger,
+- complete: immutable reviewer-decision and disagreement-resolution ledger,
   separately sealed access/adjudication/threshold policies, and content-addressed artifacts
 - complete: policy-guarded development and one-time sealed-holdout suite builders with exact
   release validation, full safety-topic coverage targets, and access audit events
+- complete: deterministic source-derived generation across all 11 safety topics, secret-ranked
+  disjoint partitions, immutable generation records, and candidate-independent suite construction
+- complete: a 275-case WHO SMART HIV development suite and custody-controlled 550-case holdout;
+  the holdout is registered but not exported into the engineering workspace
+- complete: an execution ledger that permits repeated development runs but atomically consumes
+  each holdout once while binding the final sealed candidate and vector batch
+- complete: deterministic development baseline with no filter leakage or candidate failures;
+  remaining failures are expected retrieval-quality gaps in terminology, conflict completeness,
+  and overall context precision
+- complete: a versioned pinned-Qwen runtime matrix that verifies local artifact bytes, records
+  environment/latency/throughput/memory/truncation/norm evidence, and seals unavailable targets
+  as blockers instead of fabricating measurements
+- complete: candidate-vector-profile collection identity, so Qwen and deterministic vectors
+  cannot collide while reranker and fusion-only variants reuse the same exact vector batch
+- complete: release-derived Unicode BM25 parameters for all 5,145 approved records and a
+  checkpointed exact-release Qwen3-Embedding-0.6B vector-production path
+- complete: bounded exact-terminology and clinical-safety query expansions with pure BM25-only
+  and dense-only ablations; the deterministic v3 control improved hybrid complete-evidence
+  coverage from 93.45% to 95.64% with no case regressions
+- complete: verified-local Qwen3-Reranker-0.6B yes/no scoring adapter, deterministic safety-role
+  preservation, isolated fallback, and sealed pool-20/50/100 development candidates
+- complete: exact Qwen3-Embedding-0.6B/BM25 vector batch and exhaustively validated isolated
+  Qdrant collection; pre-rerank development hybrid reached 99.27% recall, 98.55% complete-
+  evidence coverage, and 99.82% required-role recall with no failures or forbidden leakage
+- complete: registered Qwen3-Reranker-0.6B pool-20/50/100 development comparison with the
+  artifact-bound dynamic-int8 CPU runtime and shared digest-checked score cache; every pool
+  regressed complete-evidence coverage from 98.55% to 96.73% and was rejected. That comparison
+  is confounded: all three pools shared a 256-token reranker budget which, after the official
+  prompt template, instruction, and a roughly 90-token query, left about 75 tokens for a
+  document whose release mean length is 86 and p95 is 204 tokens. Most documents were truncated
+  mid-passage, and nDCG fell from 0.8900 to 0.62-0.66 with MRR from 0.8673 to 0.51-0.57, which
+  is an ordering collapse rather than a mild relevance regression. The truncation explanation
+  was tested and refuted: a pinned 512-token candidate, sealed as its own artifact digest, was
+  measurably worse than 256 - answerable nDCG 0.4391 against 0.8118 for the pre-rerank control,
+  MRR 0.2914 against 0.7641, and r-precision 0.1100, meaning the correct passage survives as
+  the top hit in roughly one case in nine. Doubling the document budget made the ranking worse,
+  so the 0.6B reranker rejection stands on the model's behaviour rather than on a starved
+  context. The remaining explanation is distributional: a yes/no relevance cross-encoder is
+  being handed a query that is itself the passage, and more passage text makes that worse
+- complete: benchmark contract 1.4 corrects the acceptance metric set. Context precision at a
+  fixed depth is bounded by `min(|gold|, k)/k`; with 150 single-gold cases, 25 two-gold cases,
+  and 100 negatives at `top_k=10` the old 275-case suite could not exceed 0.4364, which is
+  exactly what the leading candidate scored. The 0.60 threshold was unsatisfiable, and the
+  standing "improve context precision" task was chasing an already-optimal metric. Reports now
+  carry `context_precision_ceiling_at_k`, sealing a suite whose policy exceeds its own ceiling
+  fails closed, and the achievable gate moved to `r_precision`
+- complete: every mode summary now reports `answerable_*` metrics separately from the
+  insufficient-evidence partition. Negative cases pass whenever the release filter matches
+  nothing by construction, so a deterministic hashing baseline scored 1.0 on all 100 of them;
+  they are a third of the suite and were inflating every blended headline number
+- complete: removed retrieval-time context budgeting that selected an output depth by matching
+  the benchmark generator's own question-template prefixes, and re-derived conflict-side lane
+  selection from declared expansion origins instead of positional lane names
+- complete: a `PARAPHRASED_INTENT` stratum built by controlled-vocabulary substitution. Five of
+  the existing strata have measured query-term coverage of 1.000 by their gold passage, so they
+  test near-duplicate lookup and systematically reward exact lexical matching; the new stratum
+  measures 0.411. Its first revision gated answerability on the passage being the unique best
+  lexical match, which selected the lexically unambiguous records and made it the easiest
+  stratum in the suite - r-precision 0.960 sparse against 0.280 for `TERMINOLOGY`. The rule now
+  requires the passage to sit inside a lexical rank band: reachable within the retrieval depth,
+  never already first. It is not a clinician-authored paraphrase
+- complete: benchmark contract 1.5 restricts acceptance gates to three defensible forms after
+  a review of the evaluation literature found no basis for absolute retrieval thresholds. IR
+  evaluation is comparative by construction, scores are not comparable across test collections,
+  and topic difficulty contributes more variance than system quality; BM25 alone spans 0.213 to
+  0.789 nDCG@10 across BEIR. Gates are now either derived from the downstream consumer's context
+  budget, stated as a Wilson lower bound rather than a point estimate, or expressed relative to
+  a comparator measured on the same case set. R-precision is degated: 175 of 200 answerable
+  cases carry one gold record, so it degenerates to precision@1 and measures top-1 ranking that
+  no safety argument depends on
+- complete: benchmark contract 1.6 separates the measurement from the system under test.
+  `rrf_k`, `rrf_weights`, and `candidate_limit` left the sealed suite; only `top_k` stays,
+  because every rank metric and the context-precision ceiling are defined at it. The suite
+  previously pinned fusion, so re-tuning fusion minted a new benchmark and post-retrieval
+  selection was the only tunable surface left - which is how template-keyed output
+  budgeting came to be written. The candidate manifest is now authoritative for fusion
+- complete: the threshold policy states how its numbers were derived. Every v5 gate was a
+  Wilson-95 lower bound of a measured comparator run, so `set_before_candidate_evaluation`
+  asserted a pre-registration that had not happened. It is replaced by an explicit
+  `threshold_derivation`, a `comparator_measured_at` timestamp that must precede the
+  policy, and `candidates_under_test_unevaluated`, which is the claim the policy can
+  actually support. Declaring a comparator under any other derivation now fails closed
+- complete: a second, naive comparator floor is enforceable alongside the tuned one. A
+  tuned comparator encodes this suite's own iteration history, so non-inferiority against
+  it cannot detect the two systems overfitting together; an untuned lexical baseline can.
+  The gate is implemented and unpopulated - it activates once that baseline is measured
+- complete: the non-inferiority margin is 0.02 rather than 0. Tying a deterministic
+  control is not evidence that a neural stack earns a 10x latency cost
+- complete: sampling moved off uniform 25s onto measured headroom. The comparator scores
+  1.00 on five lexical strata and on every negative stratum, so 8 of 12 strata cannot
+  discriminate between candidates at all; all measurable difference lives in
+  PARAPHRASED_INTENT (0.68), TERMINOLOGY (0.72), and CONFLICTING_EVIDENCE (0.80). Those
+  three go to 60 development cases, the saturated lexical strata drop to 15, and the
+  tightened Wilson bounds land where discrimination actually happens
+- complete: the paraphrase lexical-rank band no longer tracks the retrieval depth. With
+  the upper bound equal to `top_k`, every paraphrase case sat inside the serving depth by
+  construction and a candidate could improve its own score by widening its output; the
+  band is now an independent constant above any serving depth, and generation rejects a
+  `top_k` that reaches it
+- decision: `minimum_mean_required_role_recall` stays ungated. Complete-evidence-set
+  membership already requires every required role to be retrieved, so the role gate was
+  a second reading of the same quantity rather than an independent safety check
+- known limit: `generation_context_budget` equals `top_k`, so `complete_evidence_at_budget`
+  is currently identical to `complete_evidence_set`. It is forward-looking infrastructure
+  and separates only when the rendering layer is handed fewer passages than are retrieved
+- known limit: `minimum_insufficient_evidence_accuracy` is 1.0 over a partition whose
+  negatives are detectable by release filter alone, so it currently certifies the filter
+  rather than abstention. It will not survive negatives that are plausible instead of
+  filtered, and the abstention literature puts frontier models below 50% on that task
+- complete: a provider-swappable grounded-answer lane. Claude is reached through the
+  Anthropic SDK's platform clients on Amazon Bedrock or Google Vertex, selected by a
+  sealed parameter file, so changing provider or model is a config change rather than a
+  code change. Two platform limits are handled explicitly: automatic prompt caching is
+  unavailable on both, so the cache breakpoint is placed on the frozen instruction block,
+  and server-side refusal fallbacks are unavailable on both, so a refusal becomes an
+  abstention instead of a silent retry against a different model
+- complete: the answer lane treats model output as a proposal, never a result. No
+  retrieved evidence means abstention decided before any model call; every claim must
+  cite evidence IDs drawn from the set actually retrieved for that question, and a claim
+  citing anything else is discarded whole rather than repaired; if nothing survives, the
+  result is an abstention even when the model reported sufficient evidence. The model's
+  sufficiency signal can lower an outcome to abstention but can never raise one to an
+  answer, because a model given insufficient context answers more confidently, not less
+- known limit: the answer lane is unit-tested against a stubbed backend only. No live
+  Bedrock or Vertex call has been made, and no generation candidate has been benchmarked
+- complete: sample mass rebalanced away from the strata that cannot separate systems. The five
+  verbatim-fragment topics carry 15 cases each; `TERMINOLOGY`, `CONFLICTING_EVIDENCE`, and
+  `PARAPHRASED_INTENT` carry 60. On the rebalanced 430-case suite the deterministic control
+  falls from 0.9000 to 0.8275 answerable complete-evidence with no change to the baseline
+  itself, which is the mix doing its job
+- complete: the prespecified comparator floor is measured, not chosen. The deterministic
+  expanded control scores 0.8275 (Wilson 95% [0.7763, 0.8689]) on the exact case set, and that
+  measurement is frozen into the threshold policy before the candidate is evaluated; per-stratum
+  floors are each stratum's own Wilson lower bound
+- complete: the Qwen3-Embedding-0.6B/BM25 conflict-aware candidate is ACCEPTED on the
+  development suite with no blockers - 0.9647 answerable complete-evidence (Wilson lower 0.9343)
+  against a 0.7763 lower-bound gate and a 0.8275 comparator floor, required-role recall 0.9647,
+  zero forbidden leakage, zero candidate failures, p95 1,673 ms. Development acceptance is not
+  clinical validation and the sealed holdout is untouched
+- complete: a bounded-expander defect found by the wider conflict stratum. One deterministic
+  terminology expansion reduced to a bare punctuation fragment, which a lexical backend rejects
+  outright and which aborted an entire run. Non-searchable variants are now dropped at the
+  expansion boundary. On the sealed holdout the same fault would have consumed a one-time
+  custody-controlled execution claim, because the ledger binds the candidate even when a run
+  fails
+- next: freeze a complete candidate and run the untouched sealed holdout exactly once
 
-The completed BGE-M3/BM25 path is candidate A and a control, not a clinically accepted or
-best-available stack. Public leaderboards cannot establish clinical retrieval quality.
-No candidate becomes `production` until it passes the sealed clinical holdout and signed
-acceptance gate. The acceptance signature belongs to the benchmark/release authority, not
-to a clinical adjudicator.
+Development-suite scores must be read against how the suite is built. Its queries are
+normalized source fragments, so most strata reward exact lexical overlap and BM25 alone reaches
+0.9927 recall while the dense lane reaches 0.9291. A high blended score on this suite is
+evidence that near-duplicate lookup works, not that clinical retrieval works.
 
-### Next: prove the real candidate runtimes
+The completed BGE-M3/BM25 path is candidate A and a control, not a clinically validated or
+best-available stack. Public leaderboards cannot establish product quality. No candidate
+becomes the selected engineering release until it passes the sealed engineering holdout and
+signed acceptance gate. Engineering acceptance is not clinical validation, certification,
+or evidence that the product is safe for autonomous clinical use.
+
+### In parallel: prove the real candidate runtimes
 
 - run the pinned BGE-M3 weights through the real Torch/Transformers adapter on every
   supported device/dtype; record numerical parity, truncation, memory, throughput, latency,
   timeout, and recovery behavior
-- derive and seal the BM25 average document length from the exact approved release rather
-  than relying on the example value
+- complete: derive and seal BM25 statistics from the exact approved release: 5,145 documents,
+  average document length 86.36793002915452 tokens, and p95 length 204 tokens
+- complete: measure pinned Qwen3-Embedding-0.6B CPU/fp32 against 32 development queries and
+  documents with three timed runs: 1.47 query items/s, 0.405 document items/s, 5.38 GiB peak
+  process RSS, no truncation, and maximum unit-norm deviation 2.22e-15; the exact report is
+  digest-sealed under `benchmarks/runtime/`
 - perform a controlled Qdrant 1.15.4 versus 1.19.x compatibility and relevance benchmark;
   retain the old pin until collection, filtering, payload, sparse-IDF, and attestation
   contracts pass unchanged or are deliberately versioned
 
-### Next: trustworthy clinical benchmark contract and evidence
+### Next: manifest-driven retrieval candidate matrix
 
-The adjudication repository and guarded suite-construction workflow are implemented. The
-remaining work in this section is operational clinical review and real evidence population:
-
-- clinical adjudicators review cases and resolve disagreements through the ordinary review
-  workflow; they do not hold signing keys or cryptographically sign cases, suites, reports,
-  attestations, or releases
-- the benchmark service seals the finalized adjudication record, and the designated
-  benchmark/release authority alone signs later acceptance and activation artifacts
-- record adjudicator identity, clinical role, independence, instructions, evidence access,
-  decision timestamps, disagreement, and resolution as provenance metadata without an
-  adjudicator signature requirement
-- create development and untouched sealed holdout suites; forbid candidate tuning against
-  the acceptance holdout and bind both access/process revisions
-- add independently adjudicated cases for contraindication, applicability, dose, monitoring,
-  stale source, wrong jurisdiction, multilingual and cross-lingual retrieval, terminology,
-  negation, and conflicting evidence
-- populate the implemented insufficient-evidence, graded-relevance, alternative
-  minimum-complete-evidence-set, and safety-stratum contracts with adjudicated clinical cases
-- define sample-size targets, adjudicator agreement reporting, and the threshold-setting
-  procedure before evaluating final candidates; retain the implemented Wilson reporting and
-  add a prespecified method for non-binomial metric uncertainty
-
-### Then: manifest-driven retrieval candidate matrix
-
-- execute the implemented Qwen3 family against verified local artifacts and record numerical,
-  memory, latency, truncation, timeout, and recovery behavior on every target runtime
+- acquire, independently pin, and measure the Qwen3-Embedding-4B and 8B artifacts on runtime
+  targets with adequate memory; their current CPU-matrix entries fail closed as missing-artifact
+  blockers and contain no inferred performance numbers
 - use `Qwen3-Embedding-4B` plus `Qwen3-Reranker-4B` as the primary practical development
   preset; benchmark the 8B variants as the quality-ceiling preset where target hardware
   satisfies the sealed memory and latency budgets, and retain the 0.6B variants as the
   deployment-floor preset
 - treat Qwen-first as build priority rather than pre-acceptance: every size, instruction,
   precision, truncation, and quantization combination is a distinct pinned candidate and
-  must pass the same clinical development suite and untouched acceptance holdout
+  must pass the same engineering development suite and untouched acceptance holdout
 - retain pinned BGE-M3 dense retrieval as the multilingual control candidate
 - add an English-biomedical MedCPT query/article dual-encoder specialist and extend the
   model-artifact contract to bind both asymmetric artifacts as one candidate identity;
@@ -218,8 +352,12 @@ remaining work in this section is operational clinical review and real evidence 
 - exercise the implemented signed acceptance/activation gate with the real selected stack;
   add explicit rejected-report and cross-release replay integration cases alongside the
   existing missing, stale, mismatched, and tamper coverage
+- label the resulting activation as engineering acceptance only; do not present it as
+  clinician approval or clinical validation
+- all benchmark construction, candidate selection, acceptance checks, and release gates are
+  automated; physician participation begins only with final-product evaluation
 
-## Finally: verified rendering
+## Then: verified rendering
 
 - atomic claim planning
 - numeric, unit, operator, quote, and provenance validators
@@ -236,3 +374,17 @@ remaining work in this section is operational clinical review and real evidence 
   contradiction recall, calibration error, and selective risk, and fail closed to
   `UNRESOLVED` for unsupported languages, truncation, low margin, or conflicting evidence
 - evidence cards and exact PDF highlighting
+
+## Finally: clinician review of the complete product
+
+- involve physicians only after the end-to-end product, retrieval stack, verification layer,
+  evidence presentation, and failure behavior are complete and internally accepted
+- have clinicians evaluate the finished user experience and representative outputs for
+  usefulness, citation fidelity, unsafe omissions, contraindications, applicability, dose,
+  monitoring, jurisdiction, freshness, and abstention behavior
+- treat clinician findings as final-product evaluation feedback rather than as labor for
+  building or tuning the retrieval benchmark
+- route any resulting product change back through development evaluation and a newly sealed
+  holdout cycle; never tune against the previously opened holdout
+- make no clinical-validation, certification, or autonomous-use claim unless a separately
+  designed external clinical evaluation supports it

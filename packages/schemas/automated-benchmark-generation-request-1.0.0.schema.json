@@ -1,0 +1,115 @@
+{
+  "$defs": {
+    "RRFWeights": {
+      "additionalProperties": false,
+      "properties": {
+        "dense": {
+          "default": 1.0,
+          "minimum": 0,
+          "title": "Dense",
+          "type": "number"
+        },
+        "sparse": {
+          "default": 1.0,
+          "minimum": 0,
+          "title": "Sparse",
+          "type": "number"
+        }
+      },
+      "title": "RRFWeights",
+      "type": "object"
+    },
+    "RetrievalMode": {
+      "enum": [
+        "sparse",
+        "dense",
+        "hybrid"
+      ],
+      "title": "RetrievalMode",
+      "type": "string"
+    }
+  },
+  "$id": "https://med-rag.local/contracts/automated-benchmark-generation-request-1.0.0.schema.json",
+  "additionalProperties": false,
+  "properties": {
+    "actor_identity": {
+      "maxLength": 300,
+      "minLength": 1,
+      "title": "Actor Identity",
+      "type": "string"
+    },
+    "candidate_limit": {
+      "default": 50,
+      "exclusiveMinimum": 0,
+      "maximum": 10000,
+      "title": "Candidate Limit",
+      "type": "integer"
+    },
+    "candidate_mode": {
+      "$ref": "#/$defs/RetrievalMode",
+      "default": "hybrid"
+    },
+    "development_benchmark_id": {
+      "maxLength": 100,
+      "minLength": 1,
+      "title": "Development Benchmark Id",
+      "type": "string"
+    },
+    "generated_at": {
+      "format": "date-time",
+      "title": "Generated At",
+      "type": "string"
+    },
+    "generation_id": {
+      "maxLength": 64,
+      "minLength": 1,
+      "title": "Generation Id",
+      "type": "string"
+    },
+    "holdout_benchmark_id": {
+      "maxLength": 100,
+      "minLength": 1,
+      "title": "Holdout Benchmark Id",
+      "type": "string"
+    },
+    "modes": {
+      "default": [
+        "sparse",
+        "dense",
+        "hybrid"
+      ],
+      "items": {
+        "$ref": "#/$defs/RetrievalMode"
+      },
+      "title": "Modes",
+      "type": "array"
+    },
+    "rrf_k": {
+      "default": 60,
+      "exclusiveMinimum": 0,
+      "maximum": 100000,
+      "title": "Rrf K",
+      "type": "integer"
+    },
+    "rrf_weights": {
+      "$ref": "#/$defs/RRFWeights"
+    },
+    "top_k": {
+      "default": 10,
+      "exclusiveMinimum": 0,
+      "maximum": 1000,
+      "title": "Top K",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "generation_id",
+    "development_benchmark_id",
+    "holdout_benchmark_id",
+    "actor_identity",
+    "generated_at"
+  ],
+  "title": "AutomatedBenchmarkGenerationRequest",
+  "type": "object",
+  "x-contract-version": "1.0.0"
+}

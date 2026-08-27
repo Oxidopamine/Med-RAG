@@ -1,0 +1,101 @@
+{
+  "$defs": {
+    "AutomatedBenchmarkGenerationPolicyContent": {
+      "additionalProperties": false,
+      "properties": {
+        "allow_source_derived_negative_cases": {
+          "const": true,
+          "default": true,
+          "title": "Allow Source Derived Negative Cases",
+          "type": "boolean"
+        },
+        "derivation_rules_sha256": {
+          "default": "db53befd452b02adca39e6c1ae6dfd71ddd732b3a042896bfd6b58bac77672a7",
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Derivation Rules Sha256",
+          "type": "string"
+        },
+        "established_at": {
+          "format": "date-time",
+          "title": "Established At",
+          "type": "string"
+        },
+        "generator_name": {
+          "const": "med-rag/source-derived-benchmark",
+          "default": "med-rag/source-derived-benchmark",
+          "title": "Generator Name",
+          "type": "string"
+        },
+        "generator_version": {
+          "const": "1.2.0",
+          "default": "1.2.0",
+          "title": "Generator Version",
+          "type": "string"
+        },
+        "maximum_query_characters": {
+          "default": 320,
+          "maximum": 2000,
+          "minimum": 80,
+          "title": "Maximum Query Characters",
+          "type": "integer"
+        },
+        "partition_seed_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Partition Seed Sha256",
+          "type": "string"
+        },
+        "policy_id": {
+          "maxLength": 100,
+          "minLength": 1,
+          "title": "Policy Id",
+          "type": "string"
+        },
+        "require_disjoint_partition_source_evidence": {
+          "const": true,
+          "default": true,
+          "title": "Require Disjoint Partition Source Evidence",
+          "type": "boolean"
+        },
+        "revision": {
+          "maxLength": 100,
+          "minLength": 1,
+          "title": "Revision",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "1.0.0",
+          "default": "1.0.0",
+          "title": "Schema Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "policy_id",
+        "revision",
+        "partition_seed_sha256",
+        "established_at"
+      ],
+      "title": "AutomatedBenchmarkGenerationPolicyContent",
+      "type": "object"
+    }
+  },
+  "$id": "https://med-rag.local/contracts/automated-benchmark-generation-policy-1.0.0.schema.json",
+  "additionalProperties": false,
+  "properties": {
+    "content": {
+      "$ref": "#/$defs/AutomatedBenchmarkGenerationPolicyContent"
+    },
+    "policy_sha256": {
+      "pattern": "^[a-f0-9]{64}$",
+      "title": "Policy Sha256",
+      "type": "string"
+    }
+  },
+  "required": [
+    "content",
+    "policy_sha256"
+  ],
+  "title": "AutomatedBenchmarkGenerationPolicy",
+  "type": "object",
+  "x-contract-version": "1.0.0"
+}

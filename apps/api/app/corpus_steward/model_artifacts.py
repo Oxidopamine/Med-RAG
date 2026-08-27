@@ -29,6 +29,7 @@ class ModelArtifactError(RuntimeError):
 class ModelArtifactKind(str, Enum):
     DENSE = "DENSE"
     SPARSE = "SPARSE"
+    RERANKER = "RERANKER"
 
 
 class ModelArtifactFile(CanonicalModel):

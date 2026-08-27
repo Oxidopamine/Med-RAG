@@ -31,7 +31,8 @@
     "ModelArtifactKind": {
       "enum": [
         "DENSE",
-        "SPARSE"
+        "SPARSE",
+        "RERANKER"
       ],
       "title": "ModelArtifactKind",
       "type": "string"

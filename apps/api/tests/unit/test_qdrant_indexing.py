@@ -9,6 +9,13 @@ import pytest
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
 from app.corpus.releases import SQLCorpusReleaseRepository
+from app.corpus_steward.candidate_schemas import (
+    CandidateLane,
+    CandidateLaneKind,
+    CandidateReranker,
+    RetrievalCandidateContent,
+    RetrievalCandidateManifest,
+)
 from app.corpus_steward.cli import (
     index_attestation_schema_document,
     index_vector_schema_document,
@@ -33,6 +40,8 @@ from app.corpus_steward.qdrant_index import (
     PAYLOAD_INDEXES,
     IndexValidationError,
     QdrantIndexService,
+    candidate_qdrant_collection,
+    candidate_vector_profile_sha256,
     stable_qdrant_point_id,
 )
 from app.corpus_steward.registry import SQLAttestationRepository
@@ -108,6 +117,98 @@ def vector_batch(bundle: CorpusReleaseBundle) -> IndexVectorBatch:
 
 def source_classes(bundle: CorpusReleaseBundle) -> dict[str, str]:
     return {item.source_id: "E1" for item in bundle.evidence}
+
+
+def retrieval_candidate(vectors: IndexVectorBatch) -> RetrievalCandidateManifest:
+    return RetrievalCandidateManifest.seal(
+        RetrievalCandidateContent(
+            candidate_id="fixture-qwen-candidate-v1",
+            lanes=(
+                CandidateLane(
+                    lane_id="dense",
+                    kind=CandidateLaneKind.DENSE,
+                    vector_name=vectors.content.dense.name,
+                    model=vectors.content.dense.model,
+                    adapter_id="fixture/dense",
+                    adapter_revision="1.0.0",
+                ),
+                CandidateLane(
+                    lane_id="sparse",
+                    kind=CandidateLaneKind.BM25,
+                    vector_name=vectors.content.sparse.name,
+                    model=vectors.content.sparse.model,
+                    adapter_id="fixture/sparse",
+                    adapter_revision="1.0.0",
+                ),
+            ),
+        )
+    )
+
+
+def test_candidate_collection_identity_is_vector_profile_specific() -> None:
+    bundle = fixture_bundle()
+    vectors = vector_batch(bundle)
+    first = retrieval_candidate(vectors)
+    weighted = RetrievalCandidateManifest.seal(
+        first.content.model_copy(
+            update={
+                "lanes": tuple(
+                    lane.model_copy(update={"weight": 2.0})
+                    if lane.kind is CandidateLaneKind.DENSE
+                    else lane
+                    for lane in first.content.lanes
+                )
+            }
+        )
+    )
+    reranked = RetrievalCandidateManifest.seal(
+        first.content.model_copy(
+            update={
+                "reranker": CandidateReranker(
+                    model=EmbeddingModelReference(
+                        model_id="Qwen/Qwen3-Reranker-0.6B",
+                        revision="e" * 40,
+                        artifact_sha256="f" * 64,
+                    ),
+                    adapter_id="med-rag/qwen3-reranker-transformers",
+                    adapter_revision="1.0.0",
+                    instruction_sha256="1" * 64,
+                    candidate_pool=50,
+                    output_depth=10,
+                )
+            }
+        )
+    )
+    changed_vectors = vectors.model_copy(
+        update={
+            "content": vectors.content.model_copy(
+                update={
+                    "dense": vectors.content.dense.model_copy(
+                        update={
+                            "model": vectors.content.dense.model.model_copy(
+                                update={"artifact_sha256": "a" * 64}
+                            )
+                        }
+                    )
+                }
+            )
+        }
+    )
+    changed = retrieval_candidate(changed_vectors)
+
+    assert candidate_vector_profile_sha256(bundle, first) == (
+        candidate_vector_profile_sha256(bundle, weighted)
+    )
+    assert candidate_qdrant_collection(bundle, first) == candidate_qdrant_collection(
+        bundle, weighted
+    )
+    assert candidate_qdrant_collection(bundle, first) == candidate_qdrant_collection(
+        bundle, reranked
+    )
+    assert candidate_qdrant_collection(bundle, first) != candidate_qdrant_collection(
+        bundle, changed
+    )
+    assert len(candidate_qdrant_collection(bundle, first)) <= 255
 
 
 class FakeQdrant:
@@ -197,13 +298,22 @@ class FakeQdrant:
 async def test_build_is_complete_validated_and_idempotent() -> None:
     bundle = fixture_bundle()
     vectors = vector_batch(bundle)
+    candidate = retrieval_candidate(vectors)
     qdrant = FakeQdrant()
     service = QdrantIndexService(qdrant, upsert_batch_size=2)
 
-    first = await service.build(bundle, vectors, source_classes=source_classes(bundle))
-    second = await service.build(bundle, vectors, source_classes=source_classes(bundle))
+    first = await service.build(
+        bundle, vectors, candidate, source_classes=source_classes(bundle)
+    )
+    second = await service.build(
+        bundle, vectors, candidate, source_classes=source_classes(bundle)
+    )
 
     assert first.content.outcome == "VALIDATED"
+    assert first.content.qdrant_collection == candidate_qdrant_collection(
+        bundle, candidate
+    )
+    assert first.content.qdrant_collection != bundle.manifest.content.qdrant_collection
     assert first.content.point_count == len(bundle.evidence)
     assert first.content.dense.dimension == 3
     assert first.content.sparse.dimension == 100
@@ -224,9 +334,12 @@ async def test_build_is_complete_validated_and_idempotent() -> None:
 async def test_validation_rejects_payload_digest_drift_and_unexpected_points() -> None:
     bundle = fixture_bundle()
     vectors = vector_batch(bundle)
+    candidate = retrieval_candidate(vectors)
     qdrant = FakeQdrant()
     service = QdrantIndexService(qdrant)
-    await service.build(bundle, vectors, source_classes=source_classes(bundle))
+    await service.build(
+        bundle, vectors, candidate, source_classes=source_classes(bundle)
+    )
     first_id = sorted(qdrant.points)[0]
     qdrant.points[first_id]["payload"]["jurisdiction"] = "DRIFTED"
     unexpected_id = "00000000-0000-0000-0000-000000000000"
@@ -236,7 +349,9 @@ async def test_validation_rejects_payload_digest_drift_and_unexpected_points() -
     qdrant.collection["points_count"] = len(bundle.evidence)
 
     with pytest.raises(IndexValidationError) as captured:
-        await service.validate(bundle, vectors, source_classes=source_classes(bundle))
+        await service.validate(
+            bundle, vectors, candidate, source_classes=source_classes(bundle)
+        )
 
     assert any(
         blocker.startswith("UNEXPECTED_POINT:") for blocker in captured.value.blockers
@@ -250,14 +365,19 @@ async def test_validation_rejects_payload_digest_drift_and_unexpected_points() -
 async def test_build_refuses_existing_collection_config_drift() -> None:
     bundle = fixture_bundle()
     vectors = vector_batch(bundle)
+    candidate = retrieval_candidate(vectors)
     qdrant = FakeQdrant()
     service = QdrantIndexService(qdrant)
-    await service.build(bundle, vectors, source_classes=source_classes(bundle))
+    await service.build(
+        bundle, vectors, candidate, source_classes=source_classes(bundle)
+    )
     assert qdrant.collection is not None
     qdrant.collection["config"]["params"]["vectors"]["dense"]["size"] = 4
 
     with pytest.raises(IndexValidationError) as captured:
-        await service.build(bundle, vectors, source_classes=source_classes(bundle))
+        await service.build(
+            bundle, vectors, candidate, source_classes=source_classes(bundle)
+        )
 
     assert captured.value.blockers == ("DENSE_VECTOR_CONFIG_MISMATCH",)
 
@@ -429,9 +549,11 @@ async def test_signed_attestation_registers_validated_index_without_activation(
         bundle.manifest.content.corpus_release_id
     )
     vectors = vector_batch(bundle)
+    candidate = retrieval_candidate(vectors)
     report = await QdrantIndexService(FakeQdrant()).build(
         bundle,
         vectors,
+        candidate,
         source_classes=basis.source_classes,
     )
     signer = Ed25519Signer(
@@ -449,7 +571,7 @@ async def test_signed_attestation_registers_validated_index_without_activation(
     content = IndexAttestationContent(
         corpus_release_id=basis.release.corpus_release_id,
         manifest_sha256=basis.release.manifest_sha256,
-        qdrant_collection=basis.release.qdrant_collection,
+        qdrant_collection=report.content.qdrant_collection,
         validation_report_sha256=report.report_sha256,
         qa_run_id=basis.qa_run_id,
         materialized_count=basis.materialized_count,

@@ -538,7 +538,8 @@ class StewardArtifactRow(Base):
             "'CORPUS_RELEASE_BUNDLE', 'BENCHMARK_ACCESS_POLICY', "
             "'BENCHMARK_ADJUDICATION_POLICY', 'BENCHMARK_THRESHOLD_POLICY', "
             "'BENCHMARK_REVIEW_DECISION', 'BENCHMARK_RESOLUTION', "
-            "'BENCHMARK_ADJUDICATION_RECORD', 'BENCHMARK_SUITE')",
+            "'BENCHMARK_ADJUDICATION_RECORD', 'BENCHMARK_SUITE', "
+            "'BENCHMARK_GENERATION_POLICY', 'BENCHMARK_GENERATION_RECORD')",
             name="ck_steward_artifacts_kind",
         ),
     )
@@ -1478,3 +1479,213 @@ class BenchmarkAccessEventRow(Base):
     action: Mapped[str] = mapped_column(String(64), nullable=False)
     resource_sha256: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
     occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class BenchmarkGenerationPolicyRow(Base):
+    __tablename__ = "benchmark_generation_policies"
+    __table_args__ = (
+        UniqueConstraint("policy_id", "revision"),
+        CheckConstraint(
+            "length(policy_sha256) = 64", name="ck_benchmark_generation_policies_digest"
+        ),
+    )
+
+    policy_sha256: Mapped[str] = mapped_column(String(64), primary_key=True)
+    policy_id: Mapped[str] = mapped_column(String(100), nullable=False)
+    revision: Mapped[str] = mapped_column(String(100), nullable=False)
+    payload: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
+    artifact_sha256: Mapped[str] = mapped_column(
+        ForeignKey("steward_artifacts.sha256", ondelete="RESTRICT"),
+        nullable=False,
+        unique=True,
+    )
+    sealed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class BenchmarkGenerationRecordRow(Base):
+    __tablename__ = "benchmark_generation_records"
+    __table_args__ = (
+        CheckConstraint(
+            "length(generation_record_sha256) = 64 "
+            "AND length(generation_policy_sha256) = 64 "
+            "AND length(access_policy_sha256) = 64 "
+            "AND length(threshold_policy_sha256) = 64 "
+            "AND length(manifest_sha256) = 64 "
+            "AND (candidate_configuration_sha256 IS NULL "
+            "OR length(candidate_configuration_sha256) = 64) "
+            "AND length(partition_assignment_sha256) = 64",
+            name="ck_benchmark_generation_records_digests",
+        ),
+        CheckConstraint(
+            "development_case_count > 0 AND sealed_holdout_case_count > 0",
+            name="ck_benchmark_generation_records_counts",
+        ),
+    )
+
+    generation_record_sha256: Mapped[str] = mapped_column(String(64), primary_key=True)
+    generation_id: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    generation_policy_sha256: Mapped[str] = mapped_column(
+        ForeignKey("benchmark_generation_policies.policy_sha256", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    access_policy_sha256: Mapped[str] = mapped_column(
+        ForeignKey("benchmark_policy_artifacts.policy_sha256", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    threshold_policy_sha256: Mapped[str] = mapped_column(
+        ForeignKey("benchmark_policy_artifacts.policy_sha256", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    corpus_release_id: Mapped[str] = mapped_column(
+        ForeignKey("corpus_releases.corpus_release_id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    manifest_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    candidate_configuration_sha256: Mapped[str | None] = mapped_column(
+        String(64), nullable=True
+    )
+    partition_assignment_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    development_case_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    sealed_holdout_case_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    payload: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
+    artifact_sha256: Mapped[str] = mapped_column(
+        ForeignKey("steward_artifacts.sha256", ondelete="RESTRICT"),
+        nullable=False,
+        unique=True,
+    )
+    generated_by: Mapped[str] = mapped_column(String(300), nullable=False)
+    generated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class AutomatedBenchmarkSuiteBuildRow(Base):
+    __tablename__ = "automated_benchmark_suite_builds"
+    __table_args__ = (
+        UniqueConstraint("benchmark_id", "suite_partition"),
+        UniqueConstraint("generation_record_sha256", "suite_partition"),
+        CheckConstraint(
+            "suite_partition IN ('DEVELOPMENT', 'SEALED_HOLDOUT')",
+            name="ck_automated_benchmark_suite_builds_partition",
+        ),
+        CheckConstraint(
+            "length(suite_sha256) = 64 "
+            "AND length(generation_record_sha256) = 64 "
+            "AND length(generation_policy_sha256) = 64 "
+            "AND length(access_policy_sha256) = 64 "
+            "AND length(threshold_policy_sha256) = 64 "
+            "AND (candidate_configuration_sha256 IS NULL "
+            "OR length(candidate_configuration_sha256) = 64) "
+            "AND length(manifest_sha256) = 64",
+            name="ck_automated_benchmark_suite_builds_digests",
+        ),
+        CheckConstraint("case_count > 0", name="ck_automated_benchmark_suite_builds_case_count"),
+    )
+
+    suite_sha256: Mapped[str] = mapped_column(String(64), primary_key=True)
+    benchmark_id: Mapped[str] = mapped_column(String(100), nullable=False)
+    suite_partition: Mapped[str] = mapped_column(String(32), nullable=False)
+    generation_record_sha256: Mapped[str] = mapped_column(
+        ForeignKey("benchmark_generation_records.generation_record_sha256", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    generation_policy_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    access_policy_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    threshold_policy_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    candidate_configuration_sha256: Mapped[str | None] = mapped_column(
+        String(64), nullable=True
+    )
+    corpus_release_id: Mapped[str] = mapped_column(
+        ForeignKey("corpus_releases.corpus_release_id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    manifest_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    case_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    payload: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
+    artifact_sha256: Mapped[str] = mapped_column(
+        ForeignKey("steward_artifacts.sha256", ondelete="RESTRICT"),
+        nullable=False,
+        unique=True,
+    )
+    built_by: Mapped[str] = mapped_column(String(300), nullable=False)
+    built_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class BenchmarkDevelopmentSuiteDerivationRow(Base):
+    __tablename__ = "benchmark_development_suite_derivations"
+    __table_args__ = (
+        UniqueConstraint("parent_suite_sha256", "candidate_configuration_sha256"),
+        CheckConstraint(
+            "length(suite_sha256) = 64 "
+            "AND length(parent_suite_sha256) = 64 "
+            "AND length(candidate_configuration_sha256) = 64 "
+            "AND length(access_policy_sha256) = 64 "
+            "AND length(manifest_sha256) = 64",
+            name="ck_benchmark_development_suite_derivations_digests",
+        ),
+        CheckConstraint(
+            "case_count > 0",
+            name="ck_benchmark_development_suite_derivations_case_count",
+        ),
+    )
+
+    suite_sha256: Mapped[str] = mapped_column(String(64), primary_key=True)
+    parent_suite_sha256: Mapped[str] = mapped_column(
+        ForeignKey("automated_benchmark_suite_builds.suite_sha256", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    candidate_configuration_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    access_policy_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    corpus_release_id: Mapped[str] = mapped_column(
+        ForeignKey("corpus_releases.corpus_release_id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    manifest_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    case_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    payload: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
+    artifact_sha256: Mapped[str] = mapped_column(
+        ForeignKey("steward_artifacts.sha256", ondelete="RESTRICT"),
+        nullable=False,
+        unique=True,
+    )
+    derived_by: Mapped[str] = mapped_column(String(300), nullable=False)
+    derived_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class BenchmarkExecutionRunRow(Base):
+    __tablename__ = "benchmark_execution_runs"
+    __table_args__ = (
+        Index(
+            "uq_benchmark_execution_runs_holdout_once",
+            "suite_sha256",
+            unique=True,
+            sqlite_where=text("suite_partition = 'SEALED_HOLDOUT'"),
+            postgresql_where=text("suite_partition = 'SEALED_HOLDOUT'"),
+        ),
+        CheckConstraint(
+            "suite_partition IN ('DEVELOPMENT', 'SEALED_HOLDOUT', 'SYNTHETIC')",
+            name="ck_benchmark_execution_runs_partition",
+        ),
+        CheckConstraint(
+            "status IN ('STARTED', 'COMPLETED', 'FAILED')",
+            name="ck_benchmark_execution_runs_status",
+        ),
+        CheckConstraint(
+            "length(suite_sha256) = 64 "
+            "AND length(candidate_configuration_sha256) = 64 "
+            "AND length(vector_batch_sha256) = 64 "
+            "AND (report_sha256 IS NULL OR length(report_sha256) = 64)",
+            name="ck_benchmark_execution_runs_digests",
+        ),
+    )
+
+    run_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    suite_sha256: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    suite_partition: Mapped[str] = mapped_column(String(32), nullable=False)
+    candidate_configuration_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    vector_batch_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    actor_identity: Mapped[str] = mapped_column(String(300), nullable=False)
+    status: Mapped[str] = mapped_column(String(16), nullable=False)
+    report_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    report_payload: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
+    failure_class: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

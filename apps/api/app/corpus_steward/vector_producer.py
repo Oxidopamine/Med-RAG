@@ -13,7 +13,9 @@ from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from numbers import Real
-from typing import Protocol
+from typing import Literal, Protocol
+
+from pydantic import Field, field_validator, model_validator
 
 from app.corpus_steward.index_schemas import (
     DenseVectorDefinition,
@@ -33,9 +35,10 @@ from app.schemas.corpus import (
     EvidenceApprovalStatus,
     canonical_sha256,
 )
-from app.schemas.domain import utc_now
+from app.schemas.domain import CanonicalModel, utc_now
 
 HASHING_VECTORIZER_REVISION = "1.0.0"
+VECTOR_CHECKPOINT_CONTRACT_VERSION = "1.0.0"
 _TOKEN_PATTERN = re.compile(r"[\w]+(?:['’\-][\w]+)*", re.UNICODE)
 
 
@@ -51,6 +54,68 @@ class RetryableEmbeddingError(RuntimeError):
 class EmbeddedText:
     dense: tuple[float, ...]
     sparse: SparseVector
+
+
+class VectorProductionCheckpointContent(CanonicalModel):
+    """Digest-sealed resumable state for a release-wide embedding job."""
+
+    schema_version: Literal[VECTOR_CHECKPOINT_CONTRACT_VERSION] = (
+        VECTOR_CHECKPOINT_CONTRACT_VERSION
+    )
+    corpus_release_id: str = Field(min_length=1, max_length=64)
+    manifest_sha256: str = Field(min_length=64, max_length=64)
+    generated_at: datetime
+    dense: DenseVectorDefinition
+    sparse: SparseVectorDefinition
+    records: tuple[EvidenceVectorRecord, ...] = ()
+
+    @field_validator("generated_at")
+    @classmethod
+    def require_aware_timestamp(cls, value: datetime) -> datetime:
+        if value.tzinfo is None or value.utcoffset() is None:
+            raise ValueError("checkpoint generation time must be timezone-aware")
+        return value
+
+    @field_validator("records")
+    @classmethod
+    def sort_unique_records(
+        cls, value: tuple[EvidenceVectorRecord, ...]
+    ) -> tuple[EvidenceVectorRecord, ...]:
+        ids = [item.evidence_id for item in value]
+        if len(ids) != len(set(ids)):
+            raise ValueError("checkpoint cannot repeat an evidence ID")
+        if ids != sorted(ids):
+            raise ValueError("checkpoint evidence records must be sorted")
+        return value
+
+    @model_validator(mode="after")
+    def validate_shapes(self) -> VectorProductionCheckpointContent:
+        for record in self.records:
+            if len(record.dense) != self.dense.dimension:
+                raise ValueError("checkpoint dense vector dimension mismatch")
+            if record.sparse.indices[-1] >= self.sparse.dimension:
+                raise ValueError("checkpoint sparse vector dimension mismatch")
+        return self
+
+
+class VectorProductionCheckpoint(CanonicalModel):
+    content: VectorProductionCheckpointContent
+    checkpoint_sha256: str = Field(min_length=64, max_length=64)
+
+    @model_validator(mode="after")
+    def verify_digest(self) -> VectorProductionCheckpoint:
+        if self.checkpoint_sha256 != canonical_sha256(self.content):
+            raise ValueError("vector checkpoint digest does not match its content")
+        return self
+
+    @classmethod
+    def seal(
+        cls, content: VectorProductionCheckpointContent
+    ) -> VectorProductionCheckpoint:
+        return cls(
+            content=content,
+            checkpoint_sha256=canonical_sha256(content),
+        )
 
 
 class EmbeddingBackend(Protocol):
@@ -71,6 +136,8 @@ class EmbeddingBackend(Protocol):
     async def embed_documents(self, texts: Sequence[str]) -> Sequence[EmbeddedText]: ...
 
     async def embed_queries(self, texts: Sequence[str]) -> Sequence[EmbeddedText]: ...
+
+    async def embed_sparse_queries(self, texts: Sequence[str]) -> Sequence[SparseVector]: ...
 
 
 class DenseEmbeddingAdapter(Protocol):
@@ -189,6 +256,41 @@ class ProductionEmbeddingBackend:
 
     async def embed_queries(self, texts: Sequence[str]) -> Sequence[EmbeddedText]:
         return await self._embed(texts, input_kind="queries")
+
+    async def embed_sparse_queries(
+        self, texts: Sequence[str]
+    ) -> Sequence[SparseVector]:
+        inputs = tuple(texts)
+        if not inputs:
+            return ()
+        if len(inputs) > self._policy.max_batch_size:
+            raise VectorProductionError(
+                "sparse query request exceeds the verified backend batch-size limit"
+            )
+        if any(not isinstance(text, str) or not text.strip() for text in inputs):
+            raise VectorProductionError("embedding inputs must be non-empty text")
+        sparse = tuple(
+            await self._bounded_call(
+                "sparse", lambda: self._sparse_adapter.embed_queries(inputs)
+            )
+        )
+        if len(sparse) != len(inputs):
+            raise VectorProductionError(
+                "sparse adapter returned a different number of vectors than inputs"
+            )
+        converted: list[SparseVector] = []
+        for position, vector in enumerate(sparse):
+            if vector.indices[-1] >= self._sparse.dimension:
+                raise VectorProductionError(
+                    f"sparse adapter returned the wrong dimension at input {position}"
+                )
+            converted.append(
+                SparseVector(
+                    indices=vector.indices,
+                    values=tuple(_float32(value) for value in vector.values),
+                )
+            )
+        return tuple(converted)
 
     async def _embed(
         self, texts: Sequence[str], *, input_kind: str
@@ -374,6 +476,11 @@ class DeterministicHashingBackend:
     async def embed_queries(self, texts: Sequence[str]) -> Sequence[EmbeddedText]:
         return await self.embed(texts)
 
+    async def embed_sparse_queries(
+        self, texts: Sequence[str]
+    ) -> Sequence[SparseVector]:
+        return tuple(self._embed_one(text).sparse for text in texts)
+
     async def embed(self, texts: Sequence[str]) -> Sequence[EmbeddedText]:
         """Compatibility alias for callers that do not distinguish input roles."""
 
@@ -430,14 +537,31 @@ class VectorBatchProducer:
         bundle: CorpusReleaseBundle,
         *,
         generated_at: datetime | None = None,
+        checkpoint: VectorProductionCheckpoint | None = None,
+        progress_callback: Callable[[VectorProductionCheckpoint], None] | None = None,
+        checkpoint_interval_batches: int = 1,
     ) -> IndexVectorBatch:
-        timestamp = generated_at or utc_now()
+        if checkpoint_interval_batches <= 0:
+            raise ValueError("checkpoint interval must be a positive batch count")
+        if (
+            checkpoint is not None
+            and generated_at is not None
+            and checkpoint.content.generated_at != generated_at
+        ):
+            raise ValueError(
+                "explicit generation time does not match the vector checkpoint"
+            )
+        timestamp = (
+            checkpoint.content.generated_at
+            if checkpoint is not None
+            else generated_at or utc_now()
+        )
         if timestamp.tzinfo is None or timestamp.utcoffset() is None:
             raise ValueError("vector batch generation time must be timezone-aware")
 
         evidence = sorted(bundle.evidence, key=lambda item: item.evidence_id)
-        records: list[EvidenceVectorRecord] = []
-        for start in range(0, len(evidence), self._batch_size):
+        records = self._resume_records(bundle, evidence, checkpoint)
+        for start in range(len(records), len(evidence), self._batch_size):
             batch = evidence[start : start + self._batch_size]
             for item in batch:
                 if (
@@ -475,6 +599,25 @@ class VectorBatchProducer:
                     raise VectorProductionError(
                         f"invalid vectors for evidence {item.evidence_id}: {error}"
                     ) from error
+            checkpoint_interval = self._batch_size * checkpoint_interval_batches
+            if progress_callback is not None and (
+                len(records) == len(evidence)
+                or len(records) % checkpoint_interval == 0
+            ):
+                progress_callback(
+                    VectorProductionCheckpoint.seal(
+                        VectorProductionCheckpointContent(
+                            corpus_release_id=(
+                                bundle.manifest.content.corpus_release_id
+                            ),
+                            manifest_sha256=bundle.manifest.manifest_sha256,
+                            generated_at=timestamp,
+                            dense=self._backend.dense_definition,
+                            sparse=self._backend.sparse_definition,
+                            records=tuple(records),
+                        )
+                    )
+                )
 
         try:
             content = IndexVectorBatchContent(
@@ -490,3 +633,37 @@ class VectorBatchProducer:
                 f"embedding batch violates index contract: {error}"
             ) from error
         return IndexVectorBatch.seal(content)
+
+    def _resume_records(
+        self,
+        bundle: CorpusReleaseBundle,
+        evidence,
+        checkpoint: VectorProductionCheckpoint | None,
+    ) -> list[EvidenceVectorRecord]:
+        if checkpoint is None:
+            return []
+        content = checkpoint.content
+        if content.corpus_release_id != bundle.manifest.content.corpus_release_id:
+            raise VectorProductionError("vector checkpoint corpus release mismatch")
+        if content.manifest_sha256 != bundle.manifest.manifest_sha256:
+            raise VectorProductionError("vector checkpoint manifest mismatch")
+        if content.dense != self._backend.dense_definition:
+            raise VectorProductionError("vector checkpoint dense model mismatch")
+        if content.sparse != self._backend.sparse_definition:
+            raise VectorProductionError("vector checkpoint sparse model mismatch")
+        expected_prefix = evidence[: len(content.records)]
+        if [item.evidence_id for item in expected_prefix] != [
+            item.evidence_id for item in content.records
+        ]:
+            raise VectorProductionError(
+                "vector checkpoint is not a contiguous sorted release prefix"
+            )
+        for evidence_record, vector_record in zip(
+            expected_prefix, content.records, strict=True
+        ):
+            if evidence_record.sha256 != vector_record.evidence_sha256:
+                raise VectorProductionError(
+                    "vector checkpoint evidence digest mismatch: "
+                    f"{evidence_record.evidence_id}"
+                )
+        return list(content.records)

@@ -149,6 +149,23 @@ class SafetyTopicSampleTarget(CanonicalModel):
     sealed_holdout_minimum: int = Field(gt=0)
 
 
+class ThresholdDerivation(str, Enum):
+    """How the numeric gates in this policy were arrived at.
+
+    The distinction is not cosmetic. ``PRESPECIFIED_ABSOLUTE`` asserts that no
+    measurement informed the numbers, which is the strong pre-registration claim.
+    ``COMPARATOR_WILSON_95_LOWER_BOUND`` asserts something weaker and different: the
+    gates are the Wilson-95 lower bounds of a comparator that was measured on this same
+    suite, so they are posterior quantities and the policy is a non-inferiority design
+    rather than an absolute one. Recording the weaker claim as the stronger one would
+    make the sealed artifact misdescribe its own provenance.
+    """
+
+    PRESPECIFIED_ABSOLUTE = "PRESPECIFIED_ABSOLUTE"
+    CONSUMER_REQUIREMENT = "CONSUMER_REQUIREMENT"
+    COMPARATOR_WILSON_95_LOWER_BOUND = "COMPARATOR_WILSON_95_LOWER_BOUND"
+
+
 class BenchmarkThresholdPolicyContent(CanonicalModel):
     schema_version: Literal[ADJUDICATION_CONTRACT_VERSION] = ADJUDICATION_CONTRACT_VERSION
     policy_id: str = Field(min_length=1, max_length=100)
@@ -163,7 +180,12 @@ class BenchmarkThresholdPolicyContent(CanonicalModel):
     non_binomial_uncertainty_method: Literal["STRATIFIED_BOOTSTRAP_95"] = (
         "STRATIFIED_BOOTSTRAP_95"
     )
-    set_before_candidate_evaluation: Literal[True] = True
+    threshold_derivation: ThresholdDerivation
+    # A comparator-derived policy is still pre-registered with respect to the candidates
+    # it will judge: what it may not claim is that no measurement produced its numbers.
+    # This flag carries only the claim the policy can actually support.
+    candidates_under_test_unevaluated: Literal[True] = True
+    comparator_measured_at: datetime | None = None
     established_at: datetime
 
     @field_validator("safety_topic_sample_targets")
@@ -223,6 +245,42 @@ class BenchmarkThresholdPolicyContent(CanonicalModel):
                     f"{label} gate minimum exceeds its declared sample target for: "
                     + ", ".join(sorted(impossible))
                 )
+        return self._validate_derivation()
+
+    def _validate_derivation(self) -> BenchmarkThresholdPolicyContent:
+        """Keep the declared derivation consistent with what the gates actually are."""
+
+        acceptances = (
+            ("development", self.development_acceptance),
+            ("sealed holdout", self.sealed_holdout_acceptance),
+        )
+        comparator_declared = any(
+            acceptance.comparator_candidate_id is not None for _, acceptance in acceptances
+        )
+        if self.threshold_derivation is ThresholdDerivation.COMPARATOR_WILSON_95_LOWER_BOUND:
+            for label, acceptance in acceptances:
+                if acceptance.comparator_candidate_id is None:
+                    raise ValueError(
+                        f"{label} acceptance declares comparator-derived thresholds "
+                        "without pinning a comparator"
+                    )
+            if self.comparator_measured_at is None:
+                raise ValueError(
+                    "comparator-derived thresholds require the comparator measurement time"
+                )
+            if self.comparator_measured_at > self.established_at:
+                raise ValueError(
+                    "a comparator cannot be measured after the policy it produced"
+                )
+        elif comparator_declared:
+            raise ValueError(
+                "a pinned comparator contradicts a threshold derivation of "
+                f"{self.threshold_derivation.value}"
+            )
+        elif self.comparator_measured_at is not None:
+            raise ValueError(
+                "comparator measurement time requires comparator-derived thresholds"
+            )
         return self
 
     def acceptance_for(self, partition: BenchmarkSuitePartition) -> BenchmarkAcceptance:

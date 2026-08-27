@@ -28,6 +28,18 @@ retrieval = [
   "torch>=2.5,<3",
   "transformers>=4.51,<6"
 ]
+generation-bedrock = [
+  "anthropic>=1,<2",
+  "boto3>=1.35,<2"
+]
+generation-vertex = [
+  "anthropic[vertex]>=1,<2"
+]
+cpu-optimized = [
+  "nncf>=2.14,<3",
+  "openvino>=2025.0,<2027",
+  "optimum-intel[openvino]>=1.22,<2"
+]
 dev = [
   "aiosqlite>=0.21,<1",
   "pytest>=8.3,<9",

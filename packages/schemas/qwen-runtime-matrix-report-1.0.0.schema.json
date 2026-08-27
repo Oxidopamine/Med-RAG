@@ -1,0 +1,442 @@
+{
+  "$defs": {
+    "QwenRuntimeEnvironment": {
+      "additionalProperties": false,
+      "properties": {
+        "cuda_available": {
+          "title": "Cuda Available",
+          "type": "boolean"
+        },
+        "cuda_device_names": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Cuda Device Names",
+          "type": "array"
+        },
+        "operating_system": {
+          "maxLength": 300,
+          "minLength": 1,
+          "title": "Operating System",
+          "type": "string"
+        },
+        "processor": {
+          "maxLength": 300,
+          "minLength": 1,
+          "title": "Processor",
+          "type": "string"
+        },
+        "python_version": {
+          "maxLength": 100,
+          "minLength": 1,
+          "title": "Python Version",
+          "type": "string"
+        },
+        "torch_version": {
+          "anyOf": [
+            {
+              "maxLength": 100,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Torch Version"
+        },
+        "transformers_version": {
+          "anyOf": [
+            {
+              "maxLength": 100,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Transformers Version"
+        }
+      },
+      "required": [
+        "operating_system",
+        "processor",
+        "python_version",
+        "cuda_available"
+      ],
+      "title": "QwenRuntimeEnvironment",
+      "type": "object"
+    },
+    "QwenRuntimeMatrixReportContent": {
+      "additionalProperties": false,
+      "properties": {
+        "corpus_release_id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Corpus Release Id",
+          "type": "string"
+        },
+        "development_suite_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Development Suite Sha256",
+          "type": "string"
+        },
+        "environment": {
+          "$ref": "#/$defs/QwenRuntimeEnvironment"
+        },
+        "executed_at": {
+          "format": "date-time",
+          "title": "Executed At",
+          "type": "string"
+        },
+        "manifest_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Manifest Sha256",
+          "type": "string"
+        },
+        "matrix_id": {
+          "maxLength": 100,
+          "minLength": 1,
+          "title": "Matrix Id",
+          "type": "string"
+        },
+        "outcome": {
+          "enum": [
+            "COMPLETE",
+            "BLOCKED"
+          ],
+          "title": "Outcome",
+          "type": "string"
+        },
+        "request_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Request Sha256",
+          "type": "string"
+        },
+        "results": {
+          "items": {
+            "$ref": "#/$defs/QwenRuntimeTargetResult"
+          },
+          "minItems": 1,
+          "title": "Results",
+          "type": "array"
+        },
+        "schema_version": {
+          "const": "1.0.0",
+          "default": "1.0.0",
+          "title": "Schema Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "matrix_id",
+        "request_sha256",
+        "corpus_release_id",
+        "manifest_sha256",
+        "development_suite_sha256",
+        "environment",
+        "executed_at",
+        "results",
+        "outcome"
+      ],
+      "title": "QwenRuntimeMatrixReportContent",
+      "type": "object"
+    },
+    "QwenRuntimeMeasurements": {
+      "additionalProperties": false,
+      "properties": {
+        "cold_query_latency_ms": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cold Query Latency Ms"
+        },
+        "document_count": {
+          "exclusiveMinimum": 0,
+          "title": "Document Count",
+          "type": "integer"
+        },
+        "document_items_per_second": {
+          "exclusiveMinimum": 0,
+          "title": "Document Items Per Second",
+          "type": "number"
+        },
+        "document_mean_latency_ms": {
+          "minimum": 0,
+          "title": "Document Mean Latency Ms",
+          "type": "number"
+        },
+        "document_p95_latency_ms": {
+          "minimum": 0,
+          "title": "Document P95 Latency Ms",
+          "type": "number"
+        },
+        "initialization_latency_ms": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Initialization Latency Ms"
+        },
+        "maximum_norm_deviation": {
+          "minimum": 0,
+          "title": "Maximum Norm Deviation",
+          "type": "number"
+        },
+        "peak_cuda_memory_bytes": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Peak Cuda Memory Bytes"
+        },
+        "peak_process_rss_bytes": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Peak Process Rss Bytes"
+        },
+        "query_count": {
+          "exclusiveMinimum": 0,
+          "title": "Query Count",
+          "type": "integer"
+        },
+        "query_items_per_second": {
+          "exclusiveMinimum": 0,
+          "title": "Query Items Per Second",
+          "type": "number"
+        },
+        "query_mean_latency_ms": {
+          "minimum": 0,
+          "title": "Query Mean Latency Ms",
+          "type": "number"
+        },
+        "query_p95_latency_ms": {
+          "minimum": 0,
+          "title": "Query P95 Latency Ms",
+          "type": "number"
+        },
+        "truncated_document_count": {
+          "minimum": 0,
+          "title": "Truncated Document Count",
+          "type": "integer"
+        },
+        "truncated_query_count": {
+          "minimum": 0,
+          "title": "Truncated Query Count",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "query_count",
+        "document_count",
+        "query_mean_latency_ms",
+        "query_p95_latency_ms",
+        "document_mean_latency_ms",
+        "document_p95_latency_ms",
+        "query_items_per_second",
+        "document_items_per_second",
+        "maximum_norm_deviation",
+        "truncated_query_count",
+        "truncated_document_count"
+      ],
+      "title": "QwenRuntimeMeasurements",
+      "type": "object"
+    },
+    "QwenRuntimeTarget": {
+      "additionalProperties": false,
+      "properties": {
+        "artifact_manifest_path": {
+          "maxLength": 500,
+          "minLength": 1,
+          "title": "Artifact Manifest Path",
+          "type": "string"
+        },
+        "artifact_root": {
+          "maxLength": 500,
+          "minLength": 1,
+          "title": "Artifact Root",
+          "type": "string"
+        },
+        "batch_size": {
+          "exclusiveMinimum": 0,
+          "maximum": 1024,
+          "title": "Batch Size",
+          "type": "integer"
+        },
+        "device": {
+          "maxLength": 50,
+          "minLength": 1,
+          "title": "Device",
+          "type": "string"
+        },
+        "dimension": {
+          "exclusiveMinimum": 0,
+          "title": "Dimension",
+          "type": "integer"
+        },
+        "dtype": {
+          "enum": [
+            "float32",
+            "float16",
+            "bfloat16",
+            "int8"
+          ],
+          "title": "Dtype",
+          "type": "string"
+        },
+        "expected_artifact_sha256": {
+          "anyOf": [
+            {
+              "pattern": "^[a-f0-9]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Expected Artifact Sha256"
+        },
+        "max_length": {
+          "exclusiveMinimum": 0,
+          "maximum": 32768,
+          "title": "Max Length",
+          "type": "integer"
+        },
+        "model_id": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Model Id",
+          "type": "string"
+        },
+        "model_revision": {
+          "pattern": "^[0-9a-f]{40}$",
+          "title": "Model Revision",
+          "type": "string"
+        },
+        "target_id": {
+          "maxLength": 100,
+          "minLength": 1,
+          "title": "Target Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "target_id",
+        "model_id",
+        "model_revision",
+        "dimension",
+        "artifact_root",
+        "artifact_manifest_path",
+        "device",
+        "dtype",
+        "max_length",
+        "batch_size"
+      ],
+      "title": "QwenRuntimeTarget",
+      "type": "object"
+    },
+    "QwenRuntimeTargetResult": {
+      "additionalProperties": false,
+      "properties": {
+        "artifact_sha256": {
+          "anyOf": [
+            {
+              "pattern": "^[a-f0-9]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Artifact Sha256"
+        },
+        "blockers": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Blockers",
+          "type": "array"
+        },
+        "measurements": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/QwenRuntimeMeasurements"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "status": {
+          "enum": [
+            "MEASURED",
+            "BLOCKED"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "target": {
+          "$ref": "#/$defs/QwenRuntimeTarget"
+        }
+      },
+      "required": [
+        "target",
+        "status"
+      ],
+      "title": "QwenRuntimeTargetResult",
+      "type": "object"
+    }
+  },
+  "$id": "https://med-rag.local/contracts/qwen-runtime-matrix-report-1.0.0.schema.json",
+  "additionalProperties": false,
+  "properties": {
+    "content": {
+      "$ref": "#/$defs/QwenRuntimeMatrixReportContent"
+    },
+    "report_sha256": {
+      "pattern": "^[a-f0-9]{64}$",
+      "title": "Report Sha256",
+      "type": "string"
+    }
+  },
+  "required": [
+    "content",
+    "report_sha256"
+  ],
+  "title": "QwenRuntimeMatrixReport",
+  "type": "object",
+  "x-contract-version": "1.0.0"
+}

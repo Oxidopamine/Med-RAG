@@ -1,0 +1,43 @@
+{
+  "candidate_sha256": "7e7cfd2b9bea2edc7e1f4e00825cd4dc8e4e9e938aa4f9936a89ec42cc09e52e",
+  "content": {
+    "candidate_id": "who-smart-hiv-deterministic-expanded-control-v3",
+    "candidate_limit": 50,
+    "lanes": [
+      {
+        "adapter_id": "med-rag/deterministic-dense",
+        "adapter_revision": "1.0.0",
+        "kind": "DENSE",
+        "lane_id": "deterministic-dense",
+        "model": {
+          "artifact_sha256": "795713846525b3837f2d32d1abae4ec47f0ab0c7653da5802b98dede58ee6a42",
+          "model_id": "med-rag/baseline-hashing-dense",
+          "revision": "1.0.0"
+        },
+        "required": true,
+        "vector_name": "dense",
+        "weight": 1.0
+      },
+      {
+        "adapter_id": "med-rag/deterministic-sparse",
+        "adapter_revision": "1.0.0",
+        "kind": "BM25",
+        "lane_id": "deterministic-sparse",
+        "model": {
+          "artifact_sha256": "6aac7ebf93aeace9038fb2325045fbef92e6d57a4cc4d7ec130b34dc61cdd291",
+          "model_id": "med-rag/baseline-hashing-sparse",
+          "revision": "1.0.0"
+        },
+        "required": true,
+        "vector_name": "sparse",
+        "weight": 1.0
+      }
+    ],
+    "output_depth": 10,
+    "reranker": null,
+    "rrf_k": 60,
+    "safety_query_revision": "clinical-safety-query-v1",
+    "schema_version": "1.0.0",
+    "terminology_revision": "exact-terminology-unicode-v1"
+  }
+}

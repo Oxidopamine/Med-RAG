@@ -1,0 +1,15 @@
+{
+  "pooling": "last_token",
+  "normalize": true,
+  "query_instruction": "Given a clinical evidence retrieval query, retrieve relevant guideline passages that answer the query.",
+  "document_prefix": "",
+  "padding_side": "left",
+  "max_length": 8192,
+  "batch_size": 8,
+  "device": "CPU",
+  "dtype": "int8",
+  "weight_format": "int8",
+  "openvino_version": "2025.0.0",
+  "optimum_intel_version": "1.22.0",
+  "nncf_version": "2.14.0"
+}

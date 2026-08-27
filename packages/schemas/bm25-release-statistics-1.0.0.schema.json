@@ -1,0 +1,124 @@
+{
+  "$defs": {
+    "BM25ReleaseStatisticsContent": {
+      "additionalProperties": false,
+      "properties": {
+        "average_document_length": {
+          "exclusiveMinimum": 0,
+          "title": "Average Document Length",
+          "type": "number"
+        },
+        "corpus_release_id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Corpus Release Id",
+          "type": "string"
+        },
+        "document_count": {
+          "exclusiveMinimum": 0,
+          "title": "Document Count",
+          "type": "integer"
+        },
+        "document_prefix": {
+          "maxLength": 200,
+          "title": "Document Prefix",
+          "type": "string"
+        },
+        "manifest_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Manifest Sha256",
+          "type": "string"
+        },
+        "maximum_document_length": {
+          "exclusiveMinimum": 0,
+          "title": "Maximum Document Length",
+          "type": "integer"
+        },
+        "median_document_length": {
+          "exclusiveMinimum": 0,
+          "title": "Median Document Length",
+          "type": "integer"
+        },
+        "minimum_document_length": {
+          "exclusiveMinimum": 0,
+          "title": "Minimum Document Length",
+          "type": "integer"
+        },
+        "p95_document_length": {
+          "exclusiveMinimum": 0,
+          "title": "P95 Document Length",
+          "type": "integer"
+        },
+        "schema_version": {
+          "const": "1.0.0",
+          "default": "1.0.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "stopwords_sha256": {
+          "anyOf": [
+            {
+              "pattern": "^[a-f0-9]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Stopwords Sha256"
+        },
+        "tokenization_configuration_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Tokenization Configuration Sha256",
+          "type": "string"
+        },
+        "tokenizer": {
+          "const": "unicode-medical-v1",
+          "default": "unicode-medical-v1",
+          "title": "Tokenizer",
+          "type": "string"
+        },
+        "total_token_count": {
+          "exclusiveMinimum": 0,
+          "title": "Total Token Count",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "corpus_release_id",
+        "manifest_sha256",
+        "tokenization_configuration_sha256",
+        "document_prefix",
+        "document_count",
+        "total_token_count",
+        "minimum_document_length",
+        "median_document_length",
+        "p95_document_length",
+        "maximum_document_length",
+        "average_document_length"
+      ],
+      "title": "BM25ReleaseStatisticsContent",
+      "type": "object"
+    }
+  },
+  "$id": "https://med-rag.local/contracts/bm25-release-statistics-1.0.0.schema.json",
+  "additionalProperties": false,
+  "properties": {
+    "content": {
+      "$ref": "#/$defs/BM25ReleaseStatisticsContent"
+    },
+    "statistics_sha256": {
+      "pattern": "^[a-f0-9]{64}$",
+      "title": "Statistics Sha256",
+      "type": "string"
+    }
+  },
+  "required": [
+    "content",
+    "statistics_sha256"
+  ],
+  "title": "BM25ReleaseStatistics",
+  "type": "object",
+  "x-contract-version": "1.0.0"
+}

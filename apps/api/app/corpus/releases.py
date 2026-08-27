@@ -250,6 +250,7 @@ class SQLCorpusReleaseRepository:
         *,
         point_count: int,
         index_attestation_sha256: str,
+        qdrant_collection: str | None = None,
     ) -> CorpusReleaseRecord:
         if point_count < 0:
             raise ValueError("point_count cannot be negative")
@@ -267,16 +268,30 @@ class SQLCorpusReleaseRepository:
             evidence_count = await self._evidence_count(session, corpus_release_id)
             if point_count != evidence_count:
                 raise CorpusReleaseGateError(["INDEX_EVIDENCE_COUNT_MISMATCH"])
+            selected_collection = qdrant_collection or release.qdrant_collection
+            if (
+                not selected_collection
+                or len(selected_collection) > 255
+                or (
+                    selected_collection != release.qdrant_collection
+                    and not selected_collection.startswith(
+                        f"{release.qdrant_collection}--vp-"
+                    )
+                )
+            ):
+                raise CorpusReleaseGateError(["INDEX_COLLECTION_IDENTITY_MISMATCH"])
             if release.index_status == "VALIDATED":
                 if (
                     release.index_point_count != point_count
                     or release.index_attestation_sha256 != index_attestation_sha256
+                    or release.qdrant_collection != selected_collection
                 ):
                     raise CorpusReleaseConflictError(
                         "validated index attestation cannot be changed"
                     )
                 return await self._record(session, release)
             release.index_status = "VALIDATED"
+            release.qdrant_collection = selected_collection
             release.index_point_count = point_count
             release.index_attestation_sha256 = index_attestation_sha256
             release.index_validated_at = now
@@ -363,6 +378,11 @@ class SQLCorpusReleaseRepository:
                 "BENCHMARK_ACCESS_POLICY_MISMATCH",
             ),
             (
+                content.provenance_mode,
+                result.provenance_mode,
+                "BENCHMARK_PROVENANCE_MODE_MISMATCH",
+            ),
+            (
                 content.adjudication_process_sha256,
                 result.adjudication_process_sha256,
                 "BENCHMARK_ADJUDICATION_PROCESS_MISMATCH",
@@ -371,6 +391,16 @@ class SQLCorpusReleaseRepository:
                 content.adjudication_record_sha256,
                 result.adjudication_record_sha256,
                 "BENCHMARK_ADJUDICATION_RECORD_MISMATCH",
+            ),
+            (
+                content.generation_policy_sha256,
+                result.generation_policy_sha256,
+                "BENCHMARK_GENERATION_POLICY_MISMATCH",
+            ),
+            (
+                content.generation_record_sha256,
+                result.generation_record_sha256,
+                "BENCHMARK_GENERATION_RECORD_MISMATCH",
             ),
             (
                 content.threshold_policy_sha256,

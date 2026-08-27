@@ -22,6 +22,7 @@ from app.corpus_steward.adjudication_schemas import (
     DisagreementResolutionContent,
     DisagreementResolutionImport,
     SafetyTopicSampleTarget,
+    ThresholdDerivation,
 )
 from app.corpus_steward.adjudication_service import (
     AdjudicationWorkflowError,
@@ -98,6 +99,7 @@ def threshold_policy() -> BenchmarkThresholdPolicyContent:
         minimum_exact_agreement_rate=0.0,
         development_acceptance=acceptance(),
         sealed_holdout_acceptance=acceptance(),
+        threshold_derivation=ThresholdDerivation.PRESPECIFIED_ABSOLUTE,
         established_at=NOW,
     )
 
@@ -504,6 +506,7 @@ def test_threshold_policy_requires_every_safety_topic() -> None:
             ),
             development_acceptance=acceptance(),
             sealed_holdout_acceptance=acceptance(),
+            threshold_derivation=ThresholdDerivation.PRESPECIFIED_ABSOLUTE,
             established_at=NOW,
         )
 

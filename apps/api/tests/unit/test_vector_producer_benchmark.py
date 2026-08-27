@@ -9,12 +9,16 @@ import pytest
 from app.corpus_steward.benchmark import (
     BenchmarkExecutionError,
     RetrievalBenchmarkRunner,
+    _Candidate,
+    derive_development_suite_for_candidate,
 )
 from app.corpus_steward.benchmark_schemas import (
+    BENCHMARK_CONTRACT_VERSION,
     BenchmarkAcceptance,
     BenchmarkCase,
     BenchmarkFilter,
     BenchmarkGoldEvidence,
+    BenchmarkProvenanceMode,
     BenchmarkSuite,
     BenchmarkSuiteContent,
     BenchmarkSuitePartition,
@@ -28,6 +32,7 @@ from app.corpus_steward.benchmark_schemas import (
 from app.corpus_steward.candidate_schemas import (
     CandidateLane,
     CandidateLaneKind,
+    CandidateReranker,
     RetrievalCandidateContent,
     RetrievalCandidateManifest,
 )
@@ -38,10 +43,16 @@ from app.corpus_steward.cli import (
     candidate_schema_document,
 )
 from app.corpus_steward.qdrant_index import stable_qdrant_point_id
+from app.corpus_steward.query_expansion import (
+    EXACT_TERMINOLOGY_REVISION,
+    SAFETY_QUERY_REVISION,
+)
 from app.corpus_steward.vector_producer import (
     DeterministicHashingBackend,
     EmbeddedText,
     VectorBatchProducer,
+    VectorProductionCheckpoint,
+    VectorProductionCheckpointContent,
     VectorProductionError,
 )
 from app.schemas.corpus import CorpusReleaseBundle, EvidenceRole
@@ -51,13 +62,13 @@ SUITE_SCHEMA_PATH = (
     Path(__file__).parents[4]
     / "packages"
     / "schemas"
-    / "retrieval-benchmark-suite-1.2.0.schema.json"
+    / "retrieval-benchmark-suite-1.6.0.schema.json"
 )
 REPORT_SCHEMA_PATH = (
     Path(__file__).parents[4]
     / "packages"
     / "schemas"
-    / "retrieval-benchmark-report-1.2.0.schema.json"
+    / "retrieval-benchmark-report-1.6.0.schema.json"
 )
 SYNTHETIC_SUITE_CONTENT_PATH = (
     Path(__file__).parents[4] / "benchmarks" / "suites" / "synthetic-v1.content.json"
@@ -75,11 +86,47 @@ BENCHMARK_ACCEPTANCE_SCHEMA_PATH = (
     Path(__file__).parents[4]
     / "packages"
     / "schemas"
-    / "signed-benchmark-acceptance-1.2.0.schema.json"
+    / "signed-benchmark-acceptance-1.6.0.schema.json"
 )
 SYNTHETIC_CANDIDATE_PATH = (
     Path(__file__).parents[4] / "models" / "configs" / "synthetic-candidate-v1.json"
 )
+SOURCE_DERIVED_DEVELOPMENT_SUITE_PATH = (
+    Path(__file__).parents[4]
+    / "benchmarks"
+    / "suites"
+    / "who-smart-hiv-source-derived-development-v7.json"
+)
+QWEN_RERANK_POOL_100_CANDIDATE_PATH = (
+    Path(__file__).parents[4]
+    / "models"
+    / "configs"
+    / "who-smart-hiv-qwen3-0.6b-rerank-pool-100.json"
+)
+CONFLICT_AWARE_CANDIDATE_PATH = (
+    Path(__file__).parents[4]
+    / "models"
+    / "configs"
+    / "who-smart-hiv-qwen3-0.6b-conflict-aware.json"
+)
+
+
+def _requires_regenerated_artifact(path: Path) -> None:
+    """Skip when a checked-in sealed artifact predates the current contract.
+
+    These artifacts are outputs of the sealing pipeline, not fixtures: regenerating
+    them needs the release database, signing keys, and Qdrant. Skipping keyed on the
+    contract version means the check re-arms by itself once the artifact is rebuilt,
+    instead of being silently deleted or hand-edited back into agreement.
+    """
+
+    version = json.loads(path.read_text(encoding="utf-8"))["content"]["schema_version"]
+    if version != BENCHMARK_CONTRACT_VERSION:
+        pytest.skip(
+            f"{path.name} is sealed at contract {version}; "
+            f"regenerate at {BENCHMARK_CONTRACT_VERSION} "
+            "(corpus-steward benchmark-generate-source-derived / benchmark-seal-suite)"
+        )
 
 
 def fixture_bundle() -> CorpusReleaseBundle:
@@ -142,6 +189,69 @@ async def test_vector_producer_rejects_incomplete_backend_output() -> None:
         await VectorBatchProducer(_ShortBackend()).produce(fixture_bundle())
 
 
+async def test_vector_producer_resumes_digest_sealed_release_prefix() -> None:
+    bundle = fixture_bundle()
+    backend = DeterministicHashingBackend(dense_dimension=16, sparse_dimension=64)
+    checkpoints: list[VectorProductionCheckpoint] = []
+    complete = await VectorBatchProducer(backend, batch_size=1).produce(
+        bundle,
+        generated_at=datetime(2026, 8, 26, tzinfo=timezone.utc),
+        progress_callback=checkpoints.append,
+    )
+
+    class CountingBackend(DeterministicHashingBackend):
+        def __init__(self) -> None:
+            super().__init__(dense_dimension=16, sparse_dimension=64)
+            self.document_count = 0
+
+        async def embed_documents(self, texts: Sequence[str]):
+            self.document_count += len(texts)
+            return await super().embed_documents(texts)
+
+    resumed_backend = CountingBackend()
+    resumed = await VectorBatchProducer(resumed_backend, batch_size=1).produce(
+        bundle,
+        checkpoint=checkpoints[0],
+    )
+
+    assert resumed == complete
+    assert resumed_backend.document_count == len(bundle.evidence) - 1
+
+    drifted_record = checkpoints[0].content.records[0].model_copy(
+        update={"evidence_sha256": "0" * 64}
+    )
+    drifted = VectorProductionCheckpoint.seal(
+        VectorProductionCheckpointContent(
+            **checkpoints[0].content.model_dump(exclude={"records"}),
+            records=(drifted_record,),
+        )
+    )
+    with pytest.raises(VectorProductionError, match="evidence digest mismatch"):
+        await VectorBatchProducer(backend, batch_size=1).produce(
+            bundle,
+            checkpoint=drifted,
+        )
+
+
+async def test_vector_checkpoint_cadence_always_includes_final_batch() -> None:
+    bundle = fixture_bundle()
+    backend = DeterministicHashingBackend(dense_dimension=16, sparse_dimension=64)
+    checkpoints: list[VectorProductionCheckpoint] = []
+
+    await VectorBatchProducer(backend, batch_size=1).produce(
+        bundle,
+        progress_callback=checkpoints.append,
+        checkpoint_interval_batches=2,
+    )
+
+    assert [len(item.content.records) for item in checkpoints] == [2, 3]
+    with pytest.raises(ValueError, match="checkpoint interval"):
+        await VectorBatchProducer(backend).produce(
+            bundle,
+            checkpoint_interval_batches=0,
+        )
+
+
 class FakeBenchmarkQdrant:
     def __init__(
         self,
@@ -177,6 +287,8 @@ class FakeBenchmarkQdrant:
                 "language": evidence.language,
                 "publisher_id": evidence.publisher_id,
                 "source_class": "E1",
+                "source_version_id": evidence.source_version_id,
+                "lifecycle_status": evidence.lifecycle_status.value,
             }
             results.append(
                 {
@@ -200,9 +312,8 @@ def benchmark_suite(
         BenchmarkSuiteContent(
             benchmark_id="synthetic-retrieval-v1",
             suite_partition=BenchmarkSuitePartition.SYNTHETIC,
+            provenance_mode=BenchmarkProvenanceMode.SYNTHETIC,
             access_policy_sha256="1" * 64,
-            adjudication_process_sha256="2" * 64,
-            adjudication_record_sha256="3" * 64,
             threshold_policy_sha256="4" * 64,
             candidate_configuration_sha256=candidate_sha256,
             corpus_release_id=bundle.manifest.content.corpus_release_id,
@@ -227,7 +338,6 @@ def benchmark_suite(
                 ),
             ),
             top_k=top_k,
-            candidate_limit=3,
             acceptance=BenchmarkAcceptance(maximum_p95_latency_ms=60_000),
         )
     )
@@ -241,6 +351,8 @@ def retrieval_candidate(
     rrf_k: int = 60,
     candidate_limit: int = 3,
     output_depth: int = 3,
+    terminology_revision: str | None = None,
+    safety_query_revision: str | None = None,
 ) -> RetrievalCandidateManifest:
     return RetrievalCandidateManifest.seal(
         RetrievalCandidateContent(
@@ -268,6 +380,8 @@ def retrieval_candidate(
             rrf_k=rrf_k,
             candidate_limit=candidate_limit,
             output_depth=output_depth,
+            terminology_revision=terminology_revision,
+            safety_query_revision=safety_query_revision,
         )
     )
 
@@ -311,6 +425,240 @@ async def test_benchmark_runs_all_ablations_and_accepts_complete_hybrid() -> Non
     assert hybrid.mean_recall_at_k == 1.0
     assert hybrid.complete_evidence_set_rate == 1.0
     assert hybrid.mean_required_role_recall == 1.0
+
+
+async def test_query_expansion_lanes_only_change_hybrid_ablation() -> None:
+    bundle = fixture_bundle()
+    backend = DeterministicHashingBackend(dense_dimension=32, sparse_dimension=256)
+    vectors = await VectorBatchProducer(backend).produce(bundle)
+    primary = "EV_FIXTURE_PRIMARY_001"
+    qdrant = FakeBenchmarkQdrant(
+        bundle,
+        {
+            "dense": [primary],
+            "sparse": [primary],
+        },
+    )
+    candidate = retrieval_candidate(
+        vectors,
+        output_depth=1,
+        terminology_revision=EXACT_TERMINOLOGY_REVISION,
+        safety_query_revision=SAFETY_QUERY_REVISION,
+    )
+    suite = benchmark_suite(
+        bundle,
+        candidate_sha256=candidate.candidate_sha256,
+        gold_ids=(primary,),
+        top_k=1,
+    )
+    question = suite.content.cases[0].question
+    assert "Intervention" in question
+
+    await RetrievalBenchmarkRunner(qdrant, backend).run(
+        bundle, vectors, suite, candidate
+    )
+
+    dense_requests = [item for item in qdrant.requests if item["using"] == "dense"]
+    sparse_requests = [item for item in qdrant.requests if item["using"] == "sparse"]
+    assert len(dense_requests) == 2
+    assert len(sparse_requests) > 2
+
+
+class _FakeReranker:
+    def __init__(self, model, scores: tuple[float, ...]) -> None:
+        self.model_reference = model
+        self.adapter_identity = ("med-rag/qwen3-reranker-transformers", "1.0.0")
+        self.instruction_sha256 = "f" * 64
+        self._scores = scores
+        self.pool_sizes: list[int] = []
+
+    async def score(
+        self, query: str, documents: Sequence[str]
+    ) -> Sequence[float]:
+        self.pool_sizes.append(len(documents))
+        return self._scores[: len(documents)]
+
+
+@pytest.mark.parametrize("pool_size", [20, 50, 100])
+async def test_qwen_reranker_pool_sizes_and_retrieval_floor_are_enforced(
+    pool_size: int,
+) -> None:
+    bundle = fixture_bundle()
+    backend = DeterministicHashingBackend(dense_dimension=32, sparse_dimension=256)
+    vectors = await VectorBatchProducer(backend).produce(bundle)
+    primary = "EV_FIXTURE_PRIMARY_001"
+    applicability = "EV_FIXTURE_APPLICABILITY_001"
+    exception = "EV_FIXTURE_EXCEPTION_001"
+    base = retrieval_candidate(
+        vectors,
+        candidate_limit=pool_size,
+        output_depth=2,
+    )
+    reranker_config = CandidateReranker(
+        model=vectors.content.dense.model.model_copy(
+            update={
+                "model_id": "Qwen/Qwen3-Reranker-0.6B",
+                "artifact_sha256": "9" * 64,
+            }
+        ),
+        adapter_id="med-rag/qwen3-reranker-transformers",
+        adapter_revision="1.0.0",
+        instruction_sha256="f" * 64,
+        candidate_pool=pool_size,
+        output_depth=2,
+    )
+    candidate = RetrievalCandidateManifest.seal(
+        base.content.model_copy(update={"reranker": reranker_config})
+    )
+    suite = benchmark_suite(
+        bundle,
+        candidate_sha256=candidate.candidate_sha256,
+        gold_ids=(primary,),
+        top_k=2,
+    )
+    qdrant = FakeBenchmarkQdrant(
+        bundle,
+        {
+            "dense": [primary, applicability, exception],
+            "sparse": [primary, applicability, exception],
+        },
+    )
+    reranker = _FakeReranker(reranker_config.model, (0.01, 0.2, 0.99))
+
+    report = await RetrievalBenchmarkRunner(
+        qdrant, backend, reranker=reranker
+    ).run(bundle, vectors, suite, candidate)
+
+    hybrid = next(
+        item
+        for item in report.content.case_results
+        if item.mode is RetrievalMode.HYBRID
+    )
+    assert primary in {item.evidence_id for item in hybrid.retrieved}
+    assert reranker.pool_sizes == [3]
+    assert all(request["limit"] == pool_size for request in qdrant.requests)
+
+
+def test_retrieval_floor_replacement_never_expands_sealed_candidate_pool() -> None:
+    bundle = fixture_bundle()
+    evidence = {item.evidence_id: item for item in bundle.evidence}
+    primary = "EV_FIXTURE_PRIMARY_001"
+    applicability = "EV_FIXTURE_APPLICABILITY_001"
+    exception = "EV_FIXTURE_EXCEPTION_001"
+
+    preserved = RetrievalBenchmarkRunner._preserve_retrieval_floor(
+        [_Candidate(applicability, 0.9), _Candidate(exception, 0.8)],
+        [_Candidate(primary, 1.0), _Candidate(applicability, 0.9)],
+        evidence,
+        output_depth=2,
+        limit=2,
+    )
+
+    assert len(preserved) == 2
+    assert {item.evidence_id for item in preserved} == {primary, applicability}
+
+
+def test_conflict_selection_pairs_sides_and_preserves_required_roles() -> None:
+    bundle = fixture_bundle()
+    evidence = {item.evidence_id: item for item in bundle.evidence}
+    primary = "EV_FIXTURE_PRIMARY_001"
+    applicability = "EV_FIXTURE_APPLICABILITY_001"
+    exception = "EV_FIXTURE_EXCEPTION_001"
+    fused = [
+        _Candidate(primary, 0.9),
+        _Candidate(applicability, 0.8),
+        _Candidate(exception, 0.7),
+    ]
+
+    selected, rules = RetrievalBenchmarkRunner._conflict_aware_selection(
+        fused,
+        {
+            "safety-query-1": [_Candidate(primary, 1.0)],
+            "safety-query-2": [_Candidate(exception, 1.0)],
+        },
+        evidence,
+        conflict_side_lanes=("safety-query-1", "safety-query-2"),
+        output_depth=3,
+        limit=3,
+    )
+
+    assert [item.evidence_id for item in selected[:2]] == [primary, exception]
+    assert {item.evidence_id for item in selected} == {
+        primary,
+        applicability,
+        exception,
+    }
+    assert rules[:2] == (
+        f"CONFLICT_SIDE[safety-query-1]:{primary}",
+        f"CONFLICT_SIDE[safety-query-2]:{exception}",
+    )
+
+
+def test_development_suite_derivation_binds_candidate_pool_without_opening_holdout() -> None:
+    _requires_regenerated_artifact(SOURCE_DERIVED_DEVELOPMENT_SUITE_PATH)
+    suite = BenchmarkSuite.model_validate_json(
+        SOURCE_DERIVED_DEVELOPMENT_SUITE_PATH.read_text(encoding="utf-8")
+    )
+    candidate = RetrievalCandidateManifest.model_validate_json(
+        QWEN_RERANK_POOL_100_CANDIDATE_PATH.read_text(encoding="utf-8")
+    )
+
+    derived = derive_development_suite_for_candidate(suite, candidate)
+
+    assert derived.content.cases == suite.content.cases
+    assert derived.content.acceptance == suite.content.acceptance
+    # The pool width lives on the candidate and is deliberately absent from the
+    # suite: re-tuning it must not mint a new benchmark.
+    assert candidate.content.candidate_limit == 100
+    assert not hasattr(derived.content, "candidate_limit")
+    assert derived.content.top_k == 10
+    assert derived.content.candidate_configuration_sha256 == candidate.candidate_sha256
+    assert derived.suite_sha256 != suite.suite_sha256
+
+    holdout = BenchmarkSuite.seal(
+        suite.content.model_copy(
+            update={"suite_partition": BenchmarkSuitePartition.SEALED_HOLDOUT}
+        )
+    )
+    with pytest.raises(ValueError, match="only development suites"):
+        derive_development_suite_for_candidate(holdout, candidate)
+
+
+def test_checked_in_conflict_aware_candidate_is_exactly_sealed() -> None:
+    candidate = RetrievalCandidateManifest.model_validate_json(
+        CONFLICT_AWARE_CANDIDATE_PATH.read_text(encoding="utf-8")
+    )
+
+    assert candidate == RetrievalCandidateManifest.seal(candidate.content)
+    assert candidate.content.reranker is None
+    assert candidate.content.safety_query_revision == "clinical-safety-query-v2"
+    assert candidate.candidate_sha256 == (
+        "b1a3342b82fc1f302a631e24f3e471e12b0955133924cdca1cbfe3164d294b80"
+    )
+
+
+@pytest.mark.parametrize("pool_size", [20, 50, 100])
+def test_checked_in_qwen_reranker_pool_candidates_are_exactly_sealed(
+    pool_size: int,
+) -> None:
+    root = Path(__file__).parents[4] / "models" / "configs"
+    content = RetrievalCandidateContent.model_validate_json(
+        (root / f"who-smart-hiv-qwen3-0.6b-rerank-pool-{pool_size}.content.json")
+        .read_text(encoding="utf-8")
+    )
+    sealed = RetrievalCandidateManifest.model_validate_json(
+        (root / f"who-smart-hiv-qwen3-0.6b-rerank-pool-{pool_size}.json").read_text(
+            encoding="utf-8"
+        )
+    )
+
+    assert sealed == RetrievalCandidateManifest.seal(content)
+    assert sealed.content.candidate_limit == pool_size
+    assert sealed.content.reranker is not None
+    assert sealed.content.reranker.candidate_pool == pool_size
+    assert sealed.content.reranker.model.artifact_sha256 == (
+        "815e08f75f2b1833b25d5aca1982dfe9c48b281a183fdadf09eddd908a443b61"
+    )
 
 
 async def test_benchmark_rejects_forbidden_evidence_leakage() -> None:
@@ -413,9 +761,8 @@ async def test_benchmark_supports_insufficient_evidence_and_reports_uncertainty(
         BenchmarkSuiteContent(
             benchmark_id="synthetic-insufficient-v1",
             suite_partition=BenchmarkSuitePartition.SYNTHETIC,
+            provenance_mode=BenchmarkProvenanceMode.SYNTHETIC,
             access_policy_sha256="1" * 64,
-            adjudication_process_sha256="2" * 64,
-            adjudication_record_sha256="3" * 64,
             threshold_policy_sha256="4" * 64,
             candidate_configuration_sha256=candidate.candidate_sha256,
             corpus_release_id=bundle.manifest.content.corpus_release_id,
@@ -429,7 +776,6 @@ async def test_benchmark_supports_insufficient_evidence_and_reports_uncertainty(
                 ),
             ),
             top_k=1,
-            candidate_limit=1,
             acceptance=BenchmarkAcceptance(
                 maximum_p95_latency_ms=60_000,
                 safety_strata=(
@@ -462,6 +808,7 @@ def test_clinical_suite_requires_adjudicator_provenance() -> None:
         BenchmarkSuiteContent(
             benchmark_id="development-clinical-v1",
             suite_partition=BenchmarkSuitePartition.DEVELOPMENT,
+            provenance_mode=BenchmarkProvenanceMode.INDEPENDENT_REVIEWED,
             access_policy_sha256="1" * 64,
             adjudication_process_sha256="2" * 64,
             adjudication_record_sha256="3" * 64,
@@ -500,9 +847,8 @@ async def test_weighted_rrf_and_alternative_complete_evidence_sets_are_determini
         BenchmarkSuiteContent(
             benchmark_id="synthetic-weighted-v1",
             suite_partition=BenchmarkSuitePartition.SYNTHETIC,
+            provenance_mode=BenchmarkProvenanceMode.SYNTHETIC,
             access_policy_sha256="1" * 64,
-            adjudication_process_sha256="2" * 64,
-            adjudication_record_sha256="3" * 64,
             threshold_policy_sha256="4" * 64,
             candidate_configuration_sha256=candidate.candidate_sha256,
             corpus_release_id=bundle.manifest.content.corpus_release_id,
@@ -524,8 +870,6 @@ async def test_weighted_rrf_and_alternative_complete_evidence_sets_are_determini
                 ),
             ),
             top_k=1,
-            candidate_limit=2,
-            rrf_weights=RRFWeights(dense=0.0, sparse=2.0),
             acceptance=BenchmarkAcceptance(
                 minimum_mean_recall_at_k=0.5,
                 maximum_p95_latency_ms=60_000,
@@ -603,6 +947,7 @@ def test_checked_in_benchmark_schemas_match_versioned_contracts() -> None:
 
 
 def test_synthetic_benchmark_suite_is_sealed_and_release_bound() -> None:
+    _requires_regenerated_artifact(SYNTHETIC_SUITE_PATH)
     bundle = fixture_bundle()
     content = BenchmarkSuiteContent.model_validate_json(
         SYNTHETIC_SUITE_CONTENT_PATH.read_text(encoding="utf-8")

@@ -30,6 +30,8 @@ BGE_M3_ADAPTER_REVISION = "1.0.0"
 
 QWEN3_ADAPTER_ID = "med-rag/qwen3-embedding-transformers"
 QWEN3_ADAPTER_REVISION = "1.0.0"
+QWEN3_OPENVINO_ADAPTER_ID = "med-rag/qwen3-embedding-openvino"
+QWEN3_OPENVINO_ADAPTER_REVISION = "1.0.0"
 QWEN3_MODEL_DIMENSIONS = {
     "Qwen/Qwen3-Embedding-0.6B": 1024,
     "Qwen/Qwen3-Embedding-4B": 2560,
@@ -89,6 +91,24 @@ class Qwen3EmbeddingAdapterParameters(_AdapterParameters):
     @classmethod
     def validate_explicit_device(cls, value: str) -> str:
         return BGEM3AdapterParameters.validate_explicit_device(value)
+
+
+class Qwen3OpenVINOAdapterParameters(_AdapterParameters):
+    """Sealed CPU/int8 runtime settings for a locally exported OpenVINO IR."""
+
+    pooling: Literal["last_token"]
+    normalize: Literal[True]
+    query_instruction: str = Field(min_length=1, max_length=2_000)
+    document_prefix: Literal[""] = ""
+    padding_side: Literal["left"] = "left"
+    max_length: int = Field(gt=0, le=32_768)
+    batch_size: int = Field(gt=0, le=1_024)
+    device: Literal["CPU"] = "CPU"
+    dtype: Literal["int8"] = "int8"
+    weight_format: Literal["int8"] = "int8"
+    openvino_version: str = Field(min_length=1, max_length=100)
+    optimum_intel_version: str = Field(min_length=1, max_length=100)
+    nncf_version: str = Field(min_length=1, max_length=100)
 
 
 class BM25AdapterParameters(_AdapterParameters):
@@ -277,6 +297,91 @@ class _TorchTransformerRuntime:
             return pooled.detach().to(device="cpu", dtype=torch.float32).tolist()
 
 
+class _OpenVINOTransformerRuntime:
+    """Offline Optimum Intel runtime for a verified local OpenVINO IR artifact."""
+
+    def __init__(
+        self,
+        root: Path,
+        *,
+        device: str,
+        expected_dimension: int,
+        padding_side: Literal["left", "right"] | None = None,
+    ) -> None:
+        try:
+            import numpy as np
+            from optimum.intel.openvino import OVModelForFeatureExtraction
+            from transformers import AutoTokenizer
+        except ImportError as error:
+            raise AdapterConfigurationError(
+                "the Qwen3 OpenVINO adapter requires the 'cpu-optimized' dependencies"
+            ) from error
+        try:
+            self._tokenizer = AutoTokenizer.from_pretrained(
+                str(root),
+                local_files_only=True,
+                trust_remote_code=False,
+                use_fast=True,
+            )
+            if padding_side is not None:
+                self._tokenizer.padding_side = padding_side
+            self._model = OVModelForFeatureExtraction.from_pretrained(
+                str(root),
+                device=device,
+                compile=True,
+                local_files_only=True,
+                trust_remote_code=False,
+            )
+            hidden_size = getattr(self._model.config, "hidden_size", None)
+            if hidden_size != expected_dimension:
+                raise AdapterConfigurationError(
+                    "OpenVINO model hidden size does not match the sealed dimension"
+                )
+        except AdapterConfigurationError:
+            raise
+        except Exception as error:
+            raise AdapterConfigurationError(
+                f"local Qwen3 OpenVINO artifact could not be loaded: "
+                f"{error.__class__.__name__}"
+            ) from error
+        self._np = np
+        self._lock = threading.Lock()
+
+    def encode(
+        self,
+        texts: Sequence[str],
+        *,
+        max_length: int,
+        pooling: Literal["cls", "mean", "last_token"],
+        normalize: bool,
+    ) -> Sequence[Sequence[float]]:
+        if pooling != "last_token":
+            raise AdapterConfigurationError("Qwen3 OpenVINO requires last-token pooling")
+        np = self._np
+        with self._lock:
+            encoded = self._tokenizer(
+                list(texts),
+                padding=True,
+                truncation=True,
+                max_length=max_length,
+                return_tensors="np",
+            )
+            outputs = self._model(**encoded)
+            hidden = np.asarray(outputs.last_hidden_state)
+            attention_mask = np.asarray(encoded["attention_mask"])
+            if bool(np.all(attention_mask[:, -1] == 1)):
+                pooled = hidden[:, -1]
+            else:
+                sequence_lengths = attention_mask.sum(axis=1) - 1
+                pooled = hidden[np.arange(hidden.shape[0]), sequence_lengths]
+            if normalize:
+                norms = np.linalg.norm(pooled, axis=1, keepdims=True)
+                if bool(np.any(~np.isfinite(norms))) or bool(np.any(norms == 0)):
+                    raise RuntimeError("OpenVINO runtime returned non-normalizable vectors")
+                pooled = pooled / norms
+            return pooled.astype(np.float32).tolist()
+
+
 class BGEM3DenseAdapter:
     """Pinned BAAI/bge-m3 dense encoder using only a verified local artifact."""
 
@@ -447,6 +552,56 @@ class Qwen3DenseAdapter:
                     raise RuntimeError("Qwen3 runtime returned a non-normalizable vector")
                 vectors.append(tuple(value / norm for value in truncated))
         return tuple(vectors)
+
+
+class Qwen3OpenVINODenseAdapter(Qwen3DenseAdapter):
+    """Qwen3 embedding semantics backed by a digest-sealed CPU/int8 OpenVINO IR."""
+
+    def __init__(
+        self,
+        artifact: VerifiedModelArtifact,
+        *,
+        device: str | None = None,
+        runtime: DenseInferenceRuntime | None = None,
+    ) -> None:
+        content = artifact.manifest.content
+        maximum_dimension = QWEN3_MODEL_DIMENSIONS.get(content.model_id)
+        if maximum_dimension is None:
+            raise AdapterConfigurationError(
+                "Qwen3 OpenVINO adapter requires an allowlisted Qwen3 model"
+            )
+        if re.fullmatch(r"[a-f0-9]{40,64}", content.revision) is None:
+            raise AdapterConfigurationError(
+                "Qwen3 OpenVINO adapter requires an immutable commit revision"
+            )
+        _require_adapter(
+            artifact,
+            kind=ModelArtifactKind.DENSE,
+            model_id=content.model_id,
+            model_revision=None,
+            dimension=None,
+            adapter_id=QWEN3_OPENVINO_ADAPTER_ID,
+            adapter_revision=QWEN3_OPENVINO_ADAPTER_REVISION,
+        )
+        if not 32 <= content.dimension <= maximum_dimension:
+            raise AdapterConfigurationError(
+                f"{content.model_id} dimension must be between 32 and {maximum_dimension}"
+            )
+        parameters = _validated_parameters(Qwen3OpenVINOAdapterParameters, artifact)
+        assert isinstance(parameters, Qwen3OpenVINOAdapterParameters)
+        if device is not None and device.upper() != parameters.device:
+            raise AdapterConfigurationError(
+                "requested device does not match the OpenVINO manifest"
+            )
+        self._artifact = artifact
+        self._parameters = parameters
+        self._maximum_dimension = maximum_dimension
+        self._runtime = runtime or _OpenVINOTransformerRuntime(
+            artifact.root,
+            device=parameters.device,
+            expected_dimension=maximum_dimension,
+            padding_side=parameters.padding_side,
+        )
 
 
 def _is_cjk(character: str) -> bool:

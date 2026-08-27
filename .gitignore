@@ -20,6 +20,8 @@ coverage/
 playwright-report/
 test-results/
 data/local/
+models/local/
 *.log
 .logs/
 .DS_Store
+apps/api/build/

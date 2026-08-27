@@ -14,13 +14,15 @@ from app.corpus.releases import (
 from app.corpus_steward.benchmark import BENCHMARK_RUNNER_VERSION
 from app.corpus_steward.benchmark_schemas import (
     BenchmarkAcceptanceAttestationContent,
-    BenchmarkAdjudicationSummary,
     BenchmarkCaseMetrics,
     BenchmarkCaseResult,
     BenchmarkModeSummary,
+    BenchmarkProvenanceMode,
+    BenchmarkProvenanceSummary,
     BenchmarkReport,
     BenchmarkReportContent,
     BenchmarkSuitePartition,
+    MetricConfidenceInterval,
     RetrievalMode,
     RetrievedEvidence,
     RRFWeights,
@@ -87,6 +89,7 @@ async def accepted_benchmark(
             runner_version=BENCHMARK_RUNNER_VERSION,
             benchmark_id="fixture-sealed-holdout",
             suite_partition=BenchmarkSuitePartition.SEALED_HOLDOUT,
+            provenance_mode=BenchmarkProvenanceMode.INDEPENDENT_REVIEWED,
             access_policy_sha256="d" * 64,
             adjudication_process_sha256="e" * 64,
             adjudication_record_sha256="6" * 64,
@@ -116,7 +119,10 @@ async def accepted_benchmark(
                         ndcg_at_k=1.0,
                         reciprocal_rank=1.0,
                         context_precision_at_k=1.0,
+                        context_precision_ceiling_at_k=1.0,
+                        r_precision=1.0,
                         complete_evidence_set_recalled=True,
+                        complete_evidence_set_recalled_at_budget=True,
                         required_role_recall=1.0,
                         latency_ms=1.0,
                     ),
@@ -130,17 +136,41 @@ async def accepted_benchmark(
                     mean_ndcg_at_k=1.0,
                     mean_reciprocal_rank=1.0,
                     mean_context_precision_at_k=1.0,
+                    mean_context_precision_ceiling_at_k=1.0,
+                    mean_r_precision=1.0,
                     complete_evidence_set_rate=1.0,
+                    generation_context_budget=10,
+                    complete_evidence_at_budget_rate=1.0,
                     mean_required_role_recall=1.0,
                     forbidden_leakage_case_count=0,
                     candidate_failure_case_count=0,
+                    answerable_case_count=1,
+                    answerable_mean_recall_at_k=1.0,
+                    answerable_mean_ndcg_at_k=1.0,
+                    answerable_mean_reciprocal_rank=1.0,
+                    answerable_mean_context_precision_at_k=1.0,
+                    answerable_mean_r_precision=1.0,
+                    answerable_complete_evidence_set_rate=1.0,
+                    answerable_complete_evidence_at_budget_rate=1.0,
+                    answerable_mean_required_role_recall=1.0,
+                    answerable_complete_evidence_set_confidence=MetricConfidenceInterval(
+                        sample_count=1, successes=1, lower=0.2065, upper=1.0
+                    ),
+                    answerable_complete_evidence_at_budget_confidence=(
+                        MetricConfidenceInterval(
+                            sample_count=1, successes=1, lower=0.2065, upper=1.0
+                        )
+                    ),
                     insufficient_evidence_case_count=0,
                     p95_latency_ms=1.0,
                 ),
             ),
-            adjudication_summary=BenchmarkAdjudicationSummary(
+            provenance_summary=BenchmarkProvenanceSummary(
+                provenance_mode=BenchmarkProvenanceMode.INDEPENDENT_REVIEWED,
                 case_count=1,
                 adjudicated_case_count=1,
+                automated_case_count=0,
+                source_evidence_count=0,
                 independent_review_count=2,
                 disagreement_case_count=0,
                 disagreement_rate=0.0,
@@ -161,6 +191,7 @@ async def accepted_benchmark(
         qdrant_collection=report.content.qdrant_collection,
         index_attestation_sha256="f" * 64,
         holdout_access_policy_sha256="d" * 64,
+        provenance_mode=BenchmarkProvenanceMode.INDEPENDENT_REVIEWED,
         adjudication_process_sha256="e" * 64,
         adjudication_record_sha256="6" * 64,
         threshold_policy_sha256="7" * 64,
@@ -396,6 +427,33 @@ async def test_release_requires_validated_index_before_atomic_activation(tmp_pat
     assert pointer is not None
     assert release is not None and release.state == ReleaseState.ACTIVE.value
     assert outbox_count == 4
+    await database.close()
+
+
+async def test_index_validation_selects_one_candidate_profile_collection(tmp_path) -> None:
+    database = Database(f"sqlite+aiosqlite:///{tmp_path / 'candidate-index.sqlite3'}")
+    await database.create_schema_for_tests()
+    await seed_fixture_source(database)
+    repository = SQLCorpusReleaseRepository(database)
+    bundle = load_fixture_bundle()
+    registered = await repository.register_candidate(bundle)
+    candidate_collection = f"{registered.qdrant_collection}--vp-{'1' * 24}"
+
+    indexed = await repository.mark_index_validated(
+        registered.corpus_release_id,
+        point_count=len(bundle.evidence),
+        index_attestation_sha256="f" * 64,
+        qdrant_collection=candidate_collection,
+    )
+
+    assert indexed.qdrant_collection == candidate_collection
+    with pytest.raises(CorpusReleaseConflictError):
+        await repository.mark_index_validated(
+            registered.corpus_release_id,
+            point_count=len(bundle.evidence),
+            index_attestation_sha256="f" * 64,
+            qdrant_collection=f"{candidate_collection}--vp-{'2' * 24}",
+        )
     await database.close()
 
 

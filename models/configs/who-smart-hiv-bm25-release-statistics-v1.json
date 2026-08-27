@@ -1,0 +1,19 @@
+{
+  "content": {
+    "average_document_length": 86.36793002915452,
+    "corpus_release_id": "CR_b6155a25415b25f3ba787b3b036da10d",
+    "document_count": 5145,
+    "document_prefix": "",
+    "manifest_sha256": "c233322a6e7224e16cafed25d4e5a8c6850fd20a790de5e09081bbeab46ce98c",
+    "maximum_document_length": 797,
+    "median_document_length": 72,
+    "minimum_document_length": 1,
+    "p95_document_length": 204,
+    "schema_version": "1.0.0",
+    "stopwords_sha256": null,
+    "tokenization_configuration_sha256": "7ac8e2cddfc4ec1f1c791c2cff36f843d3cce63fb022115a70b64b0a88838df8",
+    "tokenizer": "unicode-medical-v1",
+    "total_token_count": 444363
+  },
+  "statistics_sha256": "14a388981b5d626c060386c018704b98e7135109013fcd7aba600bd7c101dac8"
+}

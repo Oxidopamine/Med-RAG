@@ -28,6 +28,7 @@ from app.corpus_steward.adjudication_schemas import (
 )
 from app.corpus_steward.benchmark_schemas import (
     BenchmarkCase,
+    BenchmarkProvenanceMode,
     BenchmarkSuite,
     BenchmarkSuiteContent,
     BenchmarkSuitePartition,
@@ -406,6 +407,7 @@ class ClinicalAdjudicationService:
             BenchmarkSuiteContent(
                 benchmark_id=request.benchmark_id,
                 suite_partition=request.suite_partition,
+                provenance_mode=BenchmarkProvenanceMode.INDEPENDENT_REVIEWED,
                 access_policy_sha256=access.policy_sha256,
                 adjudication_process_sha256=process.policy_sha256,
                 adjudication_record_sha256=record.adjudication_record_sha256,
@@ -420,9 +422,6 @@ class ClinicalAdjudicationService:
                 modes=request.modes,
                 candidate_mode=request.candidate_mode,
                 top_k=request.top_k,
-                candidate_limit=request.candidate_limit,
-                rrf_k=request.rrf_k,
-                rrf_weights=request.rrf_weights,
                 acceptance=threshold.content.acceptance_for(
                     request.suite_partition
                 ),
@@ -530,6 +529,14 @@ class ClinicalAdjudicationService:
             (not filters.jurisdictions or item.jurisdiction in filters.jurisdictions)
             and (not filters.languages or item.language in filters.languages)
             and (not filters.publisher_ids or item.publisher_id in filters.publisher_ids)
+            and (
+                not filters.source_version_ids
+                or item.source_version_id in filters.source_version_ids
+            )
+            and (
+                not filters.lifecycle_statuses
+                or item.lifecycle_status.value in filters.lifecycle_statuses
+            )
             for item in records
         )
 
@@ -552,9 +559,6 @@ class ClinicalAdjudicationService:
             and content.modes == request.modes
             and content.candidate_mode is request.candidate_mode
             and content.top_k == request.top_k
-            and content.candidate_limit == request.candidate_limit
-            and content.rrf_k == request.rrf_k
-            and content.rrf_weights == request.rrf_weights
             and existing.built_by == request.actor_identity
             and existing.built_at == request.requested_at
         )

@@ -21,10 +21,13 @@ from app.corpus_steward.embedding_adapters import (
     QWEN3_ADAPTER_ID,
     QWEN3_ADAPTER_REVISION,
     QWEN3_MODEL_DIMENSIONS,
+    QWEN3_OPENVINO_ADAPTER_ID,
+    QWEN3_OPENVINO_ADAPTER_REVISION,
     AdapterConfigurationError,
     BGEM3DenseAdapter,
     QdrantBM25SparseAdapter,
     Qwen3DenseAdapter,
+    Qwen3OpenVINODenseAdapter,
     _TorchTransformerRuntime,
     unicode_medical_tokens,
 )
@@ -81,6 +84,21 @@ def _qwen_parameters(*, batch_size: int = 2) -> dict[str, object]:
         "device": "cpu",
         "dtype": "float32",
     }
+
+
+def _qwen_openvino_parameters(*, batch_size: int = 2) -> dict[str, object]:
+    parameters = _qwen_parameters(batch_size=batch_size)
+    parameters.update(
+        {
+            "device": "CPU",
+            "dtype": "int8",
+            "weight_format": "int8",
+            "openvino_version": "2025.3.0",
+            "optimum_intel_version": "1.25.2",
+            "nncf_version": "2.18.0",
+        }
+    )
+    return parameters
 
 
 def _verified_artifact(
@@ -269,6 +287,34 @@ def test_manifest_registry_is_allowlisted_and_qwen_first(tmp_path: Path) -> None
     empty = ManifestAdapterRegistry()
     with pytest.raises(AdapterConfigurationError, match="not in the local allowlist"):
         empty.create_dense(artifact)
+
+
+async def test_qwen3_openvino_adapter_preserves_qwen_embedding_semantics(
+    tmp_path: Path,
+) -> None:
+    model_id = "Qwen/Qwen3-Embedding-0.6B"
+    artifact = _verified_artifact(
+        tmp_path,
+        name="qwen-openvino",
+        kind=ModelArtifactKind.DENSE,
+        model_id=model_id,
+        revision="72bb2d1e482afe83dcebe9496edc693ad1967a0f",
+        dimension=256,
+        adapter_id=QWEN3_OPENVINO_ADAPTER_ID,
+        adapter_revision=QWEN3_OPENVINO_ADAPTER_REVISION,
+        parameters=_qwen_openvino_parameters(),
+    )
+    runtime = _QwenRuntime(QWEN3_MODEL_DIMENSIONS[model_id])
+
+    built = adapter_registry.default_adapter_registry().create_dense(
+        artifact, runtime=runtime, device="CPU"
+    )
+    vector = (await built.embed_queries(("What monitoring is required?",)))[0]
+
+    assert isinstance(built, Qwen3OpenVINODenseAdapter)
+    assert len(vector) == 256
+    assert sum(value * value for value in vector) == pytest.approx(1.0)
+    assert runtime.calls[0][0][0].startswith("Instruct:")
 
 
 def test_unicode_medical_tokenizer_is_normalized_and_multilingual() -> None:

@@ -1,0 +1,326 @@
+{
+  "binomial_uncertainty_method": "WILSON_95",
+  "candidates_under_test_unevaluated": true,
+  "comparator_measured_at": "2026-08-27T16:00:00Z",
+  "development_acceptance": {
+    "comparator_answerable_complete_evidence_rate": 0.8275,
+    "comparator_candidate_id": "who-smart-hiv-deterministic-expanded-control-v3",
+    "comparator_report_sha256": "d15276f693297cf72588fc91c84baa5d6805da05c5bc14e84b7a7ae978d56cb9",
+    "generation_context_budget": 10,
+    "maximum_candidate_failure_cases": 0,
+    "maximum_forbidden_leakage_cases": 0,
+    "maximum_p95_latency_ms": 2000.0,
+    "minimum_answerable_complete_evidence_at_budget_rate": 0.7763,
+    "minimum_answerable_complete_evidence_set_rate": 0.7763,
+    "minimum_answerable_mean_recall_at_k": 0.0,
+    "minimum_comparator_margin": 0.0,
+    "minimum_complete_evidence_set_rate": 0.0,
+    "minimum_insufficient_evidence_accuracy": 1.0,
+    "minimum_mean_context_precision_at_k": 0.0,
+    "minimum_mean_ndcg_at_k": 0.0,
+    "minimum_mean_r_precision": 0.0,
+    "minimum_mean_recall_at_k": 0.0,
+    "minimum_mean_reciprocal_rank": 0.0,
+    "minimum_mean_required_role_recall": 0.0,
+    "minimum_total_case_count": 355,
+    "require_confidence_lower_bound": true,
+    "safety_strata": [
+      {
+        "minimum_case_count": 15,
+        "minimum_complete_evidence_set_rate": 0.7961,
+        "minimum_mean_recall_at_k": 0.7961,
+        "minimum_mean_required_role_recall": 0.0,
+        "stratum_key": "safety_topic",
+        "stratum_value": "CONTRAINDICATION"
+      },
+      {
+        "minimum_case_count": 15,
+        "minimum_complete_evidence_set_rate": 0.7961,
+        "minimum_mean_recall_at_k": 0.7961,
+        "minimum_mean_required_role_recall": 0.0,
+        "stratum_key": "safety_topic",
+        "stratum_value": "APPLICABILITY"
+      },
+      {
+        "minimum_case_count": 15,
+        "minimum_complete_evidence_set_rate": 0.7961,
+        "minimum_mean_recall_at_k": 0.7961,
+        "minimum_mean_required_role_recall": 0.0,
+        "stratum_key": "safety_topic",
+        "stratum_value": "DOSE"
+      },
+      {
+        "minimum_case_count": 15,
+        "minimum_complete_evidence_set_rate": 0.7961,
+        "minimum_mean_recall_at_k": 0.7961,
+        "minimum_mean_required_role_recall": 0.0,
+        "stratum_key": "safety_topic",
+        "stratum_value": "MONITORING"
+      },
+      {
+        "minimum_case_count": 60,
+        "minimum_complete_evidence_set_rate": 0.5923,
+        "minimum_mean_recall_at_k": 0.5923,
+        "minimum_mean_required_role_recall": 0.0,
+        "stratum_key": "safety_topic",
+        "stratum_value": "TERMINOLOGY"
+      },
+      {
+        "minimum_case_count": 25,
+        "minimum_complete_evidence_set_rate": 0.0,
+        "minimum_insufficient_evidence_accuracy": 1.0,
+        "minimum_mean_recall_at_k": 0.0,
+        "minimum_mean_required_role_recall": 0.0,
+        "stratum_key": "safety_topic",
+        "stratum_value": "MULTILINGUAL_CROSS_LINGUAL"
+      },
+      {
+        "minimum_case_count": 25,
+        "minimum_complete_evidence_set_rate": 0.0,
+        "minimum_insufficient_evidence_accuracy": 1.0,
+        "minimum_mean_recall_at_k": 0.0,
+        "minimum_mean_required_role_recall": 0.0,
+        "stratum_key": "safety_topic",
+        "stratum_value": "STALE_SOURCE"
+      },
+      {
+        "minimum_case_count": 25,
+        "minimum_complete_evidence_set_rate": 0.0,
+        "minimum_insufficient_evidence_accuracy": 1.0,
+        "minimum_mean_recall_at_k": 0.0,
+        "minimum_mean_required_role_recall": 0.0,
+        "stratum_key": "safety_topic",
+        "stratum_value": "WRONG_JURISDICTION"
+      },
+      {
+        "minimum_case_count": 60,
+        "minimum_complete_evidence_set_rate": 0.7197,
+        "minimum_mean_recall_at_k": 0.7197,
+        "minimum_mean_required_role_recall": 0.0,
+        "stratum_key": "safety_topic",
+        "stratum_value": "CONFLICTING_EVIDENCE"
+      },
+      {
+        "minimum_case_count": 100,
+        "minimum_complete_evidence_set_rate": 0.9785,
+        "minimum_insufficient_evidence_accuracy": 1.0,
+        "minimum_mean_recall_at_k": 0.9785,
+        "minimum_mean_required_role_recall": 0.0,
+        "stratum_key": "safety_topic",
+        "stratum_value": "INSUFFICIENT_EVIDENCE"
+      },
+      {
+        "minimum_case_count": 15,
+        "minimum_complete_evidence_set_rate": 0.7961,
+        "minimum_mean_recall_at_k": 0.7961,
+        "minimum_mean_required_role_recall": 0.0,
+        "stratum_key": "safety_topic",
+        "stratum_value": "NEGATION"
+      },
+      {
+        "minimum_case_count": 60,
+        "minimum_complete_evidence_set_rate": 0.5923,
+        "minimum_mean_recall_at_k": 0.5923,
+        "minimum_mean_required_role_recall": 0.0,
+        "stratum_key": "safety_topic",
+        "stratum_value": "PARAPHRASED_INTENT"
+      }
+    ]
+  },
+  "development_minimum_case_count": 355,
+  "established_at": "2026-08-27T21:00:00Z",
+  "minimum_exact_agreement_rate": 0.0,
+  "non_binomial_uncertainty_method": "STRATIFIED_BOOTSTRAP_95",
+  "policy_id": "automated-source-benchmark-thresholds",
+  "revision": "2026-08-27-who-smart-hiv-v7",
+  "safety_topic_sample_targets": [
+    {
+      "development_minimum": 15,
+      "safety_topic": "CONTRAINDICATION",
+      "sealed_holdout_minimum": 30
+    },
+    {
+      "development_minimum": 15,
+      "safety_topic": "APPLICABILITY",
+      "sealed_holdout_minimum": 30
+    },
+    {
+      "development_minimum": 15,
+      "safety_topic": "DOSE",
+      "sealed_holdout_minimum": 30
+    },
+    {
+      "development_minimum": 15,
+      "safety_topic": "MONITORING",
+      "sealed_holdout_minimum": 30
+    },
+    {
+      "development_minimum": 60,
+      "safety_topic": "TERMINOLOGY",
+      "sealed_holdout_minimum": 120
+    },
+    {
+      "development_minimum": 25,
+      "safety_topic": "MULTILINGUAL_CROSS_LINGUAL",
+      "sealed_holdout_minimum": 50
+    },
+    {
+      "development_minimum": 25,
+      "safety_topic": "STALE_SOURCE",
+      "sealed_holdout_minimum": 50
+    },
+    {
+      "development_minimum": 25,
+      "safety_topic": "WRONG_JURISDICTION",
+      "sealed_holdout_minimum": 50
+    },
+    {
+      "development_minimum": 60,
+      "safety_topic": "CONFLICTING_EVIDENCE",
+      "sealed_holdout_minimum": 120
+    },
+    {
+      "development_minimum": 100,
+      "safety_topic": "INSUFFICIENT_EVIDENCE",
+      "sealed_holdout_minimum": 200
+    },
+    {
+      "development_minimum": 15,
+      "safety_topic": "NEGATION",
+      "sealed_holdout_minimum": 30
+    },
+    {
+      "development_minimum": 60,
+      "safety_topic": "PARAPHRASED_INTENT",
+      "sealed_holdout_minimum": 120
+    }
+  ],
+  "schema_version": "1.0.0",
+  "sealed_holdout_acceptance": {
+    "comparator_answerable_complete_evidence_rate": 0.8275,
+    "comparator_candidate_id": "who-smart-hiv-deterministic-expanded-control-v3",
+    "comparator_report_sha256": "d15276f693297cf72588fc91c84baa5d6805da05c5bc14e84b7a7ae978d56cb9",
+    "generation_context_budget": 10,
+    "maximum_candidate_failure_cases": 0,
+    "maximum_forbidden_leakage_cases": 0,
+    "maximum_p95_latency_ms": 2000.0,
+    "minimum_answerable_complete_evidence_at_budget_rate": 0.7763,
+    "minimum_answerable_complete_evidence_set_rate": 0.7763,
+    "minimum_answerable_mean_recall_at_k": 0.0,
+    "minimum_comparator_margin": 0.0,
+    "minimum_complete_evidence_set_rate": 0.0,
+    "minimum_insufficient_evidence_accuracy": 1.0,
+    "minimum_mean_context_precision_at_k": 0.0,
+    "minimum_mean_ndcg_at_k": 0.0,
+    "minimum_mean_r_precision": 0.0,
+    "minimum_mean_recall_at_k": 0.0,
+    "minimum_mean_reciprocal_rank": 0.0,
+    "minimum_mean_required_role_recall": 0.0,
+    "minimum_total_case_count": 710,
+    "require_confidence_lower_bound": true,
+    "safety_strata": [
+      {
+        "minimum_case_count": 30,
+        "minimum_complete_evidence_set_rate": 0.7961,
+        "minimum_mean_recall_at_k": 0.7961,
+        "minimum_mean_required_role_recall": 0.0,
+        "stratum_key": "safety_topic",
+        "stratum_value": "CONTRAINDICATION"
+      },
+      {
+        "minimum_case_count": 30,
+        "minimum_complete_evidence_set_rate": 0.7961,
+        "minimum_mean_recall_at_k": 0.7961,
+        "minimum_mean_required_role_recall": 0.0,
+        "stratum_key": "safety_topic",
+        "stratum_value": "APPLICABILITY"
+      },
+      {
+        "minimum_case_count": 30,
+        "minimum_complete_evidence_set_rate": 0.7961,
+        "minimum_mean_recall_at_k": 0.7961,
+        "minimum_mean_required_role_recall": 0.0,
+        "stratum_key": "safety_topic",
+        "stratum_value": "DOSE"
+      },
+      {
+        "minimum_case_count": 30,
+        "minimum_complete_evidence_set_rate": 0.7961,
+        "minimum_mean_recall_at_k": 0.7961,
+        "minimum_mean_required_role_recall": 0.0,
+        "stratum_key": "safety_topic",
+        "stratum_value": "MONITORING"
+      },
+      {
+        "minimum_case_count": 120,
+        "minimum_complete_evidence_set_rate": 0.5923,
+        "minimum_mean_recall_at_k": 0.5923,
+        "minimum_mean_required_role_recall": 0.0,
+        "stratum_key": "safety_topic",
+        "stratum_value": "TERMINOLOGY"
+      },
+      {
+        "minimum_case_count": 50,
+        "minimum_complete_evidence_set_rate": 0.0,
+        "minimum_insufficient_evidence_accuracy": 1.0,
+        "minimum_mean_recall_at_k": 0.0,
+        "minimum_mean_required_role_recall": 0.0,
+        "stratum_key": "safety_topic",
+        "stratum_value": "MULTILINGUAL_CROSS_LINGUAL"
+      },
+      {
+        "minimum_case_count": 50,
+        "minimum_complete_evidence_set_rate": 0.0,
+        "minimum_insufficient_evidence_accuracy": 1.0,
+        "minimum_mean_recall_at_k": 0.0,
+        "minimum_mean_required_role_recall": 0.0,
+        "stratum_key": "safety_topic",
+        "stratum_value": "STALE_SOURCE"
+      },
+      {
+        "minimum_case_count": 50,
+        "minimum_complete_evidence_set_rate": 0.0,
+        "minimum_insufficient_evidence_accuracy": 1.0,
+        "minimum_mean_recall_at_k": 0.0,
+        "minimum_mean_required_role_recall": 0.0,
+        "stratum_key": "safety_topic",
+        "stratum_value": "WRONG_JURISDICTION"
+      },
+      {
+        "minimum_case_count": 120,
+        "minimum_complete_evidence_set_rate": 0.7197,
+        "minimum_mean_recall_at_k": 0.7197,
+        "minimum_mean_required_role_recall": 0.0,
+        "stratum_key": "safety_topic",
+        "stratum_value": "CONFLICTING_EVIDENCE"
+      },
+      {
+        "minimum_case_count": 200,
+        "minimum_complete_evidence_set_rate": 0.9785,
+        "minimum_insufficient_evidence_accuracy": 1.0,
+        "minimum_mean_recall_at_k": 0.9785,
+        "minimum_mean_required_role_recall": 0.0,
+        "stratum_key": "safety_topic",
+        "stratum_value": "INSUFFICIENT_EVIDENCE"
+      },
+      {
+        "minimum_case_count": 30,
+        "minimum_complete_evidence_set_rate": 0.7961,
+        "minimum_mean_recall_at_k": 0.7961,
+        "minimum_mean_required_role_recall": 0.0,
+        "stratum_key": "safety_topic",
+        "stratum_value": "NEGATION"
+      },
+      {
+        "minimum_case_count": 120,
+        "minimum_complete_evidence_set_rate": 0.5923,
+        "minimum_mean_recall_at_k": 0.5923,
+        "minimum_mean_required_role_recall": 0.0,
+        "stratum_key": "safety_topic",
+        "stratum_value": "PARAPHRASED_INTENT"
+      }
+    ]
+  },
+  "sealed_holdout_minimum_case_count": 710,
+  "threshold_derivation": "COMPARATOR_WILSON_95_LOWER_BOUND"
+}

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import math
+import re
 import struct
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -13,6 +14,10 @@ from uuid import NAMESPACE_URL, uuid5
 
 import httpx
 
+from app.corpus_steward.candidate_schemas import (
+    CandidateLaneKind,
+    RetrievalCandidateManifest,
+)
 from app.corpus_steward.index_schemas import (
     INDEX_CONTRACT_VERSION,
     EvidenceVectorRecord,
@@ -34,6 +39,7 @@ POINT_ID_SCHEME = "uuid5-url:evidence-id:v1"
 POINT_NAMESPACE = uuid5(NAMESPACE_URL, "https://med-rag.local/qdrant/evidence-id/v1")
 PAYLOAD_INDEXES: dict[str, str] = {
     "approval_status": "keyword",
+    "candidate_vector_profile_sha256": "keyword",
     "content_search_sha256": "keyword",
     "corpus_release_id": "keyword",
     "evidence_id": "keyword",
@@ -47,6 +53,11 @@ PAYLOAD_INDEXES: dict[str, str] = {
     "source_class": "keyword",
     "source_version_id": "keyword",
 }
+
+CANDIDATE_COLLECTION_IDENTITY_VERSION = "candidate-vector-profile-v1"
+_COLLECTION_NAME_LIMIT = 255
+_COLLECTION_SUFFIX_DIGEST_LENGTH = 24
+_COLLECTION_SEPARATOR = "--vp-"
 
 
 class QdrantIndexError(RuntimeError):
@@ -266,6 +277,61 @@ def stable_qdrant_point_id(evidence_id: str) -> str:
     return str(uuid5(POINT_NAMESPACE, evidence_id))
 
 
+def candidate_vector_profile_sha256(
+    bundle: CorpusReleaseBundle,
+    candidate: RetrievalCandidateManifest,
+) -> str:
+    """Digest the release-bound vector-producing portion of a candidate.
+
+    Fusion weights, query expansion, reranking, and output depth do not change stored
+    vectors, so those candidate variants deliberately share one collection. A different
+    dense or sparse model/adapter pin produces a different collection identity.
+    """
+
+    dense = candidate.content.lane(CandidateLaneKind.DENSE)
+    sparse = candidate.content.lane(CandidateLaneKind.BM25)
+    return canonical_sha256(
+        {
+            "identity_version": CANDIDATE_COLLECTION_IDENTITY_VERSION,
+            "corpus_release_id": bundle.manifest.content.corpus_release_id,
+            "manifest_sha256": bundle.manifest.manifest_sha256,
+            "lanes": [
+                {
+                    "kind": dense.kind.value,
+                    "vector_name": dense.vector_name,
+                    "model": dense.model.model_dump(mode="json"),
+                    "adapter_id": dense.adapter_id,
+                    "adapter_revision": dense.adapter_revision,
+                },
+                {
+                    "kind": sparse.kind.value,
+                    "vector_name": sparse.vector_name,
+                    "model": sparse.model.model_dump(mode="json"),
+                    "adapter_id": sparse.adapter_id,
+                    "adapter_revision": sparse.adapter_revision,
+                },
+            ],
+        }
+    )
+
+
+def candidate_qdrant_collection(
+    bundle: CorpusReleaseBundle,
+    candidate: RetrievalCandidateManifest,
+) -> str:
+    """Return a bounded Qdrant name isolated by the candidate vector profile."""
+
+    base = re.sub(
+        r"[^a-zA-Z0-9_-]+", "-", bundle.manifest.content.qdrant_collection
+    ).strip("-_")
+    if not base:
+        base = "corpus"
+    digest = candidate_vector_profile_sha256(bundle, candidate)
+    suffix = f"{_COLLECTION_SEPARATOR}{digest[:_COLLECTION_SUFFIX_DIGEST_LENGTH]}"
+    prefix = base[: _COLLECTION_NAME_LIMIT - len(suffix)].rstrip("-_") or "corpus"
+    return f"{prefix}{suffix}"
+
+
 def _float32(value: float) -> float:
     try:
         converted = struct.unpack("<f", struct.pack("<f", value))[0]
@@ -306,15 +372,24 @@ class QdrantIndexService:
         self,
         bundle: CorpusReleaseBundle,
         vectors: IndexVectorBatch,
+        candidate: RetrievalCandidateManifest,
         *,
         source_classes: Mapping[str, str],
         smoke_samples: int = 3,
         smoke_limit: int = 10,
     ) -> IndexValidationReport:
-        expected = self._expected_points(bundle, vectors, source_classes=source_classes)
-        collection = bundle.manifest.content.qdrant_collection
+        profile_sha256 = self._validate_candidate_vectors(bundle, candidate, vectors)
+        expected = self._expected_points(
+            bundle,
+            vectors,
+            source_classes=source_classes,
+            candidate_vector_profile_sha256=profile_sha256,
+        )
+        collection = candidate_qdrant_collection(bundle, candidate)
         version = await self._require_server_version()
-        configuration = self._collection_configuration(bundle, vectors)
+        configuration = self._collection_configuration(
+            bundle, vectors, candidate_vector_profile_sha256=profile_sha256
+        )
         collection_info = await self._qdrant.get_collection(collection)
         if collection_info is None:
             await self._qdrant.create_collection(collection, configuration)
@@ -360,6 +435,7 @@ class QdrantIndexService:
         return await self.validate(
             bundle,
             vectors,
+            candidate,
             source_classes=source_classes,
             smoke_samples=smoke_samples,
             smoke_limit=smoke_limit,
@@ -370,6 +446,7 @@ class QdrantIndexService:
         self,
         bundle: CorpusReleaseBundle,
         vectors: IndexVectorBatch,
+        candidate: RetrievalCandidateManifest,
         *,
         source_classes: Mapping[str, str],
         smoke_samples: int = 3,
@@ -378,10 +455,18 @@ class QdrantIndexService:
     ) -> IndexValidationReport:
         if smoke_samples <= 0 or smoke_limit <= 0:
             raise ValueError("smoke sample count and result limit must be positive")
-        expected = self._expected_points(bundle, vectors, source_classes=source_classes)
-        collection = bundle.manifest.content.qdrant_collection
+        profile_sha256 = self._validate_candidate_vectors(bundle, candidate, vectors)
+        expected = self._expected_points(
+            bundle,
+            vectors,
+            source_classes=source_classes,
+            candidate_vector_profile_sha256=profile_sha256,
+        )
+        collection = candidate_qdrant_collection(bundle, candidate)
         version = known_version or await self._require_server_version()
-        configuration = self._collection_configuration(bundle, vectors)
+        configuration = self._collection_configuration(
+            bundle, vectors, candidate_vector_profile_sha256=profile_sha256
+        )
         collection_info = await self._qdrant.get_collection(collection)
         if collection_info is None:
             raise IndexValidationError(["COLLECTION_NOT_FOUND"])
@@ -459,11 +544,33 @@ class QdrantIndexService:
         return version
 
     @staticmethod
+    def _validate_candidate_vectors(
+        bundle: CorpusReleaseBundle,
+        candidate: RetrievalCandidateManifest,
+        vectors: IndexVectorBatch,
+    ) -> str:
+        dense = candidate.content.lane(CandidateLaneKind.DENSE)
+        sparse = candidate.content.lane(CandidateLaneKind.BM25)
+        blockers: list[str] = []
+        if dense.vector_name != vectors.content.dense.name:
+            blockers.append("CANDIDATE_DENSE_VECTOR_NAME_MISMATCH")
+        if dense.model != vectors.content.dense.model:
+            blockers.append("CANDIDATE_DENSE_MODEL_MISMATCH")
+        if sparse.vector_name != vectors.content.sparse.name:
+            blockers.append("CANDIDATE_SPARSE_VECTOR_NAME_MISMATCH")
+        if sparse.model != vectors.content.sparse.model:
+            blockers.append("CANDIDATE_SPARSE_MODEL_MISMATCH")
+        if blockers:
+            raise IndexValidationError(blockers)
+        return candidate_vector_profile_sha256(bundle, candidate)
+
+    @staticmethod
     def _expected_points(
         bundle: CorpusReleaseBundle,
         vectors: IndexVectorBatch,
         *,
         source_classes: Mapping[str, str],
+        candidate_vector_profile_sha256: str,
     ) -> dict[str, _ExpectedPoint]:
         content = bundle.manifest.content
         if vectors.content.corpus_release_id != content.corpus_release_id:
@@ -503,6 +610,7 @@ class QdrantIndexService:
                 bundle,
                 source_class=source_class,
                 vector_sha256=vector_sha256,
+                candidate_vector_profile_sha256=candidate_vector_profile_sha256,
             )
             payload = {
                 **payload_without_digest,
@@ -529,6 +637,7 @@ class QdrantIndexService:
         *,
         source_class: str,
         vector_sha256: str,
+        candidate_vector_profile_sha256: str,
     ) -> dict[str, Any]:
         return {
             "index_schema_version": INDEX_CONTRACT_VERSION,
@@ -538,6 +647,7 @@ class QdrantIndexService:
             "evidence_id": evidence.evidence_id,
             "evidence_sha256": evidence.sha256,
             "vector_sha256": vector_sha256,
+            "candidate_vector_profile_sha256": candidate_vector_profile_sha256,
             "content_search_sha256": hashlib.sha256(
                 evidence.content_search.encode("utf-8")
             ).hexdigest(),
@@ -562,7 +672,10 @@ class QdrantIndexService:
 
     @staticmethod
     def _collection_configuration(
-        bundle: CorpusReleaseBundle, vectors: IndexVectorBatch
+        bundle: CorpusReleaseBundle,
+        vectors: IndexVectorBatch,
+        *,
+        candidate_vector_profile_sha256: str,
     ) -> dict[str, Any]:
         dense = vectors.content.dense
         sparse = vectors.content.sparse
@@ -577,6 +690,10 @@ class QdrantIndexService:
                 "manifest_sha256": bundle.manifest.manifest_sha256,
                 "bundle_sha256": canonical_sha256(bundle),
                 "vector_batch_sha256": vectors.batch_sha256,
+                "candidate_collection_identity_version": (
+                    CANDIDATE_COLLECTION_IDENTITY_VERSION
+                ),
+                "candidate_vector_profile_sha256": candidate_vector_profile_sha256,
                 "dense_model_artifact_sha256": dense.model.artifact_sha256,
                 "sparse_model_artifact_sha256": sparse.model.artifact_sha256,
                 "point_id_scheme": POINT_ID_SCHEME,

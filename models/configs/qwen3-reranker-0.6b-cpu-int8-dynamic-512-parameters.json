@@ -1,0 +1,10 @@
+{
+  "instruction": "Given a clinical evidence retrieval query, retrieve relevant guideline passages that answer the query.",
+  "max_length": 512,
+  "batch_size": 50,
+  "padding_side": "left",
+  "truncation": "longest_first",
+  "score_mode": "yes_probability",
+  "device": "cpu",
+  "dtype": "int8_dynamic"
+}

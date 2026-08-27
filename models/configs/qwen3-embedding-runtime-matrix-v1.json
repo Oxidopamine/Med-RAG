@@ -1,0 +1,38 @@
+{
+  "schema_version": "1.0.0",
+  "matrix_id": "qwen3-embedding-who-smart-hiv-cpu-v1",
+  "corpus_release_id": "CR_b6155a25415b25f3ba787b3b036da10d",
+  "manifest_sha256": "c233322a6e7224e16cafed25d4e5a8c6850fd20a790de5e09081bbeab46ce98c",
+  "query_sample_count": 32,
+  "document_sample_count": 32,
+  "warmup_runs": 1,
+  "measured_runs": 3,
+  "targets": [
+    {
+      "target_id": "qwen3-embedding-0.6b-cpu-float32",
+      "model_id": "Qwen/Qwen3-Embedding-0.6B",
+      "model_revision": "97b0c614be4d77ee51c0cef4e5f07c00f9eb65b3",
+      "dimension": 1024,
+      "artifact_root": "models/local/qwen3-embedding-0.6b",
+      "artifact_manifest_path": "data/local/model-manifests/qwen3-embedding-0.6b-cpu-float32.json",
+      "expected_artifact_sha256": "9ec38140d99f44343a3cdc19a0fc249843e37b86764fd411e168487b2d364b6a",
+      "device": "cpu",
+      "dtype": "float32",
+      "max_length": 8192,
+      "batch_size": 8
+    },
+    {
+      "target_id": "qwen3-embedding-0.6b-openvino-int8",
+      "model_id": "Qwen/Qwen3-Embedding-0.6B",
+      "model_revision": "97b0c614be4d77ee51c0cef4e5f07c00f9eb65b3",
+      "dimension": 1024,
+      "artifact_root": "models/local/qwen3-embedding-0.6b-openvino-int8",
+      "artifact_manifest_path": "data/local/model-manifests/qwen3-embedding-0.6b-openvino-int8.json",
+      "expected_artifact_sha256": null,
+      "device": "CPU",
+      "dtype": "int8",
+      "max_length": 8192,
+      "batch_size": 8
+    }
+  ]
+}

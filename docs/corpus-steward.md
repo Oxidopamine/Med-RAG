@@ -278,13 +278,17 @@ evidence verification, and release-policy attestations, then registers a `VALIDA
 release with a reserved release-specific collection name and `index_status=NOT_BUILT`.
 Index construction and activation remain separate later gates.
 
-## Release-specific Qdrant construction and attestation
+## Candidate-specific Qdrant construction and attestation
 
 Index construction is a separate build-side gate. It consumes the exact promoted release
 bundle plus a sealed vector batch. The vector batch must be produced by the
 benchmark-controlled embedding pipeline and pins the dense and sparse model IDs, immutable
 model revisions, model-artifact SHA-256 digests, declared dimensions, and one vector pair
-for every approved evidence digest. The Qdrant builder does not choose or download a model.
+for every approved evidence digest. A candidate vector-profile digest covers the release,
+vector names, model pins, and adapter pins. Its collection name is the release-reserved name
+plus `--vp-<digest-prefix>`, so model families cannot share or collide with one another while
+fusion weights, expansion revisions, and reranker-only variants can reuse identical vectors.
+The Qdrant builder does not choose or download a model.
 
 The Python producer exposes an `EmbeddingBackend` boundary for pinned candidate adapters.
 Document and query encoding are separate operations so dense retrieval and asymmetric
@@ -313,8 +317,10 @@ corpus-steward model-artifact-manifest models\local\bge-m3 `
   --output data\local\dense-model-manifest.json
 ```
 
-BAAI/bge-m3 is the selected multilingual dense candidate. It is not accepted for clinical
-retrieval until it passes the independently adjudicated benchmark. Install the optional
+BAAI/bge-m3 is the multilingual dense control, not the selected engineering candidate. The
+current available engineering floor is the separately pinned Qwen3-Embedding-0.6B artifact;
+neither is accepted for engineering release until a complete frozen candidate passes the
+automated source-derived benchmark. Install the optional
 runtime with `pip install -e ".[retrieval]"` from `apps/api`, place a dereferenced,
 already-acquired BGE-M3 snapshot at the root above. The selected candidate revision is
 `5617a9f61b028005a4858fdac845db406aefb181`; the adapter rejects another revision.
@@ -326,7 +332,8 @@ command, is an assertion against that sealed device rather than an untracked ove
 
 The sparse candidate is dependency-free. It tokenizes NFKC/casefolded Unicode medical
 text, adds CJK character/bigram terms, hashes into the declared unsigned 32-bit term
-space, emits BM25 length-normalized document TF and binary query TF, and relies on the
+identifier space (the current release artifact bounds it to 262,144 buckets), emits BM25
+length-normalized document TF and binary query TF, and relies on the
 index's required Qdrant `idf` modifier:
 
 ```powershell
@@ -335,7 +342,7 @@ corpus-steward model-artifact-manifest `
   --kind SPARSE `
   --model-id med-rag/qdrant-bm25-unicode `
   --revision 1.0.0 `
-  --dimension 4294967296 `
+  --dimension 262144 `
   --adapter-id med-rag/qdrant-bm25 `
   --adapter-revision 1.0.0 `
   --adapter-parameters models\configs\qdrant-bm25-adapter-parameters.json `
@@ -346,6 +353,54 @@ Before sealing a release candidate, replace `average_document_length` in the spa
 configuration with the exact average token count for that candidate's approved evidence.
 Optional UTF-8 stopwords must be inside the verified sparse artifact and named by its
 relative `stopwords_path`; no implicit language resources are loaded.
+
+Derive that value from the exact validated release instead of estimating it from a sample:
+
+```powershell
+corpus-steward bm25-release-statistics `
+  data\local\validated-who-smart-hiv-release.json `
+  --adapter-parameters `
+    models\configs\qdrant-bm25-who-smart-hiv-v1-parameters.json `
+  --output models\configs\who-smart-hiv-bm25-release-statistics-v1.json
+```
+
+The current sealed WHO SMART HIV statistics bind release
+`CR_b6155a25415b25f3ba787b3b036da10d` and manifest `c233322a...ce98c`: 5,145
+documents, average length `86.36793002915452`, p95 length `204`, and statistics digest
+`14a388...dac8`, using the exact `unicode-medical-v1` tokenizer contract.
+
+Qwen runtime evidence is generated only from a development suite and verified local model
+artifacts. The matrix request pins each model commit, dimension, artifact path/digest, device,
+dtype, maximum length, and batch size. Missing artifacts are recorded as blockers rather than
+downloaded implicitly or assigned synthetic measurements:
+
+```powershell
+corpus-steward qwen-runtime-matrix `
+  models\configs\qwen3-embedding-runtime-matrix-v1.json `
+  --bundle data\local\validated-who-smart-hiv-release.json `
+  --suite benchmarks\suites\who-smart-hiv-source-derived-development-v7.json `
+  --workspace-root . `
+  --output data\local\qwen3-embedding-runtime-matrix-v1-report.json
+```
+
+The checked-in CPU/fp32 report measured the exact Qwen3-Embedding-0.6B artifact at commit
+`97b0c614...65b3`, artifact digest `9ec38140...64b6a`, on 32 queries and 32 documents over
+three timed runs. It recorded 1.47 query items/s, 0.405 document items/s, 35.76-second query
+batch p95, 100.84-second document batch p95, 5,772,599,296-byte peak process RSS, zero
+truncations, and maximum unit-norm deviation `2.22e-15`. The 4B and 8B entries remain
+explicitly blocked because no verified local artifact or independent artifact pin is available
+on this runtime; that is not a performance result. The digest-sealed report is stored under
+`benchmarks/runtime/` and did not access the sealed holdout.
+
+The deployment-floor reranker is separately pinned to
+`Qwen/Qwen3-Reranker-0.6B` commit `e1775d95...c42af`. Its verified-local manifest declares
+artifact kind `RERANKER`, scalar score dimension 1, adapter revision 1.1.0, CPU dynamic-int8,
+maximum prompt length 256, micro-batch size 50, the exact clinical instruction, and artifact
+digest `815e08f7...43b61`. Runtime scoring follows Qwen's causal-LM prompt contract and the
+softmax probability of the `yes` token against `no`; it does not load a sequence-classification
+head or download runtime code. The CPU pin was selected from local worst-case passage probes:
+20 documents at 256 tokens took 15.57 seconds under dynamic int8, while fp32 at 512 tokens took
+57.05 seconds; int8 batch 50 remained below the runtime memory limit while batch 100 did not.
 
 Record the printed `artifact_sha256` in independently controlled deployment or acceptance
 configuration. Every production load must supply that external pin; validating only a
@@ -382,18 +437,25 @@ generation (the two expected digests must come from independent acceptance or de
 configuration):
 
 ```powershell
-corpus-steward index-produce-vectors data\local\validated-corpus-release.json `
+corpus-steward index-produce-vectors data\local\validated-who-smart-hiv-release.json `
   --embedding-backend candidate `
-  --dense-model-root models\local\bge-m3 `
-  --dense-model-manifest data\local\dense-model-manifest.json `
-  --dense-artifact-sha256 <approved-dense-manifest-sha256> `
+  --dense-model-root models\local\qwen3-embedding-0.6b `
+  --dense-model-manifest data\local\model-manifests\qwen3-embedding-0.6b-cpu-float32.json `
+  --dense-artifact-sha256 9ec38140d99f44343a3cdc19a0fc249843e37b86764fd411e168487b2d364b6a `
   --sparse-model-root models\artifacts\qdrant-bm25-unicode-v1 `
-  --sparse-model-manifest data\local\sparse-model-manifest.json `
-  --sparse-artifact-sha256 <approved-sparse-manifest-sha256> `
+  --sparse-model-manifest data\local\model-manifests\qdrant-bm25-who-smart-hiv-v1.json `
+  --sparse-artifact-sha256 126656d608bca79f24cde2e5707b55fae76f6b15ddc9ee9078788cf6d9261000 `
   --device cpu `
   --batch-size 8 `
-  --output data\local\phase4-index-vectors.json
+  --checkpoint data\local\qwen3-0.6b-release-vectors.checkpoint.json `
+  --output data\local\qwen3-0.6b-release-vectors.json
 ```
+
+The checkpoint is an atomic, digest-sealed exact-prefix snapshot. Resume verifies the release,
+model definitions, evidence order, evidence digests, and checkpoint digest before continuing;
+an interrupted multi-hour production run never accepts a hole or stale vector prefix. By
+default it is persisted every ten completed batches and after the final batch; use
+`--checkpoint-interval-batches` to select another positive durability cadence.
 
 An external producer may instead emit
 `IndexVectorBatchContent` JSON and seal it after generation:
@@ -414,20 +476,24 @@ Build the reserved collection, then run the independent read-only validation com
 ```powershell
 corpus-steward qdrant-build data\local\validated-corpus-release.json `
   --vectors data\local\phase4-index-vectors.json `
+  --candidate models\configs\candidate.json `
   --output data\local\phase4-index-build-validation.json
 
 corpus-steward qdrant-validate data\local\validated-corpus-release.json `
   --vectors data\local\phase4-index-vectors.json `
+  --candidate models\configs\candidate.json `
   --output data\local\phase4-index-validation.json
 ```
 
 Before any Qdrant write, the command reconstructs the release bundle from PostgreSQL and
 requires exact equality with the supplied bundle. It also reconciles the immutable QA run,
 all decision rows, approved release membership, quarantined count, and bundle artifact
-digest. The release must be `VALIDATED` with `index_status=NOT_BUILT`.
+digest. The release must be `VALIDATED`. Multiple engineering vector profiles may be built
+without mutating or overwriting an earlier profile; final attestation and activation remain
+separate frozen-candidate gates.
 
 The builder is no-delete and safe to resume. It creates only the manifest-reserved
-collection name, rejects configuration or metadata drift, validates every existing point
+candidate-profile collection name, rejects configuration or metadata drift, validates every existing point
 before resuming a partial build, and never overwrites an existing point. Each approved
 canonical evidence ID maps to a deterministic UUIDv5 point ID. Qdrant payloads contain
 filter/provenance metadata and digests, not exact evidence text; serving must resolve final
@@ -446,6 +512,7 @@ After reviewing the validation output, revalidate, sign, and register the index:
 ```powershell
 corpus-steward qdrant-attest data\local\validated-corpus-release.json `
   --vectors data\local\phase4-index-vectors.json `
+  --candidate models\configs\candidate.json `
   --signing-key data\local\keys\stage-private.pem `
   --signing-key-id local-steward-stage `
   --signer-identity local-corpus-steward `
@@ -454,7 +521,8 @@ corpus-steward qdrant-attest data\local\validated-corpus-release.json `
 
 `qdrant-attest` performs a fresh exhaustive validation, records the verified Ed25519
 signature under the existing `STAGE` key purpose, writes the signed attestation, and only
-then calls the release registry transition to `index_status=VALIDATED`. The attestation
+then atomically selects that candidate-profile collection and transitions the release registry
+to `index_status=VALIDATED`. A validated release cannot switch profiles. The attestation
 binds the validation-report digest and the complete QA accounting; its statement digest is
 the digest recorded on the release. The command does not activate the release. Benchmark
 acceptance and a separately signed activation decision remain mandatory later gates.
@@ -465,77 +533,73 @@ set `QDRANT_API_KEY` or pass `--qdrant-api-key`; the local stack is pinned to Qd
 `1.15.4`, and a different version fails closed unless the expected version is explicitly
 changed after compatibility review.
 
-## Clinical benchmark adjudication and suite construction
+## Automated source-derived benchmark construction
 
-Migration `0012_clinical_benchmark_adjudication` adds an immutable evidence-production
-ledger in front of the retrieval runner. It records separately sealed access,
-adjudication-process, and threshold policies; imported reviewer decisions; disagreement
-resolutions; final adjudication records; suite artifacts; and access audit events. Clinical
-reviewers are ordinary workflow participants. Their identity, role, independence,
-instructions, evidence-access revision, and decision time are retained, but they neither
-hold signing keys nor sign benchmark artifacts.
+Migration `0013_automated_source_benchmarks` adds immutable generation-policy, generation-
+record, suite-build, access-event, and execution ledgers. Benchmark contract 1.3 identifies
+these suites with `AUTOMATED_SOURCE_DERIVED` provenance. Every generated case binds its
+canonical source-evidence IDs and digests, derivation rule/version, and one secret-ranked
+partition-assignment digest. No reviewer decision or human approval is required.
 
-Export the versioned workflow schemas:
-
-```powershell
-corpus-steward export-benchmark-adjudication-schemas packages\schemas
-```
-
-Register the three policies before importing reviews. The threshold policy must set sample
-targets and safety-stratum gates for every `ClinicalSafetyTopic`, identify both development
-and holdout acceptance thresholds, and prespecify the uncertainty methods before candidate
-evaluation:
+The threshold policy sets development and holdout sample targets and safety-stratum gates for
+every `ClinicalSafetyTopic`. The access policy separates candidate engineering from holdout
+custody. The generation policy pins the implementation rules and only the SHA-256 digest of a
+32-byte partition seed; the seed itself remains outside source control.
 
 ```powershell
 corpus-steward benchmark-register-access-policy `
-  data\local\benchmark\access-policy.content.json `
-  --output data\local\benchmark\access-policy.json
-corpus-steward benchmark-register-adjudication-process `
-  data\local\benchmark\adjudication-process.content.json `
-  --output data\local\benchmark\adjudication-process.json
+  benchmarks\policies\automated-access-v1.content.json `
+  --output benchmarks\policies\automated-access-v1.json
 corpus-steward benchmark-register-threshold-policy `
-  data\local\benchmark\threshold-policy.content.json `
-  --output data\local\benchmark\threshold-policy.json
+  benchmarks\policies\automated-thresholds-v1.content.json `
+  --output benchmarks\policies\automated-thresholds-v1.json
+corpus-steward benchmark-generate-partition-seed `
+  --output data\local\benchmark-source-derived\partition-seed.bin
+corpus-steward benchmark-seal-generation-policy `
+  benchmarks\policies\automated-generation-v1.content.json `
+  --output benchmarks\policies\automated-generation-v1.json
 ```
 
-Seal reviewer decisions and disagreement resolutions from their content contracts, collect
-them into `{"decisions": [...]}` and `{"resolutions": [...]}` import envelopes, then import
-and finalize the adjudication ledger:
+Generate and register both partitions in one deterministic transaction. Export only the
+development suite into the engineering workspace. Omitting the holdout and generation-record
+output arguments keeps their case payloads in custody-controlled immutable storage:
 
 ```powershell
-corpus-steward benchmark-seal-review review.content.json --output review.json
-corpus-steward benchmark-import-reviews reviews.json `
-  --access-policy-sha256 <access-policy-sha256> `
-  --adjudication-process-sha256 <adjudication-process-sha256>
-corpus-steward benchmark-seal-resolution resolution.content.json `
-  --output resolution.json
-corpus-steward benchmark-import-resolutions resolutions.json `
-  --access-policy-sha256 <access-policy-sha256> `
-  --adjudication-process-sha256 <adjudication-process-sha256>
-corpus-steward benchmark-seal-adjudication adjudication-request.json `
-  --output adjudication-record.json
+corpus-steward benchmark-generate-source-derived `
+  data\local\validated-who-smart-hiv-release.json `
+  --access-policy benchmarks\policies\automated-access-v1.json `
+  --threshold-policy benchmarks\policies\automated-thresholds-v1.json `
+  --generation-policy benchmarks\policies\automated-generation-v1.json `
+  --request benchmarks\policies\automated-generation-v1.request.json `
+  --partition-seed data\local\benchmark-source-derived\partition-seed.bin `
+  --development-output `
+    benchmarks\suites\who-smart-hiv-source-derived-development-v7.json
 ```
 
-Every case needs the process policy's minimum number of distinct independent clinicians.
-Exact decision agreement finalizes without a resolution. Any disagreement requires one
-sealed resolution over the exact decision-digest set; a missing, stale, partial, or
-candidate-team resolution fails closed.
+The generator creates source-derived positives, filter-constrained negatives, polarity-aware
+conflict pairs, terminology and negation cases, and explicit jurisdiction, freshness,
+publisher, and unsupported-language cases. It fails if either partition cannot meet any
+prespecified topic target. Generated suites intentionally contain no candidate digest. At
+execution, the ledger atomically records the final sealed candidate and vector-batch digests;
+development runs may repeat, while the holdout claim is unique and remains consumed after a
+completed or failed run.
 
-The suite builder selects only the adjudication record's declared partition, validates all
-gold/forbidden evidence and required roles against the exact corpus release, enforces every
-sample-size and safety-topic target, and records the authorized actor. Development builders
-can produce candidate-bound development suites. Only access-policy custodians can build the
-holdout, and one adjudication record can produce exactly one immutable holdout suite:
+The final holdout run can load the registered suite by digest without exporting its case
+payload into the engineering workspace:
 
 ```powershell
-corpus-steward benchmark-build-clinical-suite suite-build-request.json `
-  --bundle data\local\validated-corpus-release.json `
-  --output data\restricted\clinical-holdout.json
+corpus-steward benchmark-run data\local\validated-who-smart-hiv-release.json `
+  --vectors data\restricted\final-vector-batch.json `
+  --registered-suite-sha256 <sealed-holdout-suite-sha256> `
+  --candidate models\configs\final-candidate.json `
+  --actor-identity benchmark-automation-service `
+  --embedding-backend candidate `
+  --output data\restricted\sealed-holdout-report.json
 ```
 
-The application policy is in addition to filesystem or object-store ACLs: a holdout output
-path must remain in custodian-controlled storage. The later acceptance run should consume
-that sealed artifact exactly once after the candidate is frozen.
+The migration-0012 independent-review workflow remains readable for audit compatibility but
+is not part of the automated engineering path and cannot block product development. Physicians
+participate only in evaluation of the completed product.
 
 ## Retrieval benchmark runner
 
@@ -561,11 +625,73 @@ query-time model or candidate-parameter substitution.
 
 The runner embeds every question with the exact model pins from the vector batch and fails
 on any mismatch. Sparse, dense, and hybrid modes use identical release, approval,
-jurisdiction, language, publisher, and source-class filters. Every returned Qdrant point
+jurisdiction, language, publisher, source-class, source-version, and lifecycle filters. Every
+returned Qdrant point
 ID, evidence digest, role set, and filter payload is checked against the release before it
 can enter a metric. Hybrid retrieval uses candidate-weighted reciprocal-rank fusion with
 evidence-ID tie breaking. A lane failure is isolated, recorded by lane and failure class,
 and blocks acceptance by default instead of corrupting another lane silently.
+
+The current candidate runner adds two bounded, versioned sparse-query lanes only to hybrid
+mode: exact terminology extraction and deterministic clinical-safety variants for
+applicability, contraindication, dose, monitoring, jurisdiction, and freshness. Dense-only
+and BM25-only therefore remain pure ablations. Expanded fusion preserves a bounded base-
+retrieval floor and available safety-role representatives. The optional Qwen3 reranker is a
+verified local causal-LM adapter using the sealed instruction and yes/no probability score;
+its output also preserves the retrieval floor and exception, applicability, dose, and
+monitoring representatives. Reranker failure is recorded and falls back deterministically.
+
+`clinical-safety-query-v2` is the no-reranker conflict-aware revision. It keeps each conflict
+side as an independent lexical probe, adds bounded polarity/negation clauses, reserves one
+representative per side, preserves primary and safety-role representatives already present in
+the fused top ten, prefers at most three source versions, and suppresses 85%-overlap passages
+until non-redundant candidates are exhausted. Candidate generation and selection remain
+deterministic, with evidence-ID tie breaking.
+
+Development diagnostics can be emitted without changing the benchmark-report contract. Pass
+one or more `--development-trace-case-id`, `--development-trace-depth 100`, and
+`--development-trace-output <path>` arguments to `benchmark-run`. The runner rejects traces
+for every partition except `DEVELOPMENT`. The trace binds the suite, candidate, vector batch,
+collection, and runner; it records full dense, BM25, and expansion rankings, per-gold ranks,
+actual outer-RRF contributions, the final selected rank, every applied preservation rule, and
+a `CANDIDATE_GENERATION_FAILURE` versus `TOP_10_SELECTION_FAILURE` classification.
+
+Pool comparisons use newly sealed, candidate-bound development-suite variants with identical
+cases and gates. With `--register`, an additive lineage ledger binds each variant to its
+registered immutable development parent, candidate digest, access policy, and artifact. The
+derivation command refuses non-development suites, and automated holdout contracts reject a
+candidate binding, so this path cannot expose or retune the sealed holdout:
+
+```powershell
+corpus-steward benchmark-derive-development-suite `
+  benchmarks\suites\who-smart-hiv-source-derived-development-v7.json `
+  --candidate models\configs\who-smart-hiv-qwen3-0.6b-rerank-pool-100.json `
+  --output data\local\who-smart-hiv-development-rerank-pool-100.json `
+  --register `
+  --actor-identity benchmark-automation-service
+```
+
+`benchmark-run --reranker-score-cache <path>` reuses exact query/document probabilities across
+overlapping pool variants. The cache identity binds the verified artifact, adapter revision,
+instruction digest, and maximum length; its entries and identity are digest-checked, writes are
+atomic after each case, and inconsistency fails closed. Cache-assisted development latency is
+the measured warm-cache runtime and must not be treated as a cold deployment-latency result.
+
+The completed 275-case development comparison is:
+
+| Candidate | Report SHA-256 | Recall@10 | Complete evidence | Required roles | nDCG@10 | MRR | p95 ms |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Pre-rerank hybrid | `2ec967fb...2b83` | 99.27% | 98.55% | 99.82% | 0.8900 | 0.8673 | 10,425 |
+| Rerank pool 20 | `e14162dd...64be` | 97.45% | 96.73% | 97.88% | 0.6618 | 0.5703 | 29,268 |
+| Rerank pool 50 | `6bd18729...cf7` | 97.64% | 96.73% | 98.36% | 0.6291 | 0.5249 | 41,681 |
+| Rerank pool 100 | `755ee209...432b` | 97.64% | 96.73% | 98.42% | 0.6234 | 0.5162 | 36,707 |
+
+Every reranker pool had zero execution failures and zero forbidden-evidence leakage, but each
+gained complete evidence on only two cases and lost it on seven versus pre-rerank. Terminology
+complete-evidence coverage fell from 100% to 80%/84%/84%; conflict coverage fell from 84% to
+84%/80%/80%. The 0.6B reranker is therefore rejected for this candidate. The pre-rerank hybrid
+remains the engineering leader, but it is not frozen or holdout-eligible because context
+precision, CPU latency, and conflict completeness still fail development thresholds.
 
 Reports are digest-sealed and include per-case rankings plus Recall@K, nDCG, MRR, context
 precision, alternative minimum-complete-evidence-set recall, required-role recall,
@@ -573,12 +699,59 @@ forbidden-evidence leakage, insufficient-evidence accuracy, candidate failures, 
 per-safety-stratum results, and Wilson 95% intervals. Only the suite's declared candidate
 mode controls acceptance; the other modes remain explicit ablations. Exit status 8 is a
 measured rejection, while release/model/candidate-pin drift fails as a command error. The
-current contracts are `retrieval-benchmark-suite-1.2.0.schema.json`,
-`retrieval-benchmark-report-1.2.0.schema.json`, and
-`retrieval-candidate-1.0.0.schema.json` under `packages/schemas`; the frozen 1.0 and 1.1
+current contracts are `retrieval-benchmark-suite-1.5.0.schema.json`,
+`retrieval-benchmark-report-1.5.0.schema.json`, and
+`retrieval-candidate-1.0.0.schema.json` under `packages/schemas`; the frozen 1.0 through 1.4
 benchmark schemas remain for audit history.
 
-Seal a candidate configuration before sealing the suite that references its digest:
+Context precision at a fixed depth cannot exceed `min(|gold|, k) / k`, so a suite whose cases
+carry fewer gold records than `top_k` has a hard ceiling well below 1.0 that no retrieval stack
+can cross. Contract 1.4 therefore reports `context_precision_ceiling_at_k` beside every context
+precision value, and `BenchmarkSuiteContent` refuses to seal a suite whose acceptance policy
+demands more context precision than the suite can produce. The achievable gate is
+`r_precision`: the share of the top `min(|gold|, k)` results that are gold, which reaches 1.0
+for a perfect ranking and cannot be raised by truncating the result list. Retrieval-side
+context budgeting keyed on question wording was removed for exactly that reason; it inflated
+context precision by reading the benchmark generator's own question templates.
+
+### How acceptance thresholds are set
+
+Absolute score floors do not transfer between corpora. Retrieval effectiveness varies more with
+collection and topic difficulty than with system quality - BM25's own nDCG@10 across the BEIR
+suite spans 0.213 to 0.789, and 0.325 to 0.665 across its four biomedical collections alone -
+so a bar copied from a leaderboard or chosen by intuition measures the corpus, not the stack.
+Contract 1.5 therefore restricts gates to three defensible forms and reports everything else:
+
+- **Derived from the consumer.** `generation_context_budget` declares how many passages the
+  rendering layer will actually hand its verifier, and
+  `minimum_answerable_complete_evidence_at_budget_rate` gates evidence completeness at that
+  depth rather than at whatever depth the benchmark happened to search. The requirement traces
+  to a real failure - a required contraindication never reaching the claim gate - instead of to
+  a chosen number.
+- **Stated as a confidence bound.** With `require_confidence_lower_bound`, completeness gates
+  compare the Wilson 95% lower bound against the threshold, not the point estimate. "The lower
+  bound clears X" is a claim about the population; "the mean clears X" is a claim about these
+  draws.
+- **Relative to a named comparator.** `comparator_candidate_id`, `comparator_report_sha256`,
+  and `comparator_answerable_complete_evidence_rate` pin a baseline measured on this same case
+  set, and the candidate must match it plus `minimum_comparator_margin`. Because the comparator
+  is prespecified before candidate evaluation, its number is measured first and frozen into the
+  threshold policy.
+
+R-precision is reported and ungated by default. On this suite 175 of 200 answerable cases carry
+exactly one gold record, so R-precision degenerates to precision@1 - it measures whether the
+single correct passage ranks first, which no part of the safety argument depends on.
+
+Every metric is reported twice: blended across all cases, and again over the answerable cases
+alone (`answerable_*`). Insufficient-evidence cases are scored by abstention and pass whenever
+the release filter legitimately matches nothing, so they cost no retrieval quality to satisfy —
+in the WHO SMART HIV development suite they are 100 of 300 cases. Blended means alone would let
+that third of the suite mask an answerable-case regression.
+
+Seal a candidate configuration before running a suite. Synthetic and legacy reviewed suites
+bind this digest during construction; original automated source-derived suites bind it in the
+execution audit record and report, while registered development derivations bind it in the
+suite, derivation ledger, execution record, and report:
 
 ```powershell
 corpus-steward candidate-seal models\configs\candidate.content.json `
@@ -605,10 +778,10 @@ corpus-steward benchmark-accept data\local\acceptance.content.json `
   --signer-identity benchmark-release-authority
 ```
 
-The acceptance binds the holdout access/process revisions, suite, report, runner,
+The acceptance binds the holdout access and provenance revisions, suite, report, runner,
 candidate, vector batch, manifest, collection, index attestation, and release. Activation
 uses the breaking `signed-activation-decision-2.0.0` contract and fails closed when that
-record is missing, stale, mismatched, replayed, or tampered. This gate does not make the
-synthetic suite clinically acceptable: independently adjudicated development and untouched
-holdout evidence, terminology/safety lanes, specialist candidates, and reranking
-experiments are still outstanding.
+record is missing, stale, mismatched, replayed, or tampered. This is an automated engineering
+gate, not clinician approval or clinical validation. Candidate runtime measurements,
+larger-model and specialist candidates, completed real-candidate reranker comparisons,
+verified rendering, and final-product physician evaluation remain separate work.

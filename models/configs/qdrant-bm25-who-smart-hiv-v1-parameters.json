@@ -1,0 +1,12 @@
+{
+  "average_document_length": 86.36793002915452,
+  "b": 0.75,
+  "document_prefix": "",
+  "hash_algorithm": "sha256-uint32-le",
+  "hash_seed": "med-rag-qdrant-bm25-v1",
+  "k1": 1.2,
+  "query_prefix": "",
+  "query_term_frequency": "binary",
+  "stopwords_path": null,
+  "tokenizer": "unicode-medical-v1"
+}

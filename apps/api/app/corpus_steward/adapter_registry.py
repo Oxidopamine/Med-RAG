@@ -12,10 +12,13 @@ from app.corpus_steward.embedding_adapters import (
     BM25_ADAPTER_REVISION,
     QWEN3_ADAPTER_ID,
     QWEN3_ADAPTER_REVISION,
+    QWEN3_OPENVINO_ADAPTER_ID,
+    QWEN3_OPENVINO_ADAPTER_REVISION,
     AdapterConfigurationError,
     BGEM3DenseAdapter,
     QdrantBM25SparseAdapter,
     Qwen3DenseAdapter,
+    Qwen3OpenVINODenseAdapter,
 )
 from app.corpus_steward.model_artifacts import ModelArtifactKind, VerifiedModelArtifact
 from app.corpus_steward.vector_producer import DenseEmbeddingAdapter, SparseEmbeddingAdapter
@@ -110,6 +113,11 @@ def default_adapter_registry() -> ManifestAdapterRegistry:
         QWEN3_ADAPTER_ID,
         QWEN3_ADAPTER_REVISION,
         Qwen3DenseAdapter,
+    )
+    registry.register_dense(
+        QWEN3_OPENVINO_ADAPTER_ID,
+        QWEN3_OPENVINO_ADAPTER_REVISION,
+        Qwen3OpenVINODenseAdapter,
     )
     registry.register_dense(
         BGE_M3_ADAPTER_ID,

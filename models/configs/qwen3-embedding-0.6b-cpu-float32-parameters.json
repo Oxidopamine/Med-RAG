@@ -1,0 +1,11 @@
+{
+  "pooling": "last_token",
+  "normalize": true,
+  "query_instruction": "Given a clinical evidence retrieval query, retrieve relevant guideline passages that answer the query.",
+  "document_prefix": "",
+  "padding_side": "left",
+  "max_length": 8192,
+  "batch_size": 8,
+  "device": "cpu",
+  "dtype": "float32"
+}
