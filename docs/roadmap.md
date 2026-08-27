@@ -231,11 +231,42 @@
   alone at 0.9608, because fusing a 0.6824 dense lane with a 0.9608 sparse lane loses
   cases; expansion brings the fused score back to 0.9647. The mechanism is worth
   confirming in code before this is relied on
-- decision needed: the naive margin. At `minimum_naive_comparator_margin` 0.0 the
-  candidate clears the floor by one case. At the 0.02 recorded below for the tuned
-  comparator it does not clear it at all, because 0.9608 + 0.02 exceeds 0.9647. The
-  policy ships the measurement with the margin left at its existing 0.0; raising it is a
-  decision about whether a one-case gain justifies a neural dense lane and its latency
+- complete: the dense lane was removed and the stack improved.
+  `who-smart-hiv-bm25-expansion-only-v1` is the accepted candidate with the Qwen lane
+  weighted to 0.0, leaving release BM25 plus both deterministic expansions. It scores
+  0.9804 answerable complete-evidence (250/255, Wilson 95% [0.9549, 0.9916]), ACCEPTED
+  with no blockers, zero leakage, zero candidate failures, p95 1,339 ms; report
+  `d4397e57dc42347040d3be06e14d13fc313642369e4b8e918b4a3d81c66a3011`. That is +4 cases
+  over the previously accepted Qwen3-0.6B candidate and +5 over BM25 alone
+- the per-stratum attribution is what decided it. Every gain the Qwen candidate had over
+  BM25 came from expansion, not from the dense lane, and the dense lane cost cases in
+  every stratum it touched:
+
+  | stratum | BM25 alone | +dense | +dense +expansion | +expansion, no dense |
+  | --- | --- | --- | --- | --- |
+  | CONFLICTING_EVIDENCE | 0.933 | 0.833 | 1.000 | 1.000 |
+  | PARAPHRASED_INTENT | 0.950 | 0.900 | 0.900 | 0.967 |
+  | TERMINOLOGY | 0.950 | 0.900 | 0.950 | 0.950 |
+  | all answerable | 0.961 | 0.914 | 0.965 | 0.980 |
+
+  `CONFLICTING_EVIDENCE` reaches 1.000 with or without the dense lane, so expansion owns
+  that gain outright. `PARAPHRASED_INTENT` is the reverse: the dense lane drops it from
+  0.950 to 0.900 and expansion never repairs it, while removing the lane lifts it to
+  0.967. That is the one stratum built to defeat lexical matching - measured query-term
+  coverage 0.411 against 1.000 for five other strata - so it is the stratum a dense
+  retriever exists to win, and Qwen3-Embedding-0.6B loses it
+- known limit: this measures retrieval quality, not deployment cost. The zero-weight lane
+  is still declared, so the run still loads the model and encodes every query with it;
+  p95 moved only from 1,440 ms to 1,339 ms. Removing Qwen from the serving path needs a
+  BM25-only vector profile and a candidate contract that permits a single lane -
+  `RetrievalCandidateContent` currently requires exactly one dense and one BM25 lane.
+  Until that exists, "no dense lane" means "a dense lane that contributes nothing"
+- decision: `minimum_naive_comparator_margin` stays 0.0, and the suite is why. BM25 alone
+  takes 245 of 255 answerable cases, so the entire headroom above the naive baseline is
+  10 cases and the largest achievable margin is 0.0392. A 0.02 margin would demand more
+  than half of all remaining headroom; the best stack measured scores 0.9804 and would
+  miss it by 0.0004. A margin that even a perfect-looking candidate fails is measuring
+  the suite, not the system
 - known limit: the naive floor is populated for `development_acceptance` only. A
   comparator floor is defensible because it was measured on the same case set, and this
   one was measured on the development suite. Pinning it into `sealed_holdout_acceptance`

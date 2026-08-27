@@ -1,0 +1,43 @@
+{
+  "candidate_sha256": "60e956a66d1bb71800368e48261969482eac8e2be9e07b993a74ad2c18384475",
+  "content": {
+    "candidate_id": "who-smart-hiv-bm25-expansion-only-v1",
+    "candidate_limit": 50,
+    "lanes": [
+      {
+        "adapter_id": "med-rag/qwen3-embedding-transformers",
+        "adapter_revision": "1.0.0",
+        "kind": "DENSE",
+        "lane_id": "qwen3-dense",
+        "model": {
+          "artifact_sha256": "9ec38140d99f44343a3cdc19a0fc249843e37b86764fd411e168487b2d364b6a",
+          "model_id": "Qwen/Qwen3-Embedding-0.6B",
+          "revision": "97b0c614be4d77ee51c0cef4e5f07c00f9eb65b3"
+        },
+        "required": true,
+        "vector_name": "dense",
+        "weight": 0.0
+      },
+      {
+        "adapter_id": "med-rag/qdrant-bm25",
+        "adapter_revision": "1.0.0",
+        "kind": "BM25",
+        "lane_id": "release-bm25",
+        "model": {
+          "artifact_sha256": "126656d608bca79f24cde2e5707b55fae76f6b15ddc9ee9078788cf6d9261000",
+          "model_id": "med-rag/qdrant-bm25-unicode",
+          "revision": "1.0.0"
+        },
+        "required": true,
+        "vector_name": "sparse",
+        "weight": 1.0
+      }
+    ],
+    "output_depth": 10,
+    "reranker": null,
+    "rrf_k": 60,
+    "safety_query_revision": "clinical-safety-query-v2",
+    "schema_version": "1.0.0",
+    "terminology_revision": "exact-terminology-unicode-v1"
+  }
+}
