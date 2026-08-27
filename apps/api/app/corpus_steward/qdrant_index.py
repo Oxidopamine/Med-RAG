@@ -29,6 +29,7 @@ from app.corpus_steward.index_schemas import (
 from app.schemas.corpus import (
     CorpusEvidenceRecord,
     CorpusReleaseBundle,
+    CorpusReleaseManifest,
     EvidenceApprovalStatus,
     canonical_sha256,
 )
@@ -281,11 +282,24 @@ def candidate_vector_profile_sha256(
     bundle: CorpusReleaseBundle,
     candidate: RetrievalCandidateManifest,
 ) -> str:
+    """Digest the release-bound vector-producing portion of a candidate."""
+
+    return candidate_vector_profile_sha256_for_manifest(bundle.manifest, candidate)
+
+
+def candidate_vector_profile_sha256_for_manifest(
+    manifest: CorpusReleaseManifest,
+    candidate: RetrievalCandidateManifest,
+) -> str:
     """Digest the release-bound vector-producing portion of a candidate.
 
     Fusion weights, query expansion, reranking, and output depth do not change stored
     vectors, so those candidate variants deliberately share one collection. A different
     dense or sparse model/adapter pin produces a different collection identity.
+
+    The manifest is enough to compute this, which is what lets a serving process check
+    that the collection it was pointed at is the one its candidate would have built,
+    without loading a release bundle it has no other use for.
     """
 
     dense = candidate.content.lane(CandidateLaneKind.DENSE)
@@ -293,8 +307,8 @@ def candidate_vector_profile_sha256(
     return canonical_sha256(
         {
             "identity_version": CANDIDATE_COLLECTION_IDENTITY_VERSION,
-            "corpus_release_id": bundle.manifest.content.corpus_release_id,
-            "manifest_sha256": bundle.manifest.manifest_sha256,
+            "corpus_release_id": manifest.content.corpus_release_id,
+            "manifest_sha256": manifest.manifest_sha256,
             "lanes": [
                 {
                     "kind": dense.kind.value,
@@ -321,12 +335,21 @@ def candidate_qdrant_collection(
 ) -> str:
     """Return a bounded Qdrant name isolated by the candidate vector profile."""
 
+    return candidate_qdrant_collection_for_manifest(bundle.manifest, candidate)
+
+
+def candidate_qdrant_collection_for_manifest(
+    manifest: CorpusReleaseManifest,
+    candidate: RetrievalCandidateManifest,
+) -> str:
+    """Return a bounded Qdrant name isolated by the candidate vector profile."""
+
     base = re.sub(
-        r"[^a-zA-Z0-9_-]+", "-", bundle.manifest.content.qdrant_collection
+        r"[^a-zA-Z0-9_-]+", "-", manifest.content.qdrant_collection
     ).strip("-_")
     if not base:
         base = "corpus"
-    digest = candidate_vector_profile_sha256(bundle, candidate)
+    digest = candidate_vector_profile_sha256_for_manifest(manifest, candidate)
     suffix = f"{_COLLECTION_SEPARATOR}{digest[:_COLLECTION_SUFFIX_DIGEST_LENGTH]}"
     prefix = base[: _COLLECTION_NAME_LIMIT - len(suffix)].rstrip("-_") or "corpus"
     return f"{prefix}{suffix}"

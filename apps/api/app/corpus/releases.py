@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Collection
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from uuid import uuid4
 
@@ -41,6 +42,7 @@ from app.schemas.corpus import (
     CorpusReleaseRecord,
     EvidenceApprovalStatus,
     ReleaseState,
+    ServingReleaseBinding,
     SignedActivationDecision,
     canonical_sha256,
 )
@@ -53,6 +55,16 @@ RETRIEVAL_APPROVED_SOURCE_STATES = {
     SourceStatus.PARTIALLY_SUPERSEDED.value,
 }
 MAX_EVIDENCE_DETAILS_PER_RESULT = 100
+
+
+@dataclass(frozen=True)
+class ReleaseEvidenceSet:
+    """The canonical evidence of one release, as the serving path reads it."""
+
+    corpus_release_id: str
+    records: dict[str, CorpusEvidenceRecord]
+    publisher_names: dict[str, str]
+    rejected_evidence_ids: tuple[str, ...] = ()
 
 
 class CorpusReleaseError(RuntimeError):
@@ -682,6 +694,155 @@ class SQLCorpusReleaseRepository:
             if pointer.manifest_sha256 != release.manifest_sha256:
                 return None
             return self._active_record(pointer, release)
+
+    async def active_serving_binding(self) -> ServingReleaseBinding | None:
+        """Return the digests the serving path must match, or None when nothing serves.
+
+        Anything unreadable here is reported as no active release rather than as a
+        partially usable one. A serving process that answered from a release whose
+        acceptance record it could not parse would be citing an approval it never read.
+        """
+
+        async with self._database.session() as session:
+            pointer = await session.get(ActiveCorpusReleaseRow, 1)
+            if pointer is None:
+                return None
+            release = await session.get(CorpusReleaseRow, pointer.corpus_release_id)
+            if (
+                release is None
+                or release.state != ReleaseState.ACTIVE.value
+                or pointer.manifest_sha256 != release.manifest_sha256
+                or release.index_status != "VALIDATED"
+                or release.index_attestation_sha256 is None
+                or release.activated_at is None
+            ):
+                return None
+            acceptance = await session.scalar(
+                select(BenchmarkAcceptanceRow).where(
+                    BenchmarkAcceptanceRow.corpus_release_id == release.corpus_release_id
+                )
+            )
+            if (
+                acceptance is None
+                or release.benchmark_acceptance_sha256 is None
+                or acceptance.statement_sha256 != release.benchmark_acceptance_sha256
+                or acceptance.manifest_sha256 != release.manifest_sha256
+                or acceptance.index_attestation_sha256 != release.index_attestation_sha256
+            ):
+                return None
+            try:
+                manifest = CorpusReleaseManifest.model_validate(release.manifest)
+            except (TypeError, ValueError):
+                return None
+            if manifest.manifest_sha256 != release.manifest_sha256:
+                return None
+            return ServingReleaseBinding(
+                corpus_release_id=release.corpus_release_id,
+                manifest_sha256=release.manifest_sha256,
+                qdrant_collection=release.qdrant_collection,
+                candidate_configuration_sha256=acceptance.candidate_configuration_sha256,
+                vector_batch_sha256=acceptance.vector_batch_sha256,
+                index_attestation_sha256=release.index_attestation_sha256,
+                benchmark_acceptance_sha256=acceptance.statement_sha256,
+                benchmark_valid_until=_as_utc(acceptance.valid_until),
+                activated_at=_as_utc(release.activated_at),
+                manifest=manifest,
+            )
+
+    async def release_evidence(self, corpus_release_id: str) -> ReleaseEvidenceSet:
+        """Load every approved, retrieval-eligible record of one release.
+
+        Retrieval fuses on evidence roles and passage text, so the serving path needs
+        the same canonical records the benchmark read out of a release bundle. Records
+        failing the canonical checks are excluded and counted rather than dropped
+        quietly: a release that cannot produce its own evidence is a fault to surface,
+        not a smaller corpus to serve from.
+        """
+
+        async with self._database.session() as session:
+            rows = (
+                await session.execute(
+                    select(
+                        CanonicalEvidenceRow,
+                        SourceVersionRow,
+                        SourceRow,
+                        PublisherRow,
+                    )
+                    .join(
+                        CorpusReleaseEvidenceRow,
+                        CorpusReleaseEvidenceRow.evidence_id
+                        == CanonicalEvidenceRow.evidence_id,
+                    )
+                    .join(
+                        SourceVersionRow,
+                        SourceVersionRow.source_version_id
+                        == CanonicalEvidenceRow.source_version_id,
+                    )
+                    .join(SourceRow, SourceRow.source_id == CanonicalEvidenceRow.source_id)
+                    .join(PublisherRow, PublisherRow.publisher_id == SourceRow.publisher_id)
+                    .where(
+                        CorpusReleaseEvidenceRow.corpus_release_id == corpus_release_id,
+                        CanonicalEvidenceRow.approval_status
+                        == EvidenceApprovalStatus.APPROVED.value,
+                        SourceVersionRow.approved_for_retrieval.is_(True),
+                        SourceVersionRow.status.in_(RETRIEVAL_APPROVED_SOURCE_STATES),
+                    )
+                )
+            ).all()
+
+            records: dict[str, CorpusEvidenceRecord] = {}
+            publishers: dict[str, str] = {}
+            rejected: list[str] = []
+            for evidence_row, source_version, source, publisher in rows:
+                record = self._safe_evidence_record(
+                    evidence_row,
+                    source_version,
+                    source,
+                    corpus_release_id=corpus_release_id,
+                )
+                if record is None:
+                    rejected.append(evidence_row.evidence_id)
+                    continue
+                records[record.evidence_id] = record
+                publishers[source.publisher_id] = publisher.name
+            return ReleaseEvidenceSet(
+                corpus_release_id=corpus_release_id,
+                records=records,
+                publisher_names=publishers,
+                rejected_evidence_ids=tuple(sorted(rejected)),
+            )
+
+    @staticmethod
+    def _safe_evidence_record(
+        evidence_row: CanonicalEvidenceRow,
+        source_version: SourceVersionRow,
+        source: SourceRow,
+        *,
+        corpus_release_id: str,
+    ) -> CorpusEvidenceRecord | None:
+        try:
+            evidence = CorpusEvidenceRecord.model_validate(evidence_row.payload)
+        except (TypeError, ValueError):
+            return None
+        if (
+            evidence_row.approval_status != EvidenceApprovalStatus.APPROVED.value
+            or evidence.verification.approval_status is not EvidenceApprovalStatus.APPROVED
+            or evidence.corpus_release_id != corpus_release_id
+            or evidence.evidence_id != evidence_row.evidence_id
+            or evidence.source_id != evidence_row.source_id
+            or evidence.source_version_id != evidence_row.source_version_id
+            or evidence.source_id != source.source_id
+            or evidence.source_version_id != source_version.source_version_id
+            or source_version.source_id != source.source_id
+            or evidence.publisher_id != source.publisher_id
+            or evidence.jurisdiction != source.jurisdiction
+            or evidence.lifecycle_status.value != source_version.status
+            or not source_version.approved_for_retrieval
+            or source_version.status not in RETRIEVAL_APPROVED_SOURCE_STATES
+            or evidence.sha256 != evidence_row.evidence_sha256
+        ):
+            return None
+        return evidence
 
     async def evidence_details(
         self,

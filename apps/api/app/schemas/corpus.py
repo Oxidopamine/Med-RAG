@@ -545,3 +545,32 @@ class ActiveCorpusRelease(CanonicalModel):
     manifest_sha256: str = Field(pattern=SHA256_PATTERN)
     qdrant_collection: str
     activated_at: datetime
+
+
+class ServingReleaseBinding(CanonicalModel):
+    """Everything the serving path must satisfy to answer from the active release.
+
+    Activation already proved these digests agree with one another. Serving repeats the
+    check against what it has actually loaded, because the failure this guards against
+    is not a corrupt database - it is an API process configured with a different
+    candidate, model artifact, or collection than the one the acceptance was signed for.
+    """
+
+    corpus_release_id: str
+    manifest_sha256: str = Field(pattern=SHA256_PATTERN)
+    qdrant_collection: str
+    candidate_configuration_sha256: str = Field(pattern=SHA256_PATTERN)
+    vector_batch_sha256: str = Field(pattern=SHA256_PATTERN)
+    index_attestation_sha256: str = Field(pattern=SHA256_PATTERN)
+    benchmark_acceptance_sha256: str = Field(pattern=SHA256_PATTERN)
+    benchmark_valid_until: datetime
+    activated_at: datetime
+    manifest: CorpusReleaseManifest
+
+    def active_release(self) -> ActiveCorpusRelease:
+        return ActiveCorpusRelease(
+            corpus_release_id=self.corpus_release_id,
+            manifest_sha256=self.manifest_sha256,
+            qdrant_collection=self.qdrant_collection,
+            activated_at=self.activated_at,
+        )

@@ -34,6 +34,25 @@ class Settings(BaseSettings):
     corpus_steward_signing_key_path: Path | None = None
     corpus_steward_signing_key_id: str | None = None
     corpus_steward_signer_identity: str | None = None
+    # Serving retrieval. Absent SERVING_CANDIDATE_PATH the API runs with no retrieval
+    # engine and abstains on every question; it never falls back to an unpinned model.
+    serving_candidate_path: Path | None = None
+    serving_dense_model_root: Path | None = None
+    serving_dense_model_manifest: Path | None = None
+    serving_dense_artifact_sha256: str | None = None
+    serving_sparse_model_root: Path | None = None
+    serving_sparse_model_manifest: Path | None = None
+    serving_sparse_artifact_sha256: str | None = None
+    serving_reranker_model_root: Path | None = None
+    serving_reranker_model_manifest: Path | None = None
+    serving_reranker_artifact_sha256: str | None = None
+    serving_embedding_device: str | None = None
+    serving_reranker_device: str | None = None
+    serving_embedding_timeout_seconds: float = 30.0
+    serving_embedding_max_attempts: int = 2
+    serving_embedding_retry_delay_seconds: float = 0.2
+    serving_embedding_max_retry_delay_seconds: float = 2.0
+    serving_generation_parameters_path: Path | None = None
 
     model_config = SettingsConfigDict(
         env_file=".env",
