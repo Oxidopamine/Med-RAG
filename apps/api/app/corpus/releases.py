@@ -805,6 +805,13 @@ class SQLCorpusReleaseRepository:
                 printed_page=anchor.printed_page,
                 bbox=anchor.bbox,
                 exact_highlight_available=render_allowed and anchor.bbox is not None,
+                # A cell address is the whole of what a TABLE_CELL anchor knows. Dropping
+                # it here left the client a locator naming a cell it could not identify,
+                # which is indistinguishable from a document-scope anchor. It carries no
+                # source content, so no licence decision gates it.
+                table_id=anchor.table_id,
+                row_index=anchor.row_index,
+                column_index=anchor.column_index,
             )
             for anchor in evidence.anchors
         ]

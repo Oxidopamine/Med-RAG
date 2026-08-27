@@ -125,13 +125,10 @@ export function licensedWhoEvidence(overrides: Partial<EvidenceDetail> = {}): Ev
 }
 
 /**
- * A table-cell anchor as the corpus records one.
+ * A table-cell anchor as the corpus records one and the release now serves it.
  *
  * The XLSX extractor emits `TABLE_CELL` anchors carrying a worksheet, a zero-based row,
- * and a zero-based column. The serving projection in `apps/api` does not forward those
- * three fields yet, so this fixture is the shape the viewer will be given rather than
- * the shape it is given today - `unaddressedTableCellEvidence` is the shape it is given
- * today, and both are exercised.
+ * and a zero-based column, and the serving projection forwards all three.
  */
 export function tableCellEvidence(overrides: Partial<EvidenceDetail> = {}): EvidenceDetail {
   return restrictedWhoEvidence({
@@ -156,7 +153,15 @@ export function tableCellEvidence(overrides: Partial<EvidenceDetail> = {}): Evid
   });
 }
 
-/** The same cell anchor as the serving contract carries it today: without its address. */
+/**
+ * A cell anchor with no address, which a correct pipeline no longer produces.
+ *
+ * The corpus validator requires a table, a row, and a column on every `TABLE_CELL`
+ * anchor, and the projection forwards them, so this shape should not arrive. It is kept
+ * because the fields are optional on the wire and the viewer's contract is to report
+ * what it was given: an unaddressed cell has to read as a cell whose address is missing,
+ * never as a document-scope anchor, which would quietly overstate what was verified.
+ */
 export function unaddressedTableCellEvidence(
   overrides: Partial<EvidenceDetail> = {},
 ): EvidenceDetail {

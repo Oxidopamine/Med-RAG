@@ -362,7 +362,14 @@ export interface components {
             /** Source Version Label */
             source_version_label: string;
         };
-        /** EvidenceLocator */
+        /**
+         * EvidenceLocator
+         * @description Where a passage sits in its source, as a client is told it.
+         *
+         *     A ``TABLE_CELL`` anchor is defined by its table, row, and column. Projecting one
+         *     without them leaves a locator that names a cell it cannot identify, so the three
+         *     travel together or not at all.
+         */
         EvidenceLocator: {
             /** Bbox */
             bbox?: [
@@ -371,6 +378,8 @@ export interface components {
                 number,
                 number
             ] | null;
+            /** Column Index */
+            column_index?: number | null;
             /**
              * Exact Highlight Available
              * @default false
@@ -382,8 +391,12 @@ export interface components {
             pdf_page?: number | null;
             /** Printed Page */
             printed_page?: string | null;
+            /** Row Index */
+            row_index?: number | null;
             /** Source Uri */
             source_uri: string;
+            /** Table Id */
+            table_id?: string | null;
         };
         /**
          * EvidenceTrustStatus

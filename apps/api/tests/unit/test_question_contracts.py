@@ -153,3 +153,49 @@ def test_an_abstained_result_cannot_expose_ranked_candidates() -> None:
             ),
             retrieval_candidates=[RetrievalCandidate(evidence_id="EV_004", retrieval_rank=4)],
         )
+
+
+def test_table_cell_locator_carries_its_address() -> None:
+    locator = EvidenceLocator(
+        kind="TABLE_CELL",
+        source_uri="https://fixtures.invalid/annex.xlsx",
+        table_id="Annex2Dosing",
+        row_index=3,
+        column_index=2,
+    )
+
+    assert locator.table_id == "Annex2Dosing"
+    assert locator.row_index == 3
+    assert locator.column_index == 2
+
+
+@pytest.mark.parametrize(
+    "cell",
+    [
+        {"table_id": "Annex2Dosing"},
+        {"table_id": "Annex2Dosing", "row_index": 3},
+        {"row_index": 3, "column_index": 2},
+        {"column_index": 2},
+    ],
+)
+def test_partial_cell_address_is_rejected(cell: dict[str, object]) -> None:
+    # A half-supplied address would render as a cell reference with a fabricated row or
+    # column. Reporting the address as absent is the safer failure.
+    with pytest.raises(ValidationError, match="table-cell address requires"):
+        EvidenceLocator(
+            kind="TABLE_CELL",
+            source_uri="https://fixtures.invalid/annex.xlsx",
+            **cell,
+        )
+
+
+def test_locator_without_a_cell_address_is_unaffected() -> None:
+    locator = EvidenceLocator(
+        kind="PDF",
+        source_uri="https://fixtures.invalid/guideline.pdf",
+        pdf_page=7,
+    )
+
+    assert locator.table_id is None
+    assert locator.row_index is None
+    assert locator.column_index is None

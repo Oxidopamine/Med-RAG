@@ -121,9 +121,9 @@ const evidenceLocatorSchema = z
     printed_page: z.string().nullable(),
     bbox: z.tuple([z.number(), z.number(), z.number(), z.number()]).nullable(),
     exact_highlight_available: z.boolean(),
-    // Accepted before the serving projection sends them. The object is strict, so a
-    // locator that starts carrying its cell address would otherwise fail to parse and
-    // take the whole result down with it.
+    // Optional, not because the projection may omit them, but because only a
+    // TABLE_CELL anchor has them to send. The object is strict, so these have to be
+    // modelled or a cell address would fail to parse and take the result down with it.
     table_id: z.string().trim().min(1).nullable().optional(),
     row_index: z.number().int().nonnegative().nullable().optional(),
     column_index: z.number().int().nonnegative().nullable().optional(),

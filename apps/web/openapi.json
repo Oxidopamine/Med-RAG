@@ -483,6 +483,7 @@
       },
       "EvidenceLocator": {
         "additionalProperties": false,
+        "description": "Where a passage sits in its source, as a client is told it.\n\nA ``TABLE_CELL`` anchor is defined by its table, row, and column. Projecting one\nwithout them leaves a locator that names a cell it cannot identify, so the three\ntravel together or not at all.",
         "properties": {
           "bbox": {
             "anyOf": [
@@ -510,6 +511,18 @@
               }
             ],
             "title": "Bbox"
+          },
+          "column_index": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Column Index"
           },
           "exact_highlight_available": {
             "default": false,
@@ -544,10 +557,34 @@
             ],
             "title": "Printed Page"
           },
+          "row_index": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Row Index"
+          },
           "source_uri": {
             "minLength": 1,
             "title": "Source Uri",
             "type": "string"
+          },
+          "table_id": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Table Id"
           }
         },
         "required": [

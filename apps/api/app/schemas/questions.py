@@ -77,12 +77,22 @@ class RenderedClaim(ApiContractModel):
 
 
 class EvidenceLocator(ApiContractModel):
+    """Where a passage sits in its source, as a client is told it.
+
+    A ``TABLE_CELL`` anchor is defined by its table, row, and column. Projecting one
+    without them leaves a locator that names a cell it cannot identify, so the three
+    travel together or not at all.
+    """
+
     kind: str = Field(min_length=1)
     source_uri: str = Field(min_length=1)
     pdf_page: int | None = Field(default=None, ge=1)
     printed_page: str | None = None
     bbox: tuple[float, float, float, float] | None = None
     exact_highlight_available: bool = False
+    table_id: str | None = Field(default=None, min_length=1)
+    row_index: int | None = Field(default=None, ge=0)
+    column_index: int | None = Field(default=None, ge=0)
 
     @model_validator(mode="after")
     def validate_highlight(self) -> "EvidenceLocator":
@@ -92,6 +102,9 @@ class EvidenceLocator(ApiContractModel):
                 raise ValueError("an evidence locator bounding box must have positive dimensions")
         if self.exact_highlight_available and self.bbox is None:
             raise ValueError("an exact highlight requires a bounding box")
+        cell = (self.table_id, self.row_index, self.column_index)
+        if any(part is not None for part in cell) and any(part is None for part in cell):
+            raise ValueError("a table-cell address requires a table, a row, and a column")
         return self
 
 

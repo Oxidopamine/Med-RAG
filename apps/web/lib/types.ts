@@ -9,17 +9,18 @@ export type ClinicalContext = Required<ApiSchemas["ClinicalContext"]>;
 export type QuestionAccepted = ApiSchemas["QuestionAccepted"];
 export type RenderedClaim = ApiSchemas["RenderedClaim"];
 /**
- * The serving locator, plus the cell coordinates a table-cell anchor is defined by.
+ * The serving locator.
  *
- * `SourceAnchor` in the corpus contract carries `table_id`, `row_index`, and
- * `column_index`, and the serving projection does not forward them yet, so a
- * `TABLE_CELL` locator reaches this client naming a cell it cannot identify. Declaring
- * them optional here does two things. The viewer is written against the address it will
- * be handed rather than retrofitted around it, and the payload stops being rejected the
- * day the projection starts sending them: `evidenceLocatorSchema` is strict, so an
- * unmodelled field is a hard parse failure rather than a harmless extra.
+ * `Required` everywhere except the cell address. Those three fields are populated only
+ * on a `TABLE_CELL` anchor, so requiring them would make every page locator in every
+ * fixture declare three nulls it has no use for. Absent and null are handled alike
+ * downstream, which is what lets a payload from a release that predates the projection
+ * forwarding them read as an unaddressed cell rather than as a malformed one.
  */
-export type EvidenceLocator = Required<ApiSchemas["EvidenceLocator"]> & {
+export type EvidenceLocator = Omit<
+  Required<ApiSchemas["EvidenceLocator"]>,
+  "table_id" | "row_index" | "column_index"
+> & {
   table_id?: string | null;
   row_index?: number | null;
   column_index?: number | null;
