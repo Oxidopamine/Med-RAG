@@ -20,9 +20,14 @@ def main() -> None:
 
     output = args.output.resolve()
     output.parent.mkdir(parents=True, exist_ok=True)
+    # newline="\n" so a Windows export is byte-identical to a Linux one. CI regenerates
+    # this file and fails on any diff; without the pin the check passes only because
+    # git's autocrlf happens to normalize the CRLF back out, and it breaks the moment
+    # someone clones with that setting off.
     output.write_text(
         json.dumps(create_app().openapi(), indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
+        newline="\n",
     )
 
 

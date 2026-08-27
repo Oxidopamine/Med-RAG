@@ -20,7 +20,10 @@ export default defineConfig({
     { name: "chromium", use: { ...devices["Desktop Chrome"] } },
     { name: "firefox", use: { ...devices["Desktop Firefox"] } },
     // webkit excluded on Windows: Defender blocks libcurl.dll bundled with
-    // ms-playwright/webkit-2336. Safari coverage is provided by CI on macOS.
+    // ms-playwright/webkit-2336. This is commented out unconditionally, and CI runs
+    // ubuntu-latest only, so **Safari is currently covered nowhere** - an earlier note
+    // here claimed a macOS CI job that does not exist. Re-enable behind a
+    // `process.platform !== "win32"` guard to get it back on Linux CI.
     // { name: "webkit", use: { ...devices["Desktop Safari"] } },
   ],
 });

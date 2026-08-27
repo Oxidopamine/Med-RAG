@@ -1241,6 +1241,11 @@
             "title": "Jurisdiction",
             "type": "string"
           },
+          "license_excerpt_allowed": {
+            "default": false,
+            "title": "License Excerpt Allowed",
+            "type": "boolean"
+          },
           "license_render_allowed": {
             "default": false,
             "title": "License Render Allowed",
@@ -1311,6 +1316,10 @@
             "title": "Jurisdiction",
             "type": "string"
           },
+          "license_excerpt_allowed": {
+            "title": "License Excerpt Allowed",
+            "type": "boolean"
+          },
           "license_render_allowed": {
             "title": "License Render Allowed",
             "type": "boolean"
@@ -1338,6 +1347,7 @@
           "source_class",
           "jurisdiction",
           "canonical_url",
+          "license_excerpt_allowed",
           "license_render_allowed",
           "created_at"
         ],

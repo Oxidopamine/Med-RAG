@@ -335,6 +335,79 @@ async function ask(page: Page, question = QUESTION) {
  */
 const AXE_INCOMPLETE_ALLOWLIST = new Set(["color-contrast"]);
 
+/**
+ * Repair `crypto.getRandomValues` where the browser build ships it broken.
+ *
+ * Playwright's bundled Firefox throws `OperationError` from `getRandomValues` on every
+ * call - secure context or not, sixteen bytes or sixty-four kilobytes - while
+ * `crypto.randomUUID` beside it works. axe-core generates internal element identifiers
+ * through that call, so `AxeBuilder.analyze` dies before it produces a single result and
+ * every accessibility assertion in this file fails on Firefox for a reason that has
+ * nothing to do with the page.
+ *
+ * The patch is deliberately conditional: it probes the native implementation first and
+ * installs nothing when that works, so Chromium is untouched and Firefox reverts to its
+ * own RNG the moment the upstream build is fixed. The replacement is seeded from
+ * `crypto.randomUUID` because that is the strongest source this build actually honours,
+ * falling back to `Math.random` only when even that is absent. Neither is a security
+ * claim and neither needs to be - the bytes name DOM nodes inside a test-only scan and
+ * reach no assertion, no fixture, and no shipped code.
+ *
+ * It installs on the browser *context*, not the page, because `AxeBuilder.analyze`
+ * assembles its final report by opening a second, blank page of its own through
+ * `context.newPage()`. A page-scoped init script never reaches that page, so the scan
+ * collects every partial result and then dies at the last step.
+ */
+async function repairBrokenBrowserRandomness(page: Page) {
+  await page.context().addInitScript(() => {
+    const target = globalThis.crypto;
+    if (!target || typeof target.getRandomValues !== "function") return;
+    try {
+      target.getRandomValues(new Uint8Array(1));
+      return;
+    } catch {
+      // Falls through to the replacement below.
+    }
+
+    const uuid =
+      typeof target.randomUUID === "function" ? () => target.randomUUID() : null;
+    const nextByte = (() => {
+      let pending: number[] = [];
+      return () => {
+        if (pending.length === 0) {
+          pending = uuid
+            ? (uuid().replace(/-/g, "").match(/../g) ?? []).map((pair) =>
+                Number.parseInt(pair, 16),
+              )
+            : Array.from({ length: 16 }, () => Math.floor(Math.random() * 256));
+        }
+        return pending.pop() ?? 0;
+      };
+    })();
+
+    Object.defineProperty(target, "getRandomValues", {
+      configurable: true,
+      writable: true,
+      value: <T extends ArrayBufferView | null>(buffer: T): T => {
+        if (buffer == null) return buffer;
+        const bytes = new Uint8Array(
+          buffer.buffer,
+          buffer.byteOffset,
+          buffer.byteLength,
+        );
+        for (let index = 0; index < bytes.length; index += 1) {
+          bytes[index] = nextByte();
+        }
+        return buffer;
+      },
+    });
+  });
+}
+
+test.beforeEach(async ({ page }) => {
+  await repairBrokenBrowserRandomness(page);
+});
+
 async function expectNoAxeViolations(page: Page) {
   const accessibility = await new AxeBuilder({ page }).analyze();
   expect(accessibility.violations).toEqual([]);

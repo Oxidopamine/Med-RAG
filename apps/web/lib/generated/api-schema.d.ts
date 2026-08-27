@@ -676,6 +676,11 @@ export interface components {
             /** Jurisdiction */
             jurisdiction: string;
             /**
+             * License Excerpt Allowed
+             * @default false
+             */
+            license_excerpt_allowed: boolean;
+            /**
              * License Render Allowed
              * @default false
              */
@@ -707,6 +712,8 @@ export interface components {
             created_at: string;
             /** Jurisdiction */
             jurisdiction: string;
+            /** License Excerpt Allowed */
+            license_excerpt_allowed: boolean;
             /** License Render Allowed */
             license_render_allowed: boolean;
             /** Publisher Id */

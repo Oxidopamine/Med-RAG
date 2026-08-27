@@ -2,11 +2,22 @@ name: CI
 
 on:
   pull_request:
+  # Every branch, not just main. Feature work here runs long and lands in one merge, so
+  # gating CI on a pull request meant the branch carrying the serving path, the
+  # presentation layer and the workspace rebuild reached 33 commits without ever being
+  # built. A branch push is the event that should have caught the stale API contract.
   push:
-    branches: [main]
+    branches: ["**"]
+  workflow_dispatch:
 
 permissions:
   contents: read
+
+# A same-repo pull request fires both `push` and `pull_request`; cancelling superseded
+# runs per ref keeps that from queueing work nobody will read.
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   api:
