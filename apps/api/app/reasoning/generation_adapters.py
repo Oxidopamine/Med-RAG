@@ -39,7 +39,7 @@ class GenerationBackend(Protocol):
     ) -> ModelAnswer: ...
 
 
-def _answer_json_schema() -> dict[str, Any]:
+def answer_json_schema() -> dict[str, Any]:
     """Return the response schema, with additionalProperties closed at every level."""
 
     schema = ModelAnswer.model_json_schema()
@@ -56,7 +56,7 @@ class AnthropicGenerationAdapter:
     def __init__(self, parameters: GenerationAdapterParameters, *, client: Any = None) -> None:
         self._parameters = parameters
         self._client = client or self._build_client(parameters)
-        self._schema = _answer_json_schema()
+        self._schema = answer_json_schema()
 
     @staticmethod
     def _build_client(parameters: GenerationAdapterParameters) -> Any:

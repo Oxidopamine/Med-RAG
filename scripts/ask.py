@@ -50,6 +50,10 @@ from app.reasoning.answer_service import (
     GroundedAnswerComposer,
     RetrievedPassage,
 )
+from app.reasoning.gemini_adapters import (
+    GeminiAdapterParameters,
+    GeminiGenerationAdapter,
+)
 from app.reasoning.generation_adapters import AnthropicGenerationAdapter
 from app.reasoning.generation_schemas import (
     GenerationAdapterParameters,
@@ -74,6 +78,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--rrf-k", type=int, default=60)
     parser.add_argument("--expand", action="store_true", help="add deterministic expansions")
     parser.add_argument("--generate", action="store_true", help="call the model")
+    parser.add_argument(
+        "--generation-provider",
+        choices=("claude", "gemini"),
+        default="claude",
+        help="which model backs --generate; claude is the intended production lane",
+    )
     parser.add_argument("--show-text", type=int, default=900, help="passage chars to print")
     _add_embedding_backend_arguments(parser)
     return parser
@@ -100,6 +110,31 @@ def vertex_parameters() -> GenerationAdapterParameters:
         effort=GenerationEffort(os.environ.get("MEDRAG_GENERATION_EFFORT", "high")),
         gcp_project_id=project,
         gcp_region=region,
+    )
+
+
+def gemini_parameters() -> GeminiAdapterParameters:
+    """Read the Gemini comparator binding from the environment.
+
+    Shares the Vertex project and region with the Claude lane: this reaches Gemini
+    through Vertex, not the Gemini API, so it needs the same ADC and no API key.
+    """
+    project = os.environ.get("MEDRAG_VERTEX_PROJECT_ID")
+    region = os.environ.get("MEDRAG_VERTEX_REGION", "global")
+    model_id = os.environ.get("MEDRAG_GEMINI_MODEL_ID", "gemini-flash-latest")
+    if not project:
+        raise SystemExit(
+            "MEDRAG_VERTEX_PROJECT_ID is not set. Configure it (and run "
+            "`gcloud auth application-default login`) before using --generate."
+        )
+    seed = os.environ.get("MEDRAG_GEMINI_SEED")
+    return GeminiAdapterParameters(
+        model_id=model_id,
+        gcp_project_id=project,
+        gcp_region=region,
+        max_output_tokens=int(os.environ.get("MEDRAG_GENERATION_MAX_TOKENS", "8192")),
+        temperature=float(os.environ.get("MEDRAG_GEMINI_TEMPERATURE", "0.0")),
+        seed=int(seed) if seed else None,
     )
 
 
@@ -210,7 +245,14 @@ async def main() -> int:
         print("ABSTAINED before generation: required evidence roles are missing.")
         return 0
 
-    composer = GroundedAnswerComposer(AnthropicGenerationAdapter(vertex_parameters()))
+    if arguments.generation_provider == "gemini":
+        # Development comparator while the anthropic-* base models have no Vertex
+        # quota. Every grounding rule below is unchanged by the swap.
+        backend = GeminiGenerationAdapter(gemini_parameters())
+    else:
+        backend = AnthropicGenerationAdapter(vertex_parameters())
+    print(f"model    : {arguments.generation_provider}")
+    composer = GroundedAnswerComposer(backend)
     composed = await composer.compose(
         arguments.question,
         tuple(
@@ -237,7 +279,10 @@ async def main() -> int:
         print(f"- {claim.text}")
         print(f"  cites: {', '.join(claim.evidence_ids)}")
     for conflict in composed.conflicts:
-        print(f"! conflict [{conflict.get('conflict_type')}]: {conflict.get('description')}")
+        cited = ", ".join(conflict.evidence_ids)
+        print(f"! conflict [{conflict.conflict_type}]: {conflict.summary}")
+        if cited:
+            print(f"  between: {cited}")
     verification = composed.verification
     print()
     print(

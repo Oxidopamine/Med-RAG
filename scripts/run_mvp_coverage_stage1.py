@@ -331,7 +331,9 @@ async def compose_answer(
             {"text": claim.text, "evidence_ids": list(claim.evidence_ids)}
             for claim in composed.claims
         ],
-        "conflicts": list(composed.conflicts),
+        # Typed models now, not dicts: dumped explicitly so a run that reports a conflict
+        # does not die inside json.dumps and take the whole coverage pass with it.
+        "conflicts": [conflict.model_dump(mode="json") for conflict in composed.conflicts],
         "verification": {
             "rendered_claims": verification.rendered_claims,
             "supported_claims": verification.supported_claims,
@@ -477,6 +479,8 @@ async def main() -> int:
                 "max_output_tokens": gemini.max_output_tokens,
                 "thinking_budget": gemini.thinking_budget,
                 "gcp_region": gemini.gcp_region,
+                "temperature": gemini.temperature,
+                "seed": gemini.seed,
             }
         else:
             from app.reasoning.generation_adapters import AnthropicGenerationAdapter

@@ -35,6 +35,9 @@ generation-bedrock = [
 generation-vertex = [
   "anthropic[vertex]>=1,<2"
 ]
+generation-gemini = [
+  "google-genai>=2,<3"
+]
 cpu-optimized = [
   "nncf>=2.14,<3",
   "openvino>=2025.0,<2027",
