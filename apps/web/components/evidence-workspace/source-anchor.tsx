@@ -1,13 +1,19 @@
-import { Crosshair, FileLock2, FileText, MapPin, Quote, ScanLine } from "lucide-react";
+import { Crosshair, FileLock2, FileText, Grid3x3, MapPin, Quote, ScanLine } from "lucide-react";
 
 import type { AnchorPrecision, RenderPolicy, SourceAnchor } from "@/lib/evidence-presentation";
-import { humanizeCode, renderPolicy, sourceAnchors } from "@/lib/evidence-presentation";
+import {
+  anchorRegionStatus,
+  humanizeCode,
+  renderPolicy,
+  sourceAnchors,
+} from "@/lib/evidence-presentation";
 import type { EvidenceDetail } from "@/lib/types";
 
 import styles from "./workspace.module.css";
 
 const PRECISION_COPY: Record<AnchorPrecision, { icon: typeof MapPin; label: string }> = {
   EXACT_REGION: { icon: Crosshair, label: "Exact region" },
+  CELL: { icon: Grid3x3, label: "Table cell" },
   PAGE: { icon: ScanLine, label: "Page" },
   DOCUMENT: { icon: FileText, label: "Document" },
 };
@@ -49,18 +55,14 @@ function AnchorRow({ anchor }: { anchor: SourceAnchor }) {
       </span>
       <span className={styles["anchor-copy"]}>
         <strong>{anchor.label}</strong>
-        <small>{humanizeCode(anchor.kind)}</small>
+        <small>
+          {humanizeCode(anchor.kind)} &middot; {anchor.version.versionLabel} (
+          {anchor.version.sourceVersionId})
+        </small>
       </span>
-      <span className={styles["anchor-highlight"]}>{highlightStatus(anchor)}</span>
+      <span className={styles["anchor-highlight"]}>{anchorRegionStatus(anchor)}</span>
     </div>
   );
-}
-
-function highlightStatus(anchor: SourceAnchor): string {
-  if (anchor.highlightAvailable) return "Region verified";
-  if (anchor.highlightSuppressedByLicence) return "Region withheld by licence";
-  if (anchor.bbox !== null) return "Region not verified";
-  return "No region recorded";
 }
 
 /**

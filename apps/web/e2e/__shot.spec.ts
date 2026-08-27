@@ -137,7 +137,7 @@ const verifiedResult = {
           source_uri: "https://example.test/renal-addendum",
           pdf_page: 49,
           printed_page: "233",
-          bbox: null,
+          bbox: [0.14, 0.42, 0.86, 0.58],
           exact_highlight_available: false,
         },
       ],
@@ -621,6 +621,7 @@ test("keeps the verified workflow ordered, operable, and accessible on mobile", 
 }) => {
   test.skip(browserName !== "chromium", "One mobile accessibility pass avoids redundant engines.");
   await page.setViewportSize({ width: 390, height: 844 });
+  await page.setViewportSize({ width: 1600, height: 2200 });
   await mockReadiness(page, true);
   await mockRun(page, verifiedResult);
   await page.goto("/");
@@ -647,4 +648,41 @@ test("keeps the verified workflow ordered, operable, and accessible on mobile", 
   expect(overflow).toBeLessThanOrEqual(1);
 
   await expectNoAxeViolations(page);
+});
+
+
+test("captures the anchor viewer", async ({ page }) => {
+  await page.setViewportSize({ width: 1600, height: 2200 });
+  await mockReadiness(page, true);
+  await mockRun(page, verifiedResult);
+  await page.goto("/");
+  await ask(page);
+  await page.getByRole("region", { name: "Location in source" }).waitFor();
+  await page.evaluate(() => {
+    for (const node of document.querySelectorAll("*")) {
+      const style = getComputedStyle(node);
+      if (style.overflowY === "auto" || style.overflowY === "scroll") {
+        (node as HTMLElement).style.overflow = "visible";
+        (node as HTMLElement).style.height = "auto";
+        (node as HTMLElement).style.maxHeight = "none";
+      }
+    }
+  });
+  await page
+    .getByRole("region", { name: "Location in source" })
+    .screenshot({ path: "anchor-viewer-restricted.png" });
+  await page.getByRole("button", { name: "Next ranked result" }).click();
+  await page.evaluate(() => {
+    for (const node of document.querySelectorAll("*")) {
+      const style = getComputedStyle(node);
+      if (style.overflowY === "auto" || style.overflowY === "scroll") {
+        (node as HTMLElement).style.overflow = "visible";
+        (node as HTMLElement).style.height = "auto";
+        (node as HTMLElement).style.maxHeight = "none";
+      }
+    }
+  });
+  await page
+    .getByRole("region", { name: "Location in source" })
+    .screenshot({ path: "anchor-viewer-withheld.png" });
 });

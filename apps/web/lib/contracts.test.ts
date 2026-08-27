@@ -188,6 +188,47 @@ describe("runtime API contracts", () => {
     ).toThrow("require abstention details");
   });
 
+  // The serving projection does not send a cell address yet. When it starts, the client
+  // has to accept it rather than reject the whole result on a strict-object violation.
+  it("accepts a table-cell locator carrying its address", () => {
+    const result = structuredClone(validAnswerReadyResult);
+    result.evidence_details[0]!.locators = [
+      {
+        kind: "TABLE_CELL",
+        source_uri: "source://source-version-1/annex/2",
+        pdf_page: null,
+        printed_page: null,
+        bbox: null,
+        exact_highlight_available: false,
+        table_id: "Annex2Dosing",
+        row_index: 3,
+        column_index: 2,
+      },
+    ];
+
+    expect(questionResultSchema.parse(result)).toEqual(result);
+  });
+
+  it("rejects a half-supplied cell address rather than rendering a guessed one", () => {
+    const result = structuredClone(validAnswerReadyResult);
+    result.evidence_details[0]!.locators = [
+      {
+        kind: "TABLE_CELL",
+        source_uri: "source://source-version-1/annex/2",
+        pdf_page: null,
+        printed_page: null,
+        bbox: null,
+        exact_highlight_available: false,
+        table_id: "Annex2Dosing",
+        row_index: 3,
+      },
+    ];
+
+    expect(() => questionResultSchema.parse(result)).toThrow(
+      "A table-cell address requires a table, a row, and a column",
+    );
+  });
+
   it("turns malformed SSE data into a user-safe contract error", () => {
     expect(() =>
       parseContract(

@@ -398,7 +398,195 @@ export function renderPolicy(detail: EvidenceDetail): RenderPolicy {
 }
 
 /** How precisely a locator pins the passage inside its source document. */
-export type AnchorPrecision = "EXACT_REGION" | "PAGE" | "DOCUMENT";
+export type AnchorPrecision = "EXACT_REGION" | "CELL" | "PAGE" | "DOCUMENT";
+
+/**
+ * Which edition an anchor points into.
+ *
+ * Carried on the anchor itself rather than looked up beside it. Two versions of the
+ * same guideline routinely carry near-identical text at similar page numbers, so
+ * "page 19, this rectangle" identifies a passage only once the edition is named. An
+ * anchor that travels without its version is a coordinate without a document, and any
+ * surface that renders one would be free to pair it with the wrong edition.
+ */
+export interface SourceVersionIdentity {
+  sourceId: string;
+  /** The opaque key that separates two editions whose labels may read alike. */
+  sourceVersionId: string;
+  title: string;
+  versionLabel: string;
+  publisherName: string;
+  lifecycleStatus: string;
+  effectiveFrom: string | null;
+  effectiveTo: string | null;
+  /** `World Health Organization 2021` - enough to name the edition in a sentence. */
+  label: string;
+  /** True when this edition is no longer the current one. */
+  superseded: boolean;
+}
+
+export function sourceVersionIdentity(detail: EvidenceDetail): SourceVersionIdentity {
+  return {
+    sourceId: detail.source_id,
+    sourceVersionId: detail.source_version_id,
+    title: detail.source_title,
+    versionLabel: detail.source_version_label,
+    publisherName: detail.publisher_name,
+    lifecycleStatus: detail.lifecycle_status,
+    effectiveFrom: detail.effective_from,
+    effectiveTo: detail.effective_to,
+    label: `${detail.publisher_name} ${detail.source_version_label}`.trim(),
+    superseded: detail.lifecycle_status !== "CURRENT",
+  };
+}
+
+/**
+ * Whether a recorded rectangle can be drawn over a page.
+ *
+ * `PROPORTIONAL` regions are fractions of the page box and place directly. `UNPLACEABLE`
+ * regions are in the source document's own units - the PDF extractor records PyMuPDF
+ * block boxes in points - and the serving contract carries no page dimensions to divide
+ * by. Such a region is reported numerically and never drawn: inventing a scale would put
+ * a provenance marker somewhere the publisher did not put it, which is a worse failure
+ * than showing no marker at all.
+ */
+export type RegionPlacement = "PROPORTIONAL" | "UNPLACEABLE";
+
+export interface AnchorRegion {
+  placement: RegionPlacement;
+  left: number;
+  top: number;
+  right: number;
+  bottom: number;
+  /** Fractions of the page box. Meaningful only when `placement` is `PROPORTIONAL`. */
+  width: number;
+  height: number;
+  /** The coordinates as recorded, for a reader who wants the numbers themselves. */
+  readout: string;
+}
+
+function anchorRegion(
+  bbox: readonly [number, number, number, number] | null,
+): AnchorRegion | null {
+  if (bbox === null) return null;
+  const [left, top, right, bottom] = bbox;
+  const proportional = bbox.every((value) => value >= 0 && value <= 1);
+  return {
+    placement: proportional ? "PROPORTIONAL" : "UNPLACEABLE",
+    left,
+    top,
+    right,
+    bottom,
+    width: right - left,
+    height: bottom - top,
+    readout: proportional
+      ? `${percent(left)}, ${percent(top)} to ${percent(right)}, ${percent(bottom)} of the page`
+      : `${decimal(left)}, ${decimal(top)} to ${decimal(right)}, ${decimal(bottom)} in source units`,
+  };
+}
+
+function percent(value: number): string {
+  return `${(value * 100).toFixed(1)}%`;
+}
+
+function decimal(value: number): string {
+  return Number.isInteger(value) ? String(value) : value.toFixed(2);
+}
+
+/**
+ * The cell a table-cell anchor addresses.
+ *
+ * `rowIndex` and `columnIndex` are zero-based, the way the corpus extractor records
+ * them, while `reference` is the one-based address the publisher's own table uses. Both
+ * are kept: the indices are what the record says, the reference is what a reader can
+ * find in the document, and collapsing them would make an off-by-one invisible.
+ */
+export interface TableCellAddress {
+  tableId: string;
+  rowIndex: number;
+  columnIndex: number;
+  rowNumber: number;
+  columnLetter: string;
+  /** `Sheet1!C4` - the address as the source document numbers it. */
+  reference: string;
+}
+
+/** Spreadsheet column letters, matching how the corpus extractor names them. */
+export function columnLetter(columnIndex: number): string {
+  let remaining = columnIndex + 1;
+  let letters = "";
+  while (remaining > 0) {
+    const digit = (remaining - 1) % 26;
+    letters = String.fromCharCode(65 + digit) + letters;
+    remaining = Math.floor((remaining - 1) / 26);
+  }
+  return letters;
+}
+
+function tableCellAddress(locator: EvidenceLocator): TableCellAddress | null {
+  const tableId = locator.table_id;
+  const rowIndex = locator.row_index;
+  const columnIndex = locator.column_index;
+  if (
+    tableId === undefined ||
+    tableId === null ||
+    rowIndex === undefined ||
+    rowIndex === null ||
+    columnIndex === undefined ||
+    columnIndex === null
+  ) {
+    return null;
+  }
+  const letter = columnLetter(columnIndex);
+  const rowNumber = rowIndex + 1;
+  return {
+    tableId,
+    rowIndex,
+    columnIndex,
+    rowNumber,
+    columnLetter: letter,
+    reference: `${tableId}!${letter}${rowNumber}`,
+  };
+}
+
+/**
+ * What kind of place in a document an anchor names, and the coordinates of that place.
+ *
+ * The form is decided by what the locator carries rather than by its `kind` string,
+ * which the serving contract types as free text and which the canonical corpus
+ * vocabulary and the release fixtures spell differently - `PDF` and `PDF_PAGE` both
+ * occur. A locator with a page is a page locator whatever it calls itself. `TABLE_CELL`
+ * is the one kind read directly, because a cell anchor that lost its address carries
+ * nothing else to recognise it by.
+ */
+export type AnchorPlacement =
+  | {
+      form: "PAGE";
+      pdfPage: number | null;
+      printedPage: string | null;
+      region: AnchorRegion | null;
+    }
+  | {
+      form: "TABLE_CELL";
+      /** `null` when the release named a cell anchor without carrying its address. */
+      cell: TableCellAddress | null;
+    }
+  | { form: "DOCUMENT" };
+
+function anchorPlacement(locator: EvidenceLocator): AnchorPlacement {
+  if (locator.kind === "TABLE_CELL") {
+    return { form: "TABLE_CELL", cell: tableCellAddress(locator) };
+  }
+  if (locator.pdf_page !== null || locator.printed_page !== null || locator.bbox !== null) {
+    return {
+      form: "PAGE",
+      pdfPage: locator.pdf_page,
+      printedPage: locator.printed_page,
+      region: anchorRegion(locator.bbox),
+    };
+  }
+  return { form: "DOCUMENT" };
+}
 
 export interface SourceAnchor {
   key: string;
@@ -406,11 +594,17 @@ export interface SourceAnchor {
   precision: AnchorPrecision;
   /** Human-readable location, for example `Printed page 231 (PDF page 47)`. */
   label: string;
+  /** The same location with its edition named, so it cannot be read against another. */
+  qualifiedLabel: string;
+  /** Where in the document this anchor points, and by what coordinates. */
+  placement: AnchorPlacement;
+  /** The edition the coordinates above are coordinates *of*. */
+  version: SourceVersionIdentity;
   pdfPage: number | null;
   printedPage: string | null;
   /**
-   * The recorded region on the page, when the release carried one. Exact PDF
-   * highlighting will read this; nothing else in the interface should.
+   * The recorded region on the page, when the release carried one. Read
+   * `placement.region` to draw it; this stays the raw payload value.
    */
   bbox: readonly [number, number, number, number] | null;
   sourceUri: string;
@@ -422,8 +616,9 @@ export interface SourceAnchor {
 
 const PRECISION_RANK: Record<AnchorPrecision, number> = {
   EXACT_REGION: 0,
-  PAGE: 1,
-  DOCUMENT: 2,
+  CELL: 1,
+  PAGE: 2,
+  DOCUMENT: 3,
 };
 
 function hasExactRegion(detail: EvidenceDetail): boolean {
@@ -432,19 +627,56 @@ function hasExactRegion(detail: EvidenceDetail): boolean {
   );
 }
 
-function locatorPrecision(locator: EvidenceLocator): AnchorPrecision {
+function locatorPrecision(
+  locator: EvidenceLocator,
+  placement: AnchorPlacement,
+): AnchorPrecision {
   if (locator.exact_highlight_available && locator.bbox !== null) return "EXACT_REGION";
-  if (locator.printed_page !== null || locator.pdf_page !== null) return "PAGE";
+  if (placement.form === "TABLE_CELL") return "CELL";
+  if (placement.form === "PAGE") return "PAGE";
   return "DOCUMENT";
 }
 
-function locatorLabel(locator: EvidenceLocator, precision: AnchorPrecision): string {
-  const pages: string[] = [];
-  if (locator.printed_page !== null) pages.push(`Printed page ${locator.printed_page}`);
-  if (locator.pdf_page !== null) pages.push(`PDF page ${locator.pdf_page}`);
-  if (!pages.length) return humanizeCode(locator.kind);
-  const location = pages.length === 2 ? `${pages[0]} (${pages[1]})` : pages[0]!;
-  return precision === "EXACT_REGION" ? `${location}, exact region` : location;
+function placementLabel(
+  locator: EvidenceLocator,
+  placement: AnchorPlacement,
+  precision: AnchorPrecision,
+): string {
+  if (placement.form === "TABLE_CELL") {
+    return placement.cell === null
+      ? "Table cell, address not carried"
+      : `Table ${placement.cell.tableId}, cell ${placement.cell.columnLetter}${placement.cell.rowNumber}`;
+  }
+  if (placement.form === "PAGE") {
+    const pages: string[] = [];
+    if (placement.printedPage !== null) pages.push(`Printed page ${placement.printedPage}`);
+    if (placement.pdfPage !== null) pages.push(`PDF page ${placement.pdfPage}`);
+    if (pages.length) {
+      const location = pages.length === 2 ? `${pages[0]} (${pages[1]})` : pages[0]!;
+      return precision === "EXACT_REGION" ? `${location}, exact region` : location;
+    }
+  }
+  return humanizeCode(locator.kind);
+}
+
+/**
+ * What the interface can do with an anchor's recorded location.
+ *
+ * A region the release recorded but the licence withholds is reported as withheld, not
+ * as absent, and a cell anchor whose address the release did not carry is reported as
+ * missing rather than as no region at all. The three read alike in a summary and mean
+ * quite different things about what was verified.
+ */
+export function anchorRegionStatus(anchor: SourceAnchor): string {
+  if (anchor.placement.form === "TABLE_CELL") {
+    return anchor.placement.cell === null
+      ? "Cell address not carried"
+      : "Cell address recorded";
+  }
+  if (anchor.highlightAvailable) return "Region verified";
+  if (anchor.highlightSuppressedByLicence) return "Region withheld by licence";
+  if (anchor.bbox !== null) return "Region not verified";
+  return "No region recorded";
 }
 
 /**
@@ -456,14 +688,20 @@ function locatorLabel(locator: EvidenceLocator, precision: AnchorPrecision): str
  */
 export function sourceAnchors(detail: EvidenceDetail): SourceAnchor[] {
   const renderAllowed = detail.render_allowed;
+  const version = sourceVersionIdentity(detail);
   return detail.locators
     .map((locator, index) => {
-      const precision = locatorPrecision(locator);
+      const placement = anchorPlacement(locator);
+      const precision = locatorPrecision(locator, placement);
+      const label = placementLabel(locator, placement, precision);
       const anchor: SourceAnchor = {
         key: `${detail.evidence_id}-locator-${index}`,
         kind: locator.kind,
         precision,
-        label: locatorLabel(locator, precision),
+        label,
+        qualifiedLabel: `${label} — ${version.title}, ${version.versionLabel} (${version.sourceVersionId})`,
+        placement,
+        version,
         pdfPage: locator.pdf_page,
         printedPage: locator.printed_page,
         bbox: locator.bbox,

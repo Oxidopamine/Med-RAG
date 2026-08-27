@@ -2329,9 +2329,17 @@
   min-width: 0;
   padding: 14px;
   display: flex;
-  align-items: stretch;
+  /* Not `stretch`: that fixes the paper at the stage's height, so a tall document -
+     one carrying an anchor viewer - overflows its own page while the pinned footer
+     stays put and prints over it. `min-height` still fills a short stage. */
+  align-items: flex-start;
   justify-content: center;
   overflow: auto;
+}
+
+.document-stage:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: -2px;
 }
 
 .document-paper {
@@ -3631,4 +3639,382 @@
 .abstention-blocked {
   color: #8f3238;
   font-weight: 650;
+}
+
+/* Anchor viewer
+   -------------------------------------------------------------------------
+   The drawn form of a source anchor. Sits inside the zoomable document paper,
+   so every measurement here is in px rather than em: the passage text scales
+   with the reader's zoom control, a page diagram scaled with it would drift out
+   of the paper, and a region drawn at the wrong size is a provenance claim. */
+
+.anchor-viewer {
+  margin: 26px 0 0;
+  padding-top: 18px;
+  border-top: 1px solid #dce2eb;
+  font-size: 13px;
+}
+
+.anchor-viewer-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.anchor-viewer h3 {
+  margin: 0 0 10px;
+  color: #5a667a;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.anchor-viewer-status {
+  color: #1d4e8f;
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.anchor-switcher {
+  margin-bottom: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.anchor-switcher button {
+  padding: 5px 10px;
+  color: #29384f;
+  background: #f4f7fb;
+  border: 1px solid #d8dee8;
+  border-radius: 999px;
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.anchor-switcher button:hover {
+  border-color: #a9bad3;
+}
+
+.anchor-switcher button.selected {
+  color: white;
+  background: var(--navy);
+  border-color: var(--navy);
+}
+
+/* Edition identity
+   ------------------------------------------------------------------------- */
+
+.anchor-version {
+  margin: 0 0 14px;
+  padding: 11px 13px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px 16px;
+  background: #f7f9fc;
+  border: 1px solid #dce2eb;
+  border-radius: 8px;
+}
+
+.anchor-version > div {
+  min-width: 0;
+}
+
+.anchor-version dt {
+  margin-bottom: 2px;
+  color: #5a667a;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.anchor-version dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: #1d2a44;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.anchor-version dd code {
+  padding: 1px 5px;
+  color: #12376d;
+  background: var(--blue-soft);
+  border-radius: 4px;
+  font-size: 11px;
+}
+
+.anchor-version-title {
+  grid-column: 1 / -1;
+}
+
+.anchor-version-title dd small {
+  display: block;
+  margin-top: 2px;
+  color: #5a667a;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.anchor-version-superseded {
+  color: var(--amber);
+}
+
+/* Figures
+   ------------------------------------------------------------------------- */
+
+.anchor-figure {
+  margin: 0;
+}
+
+.anchor-figure figcaption {
+  margin-top: 8px;
+  color: #5a667a;
+  font-size: 11px;
+  text-align: center;
+}
+
+.page-frame {
+  position: relative;
+  width: min(100%, 300px);
+  margin: 0 auto;
+  aspect-ratio: 1 / 1.414;
+  background: white;
+  border: 1px solid #b9c4d4;
+  border-radius: 3px;
+  box-shadow: inset 0 0 0 6px #fbfcfe;
+  /* Deliberately blank. No publisher content is drawn behind the region: the
+     licence decision is open, and the frame states the page, not its text. */
+  background-image: repeating-linear-gradient(
+    to bottom,
+    transparent 0,
+    transparent 13px,
+    #eef1f6 13px,
+    #eef1f6 14px
+  );
+  background-position: 0 26px;
+  background-clip: content-box;
+}
+
+/* Set inside the frame, where a printed folio sits. Outside it, this collided with
+   the figcaption, which carries the fuller address. */
+.page-frame-number {
+  position: absolute;
+  right: 0;
+  bottom: 9px;
+  left: 0;
+  color: #7c879a;
+  font-size: 9px;
+  font-weight: 650;
+  text-align: center;
+}
+
+.page-frame-note {
+  position: absolute;
+  inset: 12px;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 6px;
+  padding: 10px;
+  color: #5a667a;
+  font-size: 11px;
+  line-height: 1.45;
+  text-align: center;
+}
+
+.page-region {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 10px;
+  overflow: hidden;
+  border-radius: 2px;
+}
+
+.page-region.withheld {
+  background: repeating-linear-gradient(
+    135deg,
+    rgba(7, 93, 206, 0.09) 0,
+    rgba(7, 93, 206, 0.09) 5px,
+    transparent 5px,
+    transparent 10px
+  );
+  border: 1.5px solid var(--blue);
+}
+
+.page-region.readable {
+  background: #fff0a8;
+  border: 1.5px solid var(--amber);
+}
+
+.page-region-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  color: #064ca8;
+  background: rgba(255, 255, 255, 0.92);
+  border-radius: 999px;
+  font-size: 9px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* Table cells
+   ------------------------------------------------------------------------- */
+
+.cell-frame {
+  padding: 12px;
+  background: white;
+  border: 1px solid #b9c4d4;
+  border-radius: 5px;
+}
+
+.cell-frame-title {
+  display: block;
+  margin-bottom: 8px;
+  color: #12376d;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.cell-grid {
+  display: grid;
+  grid-template-columns: 34px repeat(3, minmax(0, 1fr));
+  gap: 2px;
+}
+
+.cell-corner {
+  display: block;
+}
+
+.cell-heading {
+  padding: 4px;
+  display: grid;
+  place-content: center;
+  color: #5a667a;
+  background: #f2f5fa;
+  border-radius: 3px;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.cell-heading.addressed {
+  color: #064ca8;
+  background: var(--blue-soft);
+}
+
+.cell {
+  min-height: 30px;
+  display: grid;
+  place-content: center;
+  background: #fbfcfe;
+  border: 1px solid #e6eaf1;
+  border-radius: 3px;
+}
+
+.cell.addressed {
+  color: var(--blue);
+  background: repeating-linear-gradient(
+    135deg,
+    rgba(7, 93, 206, 0.09) 0,
+    rgba(7, 93, 206, 0.09) 5px,
+    transparent 5px,
+    transparent 10px
+  );
+  border: 1.5px solid var(--blue);
+}
+
+.cell-frame-empty,
+.document-frame {
+  padding: 22px 18px;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 7px;
+  color: #5a667a;
+  background: #f7f9fc;
+  border: 1px dashed #cbd4e1;
+  border-radius: 7px;
+  text-align: center;
+}
+
+.cell-frame-empty strong,
+.document-frame strong {
+  color: #29384f;
+  font-size: 13px;
+}
+
+.cell-frame-empty span,
+.document-frame span {
+  max-width: 46ch;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+/* Coordinates and degraded-path note
+   ------------------------------------------------------------------------- */
+
+.anchor-coordinates {
+  margin: 26px 0 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 9px 16px;
+}
+
+.anchor-coordinates > div {
+  min-width: 0;
+}
+
+.anchor-coordinates dt {
+  margin-bottom: 2px;
+  color: #5a667a;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.anchor-coordinates dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: #1d2a44;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+}
+
+.anchor-degraded-note {
+  margin: 14px 0 0;
+  padding: 10px 12px;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  color: #29384f;
+  background: var(--blue-soft);
+  border-radius: 7px;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.anchor-degraded-note svg {
+  flex-shrink: 0;
+  margin-top: 1px;
+  color: #1d4e8f;
+}
+
+@media (max-width: 720px) {
+  .anchor-version,
+  .anchor-coordinates {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .page-frame {
+    width: min(100%, 220px);
+  }
 }

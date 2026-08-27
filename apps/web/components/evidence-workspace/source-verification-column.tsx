@@ -22,6 +22,7 @@ import { primaryAnchor, renderPolicy } from "@/lib/evidence-presentation";
 import type { RankedEvidence } from "@/lib/presentation";
 import type { EvidenceDetail, QuestionResult, QuestionStatus } from "@/lib/types";
 
+import { AnchorViewer } from "./anchor-viewer";
 import { PassageBody, SourceAnchorList } from "./source-anchor";
 import styles from "./workspace.module.css";
 
@@ -201,7 +202,15 @@ export function SourceViewer({
           ))}
         </div>
 
-        <div className={styles["document-stage"]}>
+        {/* The stage scrolls, so it has to be reachable by keyboard on its own: the
+            document it holds need not contain anything focusable, and a scroll region
+            a keyboard cannot enter is content a keyboard cannot read. */}
+        <div
+          className={styles["document-stage"]}
+          role="group"
+          aria-label="Source document"
+          tabIndex={0}
+        >
           <article className={styles["document-paper"]} style={{ fontSize: `${zoom}%` }}>
             <header className={styles["paper-heading"]}>
               <span>{selected.publisher_name}</span>
@@ -226,6 +235,8 @@ export function SourceViewer({
             )}
 
             <PassageBody detail={selected} variant="document" />
+
+            <AnchorViewer detail={selected} key={selected.evidence_id} />
 
             <footer className={styles["paper-footer"]}>
               <span>{selected.evidence_id}</span>

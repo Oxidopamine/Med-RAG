@@ -121,6 +121,12 @@ const evidenceLocatorSchema = z
     printed_page: z.string().nullable(),
     bbox: z.tuple([z.number(), z.number(), z.number(), z.number()]).nullable(),
     exact_highlight_available: z.boolean(),
+    // Accepted before the serving projection sends them. The object is strict, so a
+    // locator that starts carrying its cell address would otherwise fail to parse and
+    // take the whole result down with it.
+    table_id: z.string().trim().min(1).nullable().optional(),
+    row_index: z.number().int().nonnegative().nullable().optional(),
+    column_index: z.number().int().nonnegative().nullable().optional(),
   })
   .superRefine((locator, issue) => {
     if (locator.bbox) {
@@ -138,6 +144,18 @@ const evidenceLocatorSchema = z
         code: "custom",
         message: "An exact highlight requires a bounding box",
         path: ["exact_highlight_available"],
+      });
+    }
+    // A cell is addressed by all three coordinates or by none. A partial address would
+    // render as a cell reference with a fabricated row or column, which is worse than
+    // reporting the address as absent.
+    const cellFields = [locator.table_id, locator.row_index, locator.column_index];
+    const supplied = cellFields.filter((field) => field !== undefined && field !== null);
+    if (supplied.length > 0 && supplied.length < cellFields.length) {
+      issue.addIssue({
+        code: "custom",
+        message: "A table-cell address requires a table, a row, and a column",
+        path: ["table_id"],
       });
     }
   });

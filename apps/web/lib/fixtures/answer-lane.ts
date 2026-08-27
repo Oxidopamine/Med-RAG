@@ -124,6 +124,90 @@ export function licensedWhoEvidence(overrides: Partial<EvidenceDetail> = {}): Ev
   });
 }
 
+/**
+ * A table-cell anchor as the corpus records one.
+ *
+ * The XLSX extractor emits `TABLE_CELL` anchors carrying a worksheet, a zero-based row,
+ * and a zero-based column. The serving projection in `apps/api` does not forward those
+ * three fields yet, so this fixture is the shape the viewer will be given rather than
+ * the shape it is given today - `unaddressedTableCellEvidence` is the shape it is given
+ * today, and both are exercised.
+ */
+export function tableCellEvidence(overrides: Partial<EvidenceDetail> = {}): EvidenceDetail {
+  return restrictedWhoEvidence({
+    evidence_id: "EV_WHO_HTN_020",
+    evidence_type: "DOSING_TABLE",
+    evidence_roles: ["DOSE_OR_THRESHOLD"],
+    section_path: ["Annex 2", "Dosing table"],
+    locators: [
+      {
+        kind: "TABLE_CELL",
+        source_uri: "source://SV_WHO_HTN_2021/annex/2",
+        pdf_page: null,
+        printed_page: null,
+        bbox: null,
+        exact_highlight_available: false,
+        table_id: "Annex2Dosing",
+        row_index: 3,
+        column_index: 2,
+      },
+    ],
+    ...overrides,
+  });
+}
+
+/** The same cell anchor as the serving contract carries it today: without its address. */
+export function unaddressedTableCellEvidence(
+  overrides: Partial<EvidenceDetail> = {},
+): EvidenceDetail {
+  return tableCellEvidence({
+    locators: [
+      {
+        kind: "TABLE_CELL",
+        source_uri: "source://SV_WHO_HTN_2021/annex/2",
+        pdf_page: null,
+        printed_page: null,
+        bbox: null,
+        exact_highlight_available: false,
+      },
+    ],
+    ...overrides,
+  });
+}
+
+/**
+ * A near-identical passage from the preceding edition.
+ *
+ * This is the case the anchor display has to survive: same publisher, same section,
+ * same printed page, a bounding box a few millimetres away, and text a reader would
+ * not tell apart at a glance. Only `source_version_id`, the version label, and the
+ * lifecycle separate it from `restrictedWhoEvidence`, so any surface that shows a page
+ * and a rectangle without naming the edition is showing an ambiguous location.
+ */
+export function priorEditionTwinEvidence(
+  overrides: Partial<EvidenceDetail> = {},
+): EvidenceDetail {
+  return restrictedWhoEvidence({
+    evidence_id: "EV_WHO_HTN_001_PRIOR",
+    source_version_id: "SV_WHO_HTN_2013",
+    source_version_label: "2013",
+    lifecycle_status: "SUPERSEDED",
+    effective_from: "2013-05-01",
+    effective_to: "2021-08-23",
+    locators: [
+      {
+        kind: "PDF_PAGE",
+        source_uri: "source://SV_WHO_HTN_2013/page/19",
+        pdf_page: 19,
+        printed_page: "11",
+        bbox: [0.12, 0.32, 0.88, 0.45],
+        exact_highlight_available: false,
+      },
+    ],
+    ...overrides,
+  });
+}
+
 function whoThresholdEvidence(): EvidenceDetail {
   return restrictedWhoEvidence({
     evidence_id: "EV_WHO_HTN_002",

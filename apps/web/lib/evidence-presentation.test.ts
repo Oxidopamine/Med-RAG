@@ -3,8 +3,10 @@ import { describe, expect, it } from "vitest";
 import { parseContract, questionResultSchema } from "./contracts";
 import {
   ABSTENTION_REASON_CODES,
+  anchorRegionStatus,
   buildCitations,
   claimCitations,
+  columnLetter,
   isFullyLicenceRestricted,
   presentAbstention,
   presentConflicts,
@@ -12,12 +14,16 @@ import {
   renderPolicy,
   reviewableConflicts,
   sourceAnchors,
+  sourceVersionIdentity,
 } from "./evidence-presentation";
 import {
   abstainedResult,
   answerReadyResult,
   licensedWhoEvidence,
+  priorEditionTwinEvidence,
   restrictedWhoEvidence,
+  tableCellEvidence,
+  unaddressedTableCellEvidence,
 } from "./fixtures/answer-lane";
 import type { EvidenceDetail } from "./types";
 
@@ -316,6 +322,163 @@ describe("abstention reason codes", () => {
 
     expect(presentation.missingEvidenceRoles).toEqual(["EXCEPTION_OR_CONTRAINDICATION"]);
     expect(presentation.closestEvidenceIds).toEqual(["EV_WHO_HTN_014"]);
+  });
+});
+
+describe("anchor placement", () => {
+  it("reads a page anchor from what it carries, not from what it calls itself", () => {
+    // `PDF` in the canonical corpus vocabulary, `PDF_PAGE` in the release fixtures.
+    const anchor = primaryAnchor(
+      restrictedWhoEvidence({
+        locators: [
+          {
+            kind: "PDF",
+            source_uri: "source://SV_WHO_HTN_2021/page/19",
+            pdf_page: 19,
+            printed_page: "11",
+            bbox: [0.1, 0.2, 0.9, 0.4],
+            exact_highlight_available: false,
+          },
+        ],
+      }),
+    )!;
+
+    expect(anchor.placement.form).toBe("PAGE");
+    expect(anchor.label).toBe("Printed page 11 (PDF page 19)");
+  });
+
+  it("classifies a fractional box as placeable and a source-unit box as not", () => {
+    const fractional = primaryAnchor(restrictedWhoEvidence())!;
+    const absolute = primaryAnchor(
+      restrictedWhoEvidence({
+        locators: [
+          {
+            kind: "PDF",
+            source_uri: "source://SV_WHO_HTN_2021/page/19",
+            pdf_page: 19,
+            printed_page: null,
+            bbox: [72, 90.5, 523.2, 210.8],
+            exact_highlight_available: false,
+          },
+        ],
+      }),
+    )!;
+
+    expect(fractional.placement).toMatchObject({
+      form: "PAGE",
+      region: { placement: "PROPORTIONAL", width: 0.76 },
+    });
+    expect(absolute.placement).toMatchObject({
+      form: "PAGE",
+      region: { placement: "UNPLACEABLE" },
+    });
+  });
+
+  it("addresses a table cell in the source document's own numbering", () => {
+    const anchor = primaryAnchor(tableCellEvidence())!;
+
+    expect(anchor.precision).toBe("CELL");
+    expect(anchor.placement).toEqual({
+      form: "TABLE_CELL",
+      cell: {
+        tableId: "Annex2Dosing",
+        rowIndex: 3,
+        columnIndex: 2,
+        rowNumber: 4,
+        columnLetter: "C",
+        reference: "Annex2Dosing!C4",
+      },
+    });
+    expect(anchorRegionStatus(anchor)).toBe("Cell address recorded");
+  });
+
+  it("keeps an unaddressed cell anchor a cell anchor rather than a document one", () => {
+    const anchor = primaryAnchor(unaddressedTableCellEvidence())!;
+
+    expect(anchor.placement).toEqual({ form: "TABLE_CELL", cell: null });
+    expect(anchor.precision).toBe("CELL");
+    expect(anchor.label).toBe("Table cell, address not carried");
+    expect(anchorRegionStatus(anchor)).toBe("Cell address not carried");
+  });
+
+  it("names spreadsheet columns the way the corpus extractor does", () => {
+    expect(columnLetter(0)).toBe("A");
+    expect(columnLetter(25)).toBe("Z");
+    expect(columnLetter(26)).toBe("AA");
+    expect(columnLetter(51)).toBe("AZ");
+    expect(columnLetter(52)).toBe("BA");
+    expect(columnLetter(701)).toBe("ZZ");
+  });
+
+  it("ranks a cell anchor above a page anchor and below an exact region", () => {
+    const anchors = sourceAnchors(
+      restrictedWhoEvidence({
+        locators: [
+          {
+            kind: "SECTION",
+            source_uri: "source://SV_WHO_HTN_2021/section/annex",
+            pdf_page: null,
+            printed_page: null,
+            bbox: null,
+            exact_highlight_available: false,
+          },
+          {
+            kind: "PDF_PAGE",
+            source_uri: "source://SV_WHO_HTN_2021/page/19",
+            pdf_page: 19,
+            printed_page: null,
+            bbox: null,
+            exact_highlight_available: false,
+          },
+          {
+            kind: "TABLE_CELL",
+            source_uri: "source://SV_WHO_HTN_2021/annex/2",
+            pdf_page: null,
+            printed_page: null,
+            bbox: null,
+            exact_highlight_available: false,
+            table_id: "Annex2Dosing",
+            row_index: 0,
+            column_index: 0,
+          },
+        ],
+      }),
+    );
+
+    expect(anchors.map((anchor) => anchor.precision)).toEqual([
+      "CELL",
+      "PAGE",
+      "DOCUMENT",
+    ]);
+  });
+});
+
+describe("source version identity on an anchor", () => {
+  it("carries the edition so two printings of one page cannot be confused", () => {
+    const current = primaryAnchor(restrictedWhoEvidence())!;
+    const prior = primaryAnchor(priorEditionTwinEvidence())!;
+
+    expect(current.label).toBe(prior.label);
+    expect(current.qualifiedLabel).not.toBe(prior.qualifiedLabel);
+    expect(current.version.sourceVersionId).toBe("SV_WHO_HTN_2021");
+    expect(prior.version.sourceVersionId).toBe("SV_WHO_HTN_2013");
+    expect(current.version.superseded).toBe(false);
+    expect(prior.version.superseded).toBe(true);
+  });
+
+  it("derives the identity from the record it belongs to", () => {
+    expect(sourceVersionIdentity(priorEditionTwinEvidence())).toEqual({
+      sourceId: "SRC_WHO_HTN",
+      sourceVersionId: "SV_WHO_HTN_2013",
+      title: "Guideline for the pharmacological treatment of hypertension in adults",
+      versionLabel: "2013",
+      publisherName: "World Health Organization",
+      lifecycleStatus: "SUPERSEDED",
+      effectiveFrom: "2013-05-01",
+      effectiveTo: "2021-08-23",
+      label: "World Health Organization 2013",
+      superseded: true,
+    });
   });
 });
 
