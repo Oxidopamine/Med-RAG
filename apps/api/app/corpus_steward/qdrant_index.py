@@ -880,17 +880,45 @@ class QdrantIndexService:
     def _result_rank(
         results: list[dict[str, Any]], expected: _ExpectedPoint
     ) -> int | None:
-        for rank, result in enumerate(results, start=1):
-            if result.get("id") != expected.point_id:
+        """Rank the expected point by score, breaking ties on point ID.
+
+        This deliberately does not read the position the server returned. A rank is only
+        well defined when scores differ, and Qdrant does not promise a stable order among
+        exact ties - a controlled 1.15.4-vs-1.19.0 comparison produced five different
+        permutations of tied results across five rebuilds of identical data. Because the
+        rank is sealed into the validation report digest, and from there into a signed
+        attestation, borrowing the server's arbitrary tie order would make the digest
+        irreproducible over unchanged data. Counting strictly-better scores and then
+        breaking ties on the point ID gives a total order this side owns.
+        """
+
+        match: dict[str, Any] | None = None
+        for result in results:
+            if result.get("id") == expected.point_id:
+                match = result
+                break
+        if match is None:
+            return None
+        payload = match.get("payload")
+        if not isinstance(payload, dict):
+            return None
+        if (
+            payload.get("evidence_id") != expected.evidence_id
+            or payload.get("evidence_sha256") != expected.payload["evidence_sha256"]
+        ):
+            return None
+        score = match.get("score")
+        if not isinstance(score, (int, float)) or not math.isfinite(score):
+            return None
+        ahead = 0
+        for result in results:
+            if result.get("id") == expected.point_id:
                 continue
-            payload = result.get("payload")
-            if not isinstance(payload, dict):
+            other = result.get("score")
+            if not isinstance(other, (int, float)) or not math.isfinite(other):
                 return None
-            if (
-                payload.get("evidence_id") != expected.evidence_id
-                or payload.get("evidence_sha256")
-                != expected.payload["evidence_sha256"]
+            if other > score or (
+                other == score and str(result.get("id")) < str(expected.point_id)
             ):
-                return None
-            return rank
-        return None
+                ahead += 1
+        return ahead + 1

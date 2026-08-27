@@ -1,5 +1,6 @@
 import copy
 import hashlib
+import itertools
 import json
 import math
 from pathlib import Path
@@ -40,6 +41,7 @@ from app.corpus_steward.qdrant_index import (
     PAYLOAD_INDEXES,
     IndexValidationError,
     QdrantIndexService,
+    _ExpectedPoint,
     candidate_qdrant_collection,
     candidate_vector_profile_sha256,
     stable_qdrant_point_id,
@@ -283,9 +285,11 @@ class FakeQdrant:
             )
 
         ranked = sorted(self.points.values(), key=score, reverse=True)[: request["limit"]]
+        # Real query_points always returns a score, and rank sealing depends on it.
         return [
             {
                 "id": point["id"],
+                "score": score(point),
                 "payload": {
                     key: point["payload"][key]
                     for key in request["with_payload"]
@@ -604,3 +608,71 @@ async def test_signed_attestation_registers_validated_index_without_activation(
     assert release.state.value == "VALIDATED"
     assert await SQLCorpusReleaseRepository(database).active_release() is None
     await database.close()
+
+
+def _smoke_result(point_id: str, score: float, *, evidence_id: str = "EV_1") -> dict[str, Any]:
+    return {
+        "id": point_id,
+        "score": score,
+        "payload": {"evidence_id": evidence_id, "evidence_sha256": "a" * 64},
+    }
+
+
+def _smoke_expected(point_id: str, *, evidence_id: str = "EV_1") -> _ExpectedPoint:
+    return _ExpectedPoint(
+        evidence_id=evidence_id,
+        point_id=point_id,
+        payload={"evidence_sha256": "a" * 64},
+        dense=(1.0,),
+        sparse_indices=(0,),
+        sparse_values=(1.0,),
+        vector_sha256="b" * 64,
+    )
+
+
+def test_sealed_rank_ignores_the_order_the_server_returned_ties_in() -> None:
+    """Tied results must not let server ordering move a sealed rank.
+
+    Qdrant does not promise a stable order among exact ties. A controlled
+    1.15.4-vs-1.19.0 comparison produced five different permutations across five
+    rebuilds of identical data, and the rank is sealed into the validation report
+    digest and from there into a signed attestation. The realistic trigger is duplicate
+    evidence text embedding identically and both scoring 1.0 against a self-retrieval
+    probe, so ties are broken here on point ID instead.
+    """
+
+    rank = QdrantIndexService._result_rank
+    expected = _smoke_expected("p-bbb")
+    tied = [
+        _smoke_result("p-aaa", 1.0, evidence_id="EV_0"),
+        _smoke_result("p-bbb", 1.0),
+        _smoke_result("p-ccc", 1.0, evidence_id="EV_2"),
+    ]
+
+    # p-aaa sorts before p-bbb, p-ccc after, so the rank is 2 in every permutation.
+    for permutation in itertools.permutations(tied):
+        assert rank(list(permutation), expected) == 2
+
+    # A strictly better score still outranks, and a worse one never does.
+    outranked = [
+        _smoke_result("p-zzz", 2.0, evidence_id="EV_9"),
+        _smoke_result("p-bbb", 1.0),
+    ]
+    assert rank(outranked, expected) == 2
+    assert rank(list(reversed(outranked)), expected) == 2
+
+
+def test_sealed_rank_rejects_a_result_carrying_no_usable_score() -> None:
+    """A missing or non-finite score cannot be ranked, so it fails closed."""
+
+    rank = QdrantIndexService._result_rank
+    expected = _smoke_expected("p-bbb")
+
+    unscored = [{"id": "p-bbb", "payload": {"evidence_id": "EV_1", "evidence_sha256": "a" * 64}}]
+    assert rank(unscored, expected) is None
+
+    infinite = [
+        _smoke_result("p-aaa", float("inf"), evidence_id="EV_0"),
+        _smoke_result("p-bbb", 1.0),
+    ]
+    assert rank(infinite, expected) is None
