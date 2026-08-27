@@ -22,6 +22,8 @@ out/
 dist/
 coverage/
 playwright-report/
+# Screenshots written by ad-hoc Playwright runs used to eyeball a component.
+*-viewer-*.png
 test-results/
 data/local/
 models/local/
