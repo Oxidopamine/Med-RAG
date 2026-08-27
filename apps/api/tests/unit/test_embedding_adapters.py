@@ -25,7 +25,6 @@ from app.corpus_steward.embedding_adapters import (
     MEDCPT_DIMENSION,
     MEDCPT_PAIR_MODEL_ID,
     MEDCPT_PASSAGE_FORMAT,
-    MEDCPT_PASSAGE_SEPARATOR,
     MEDCPT_QUERY_MODEL_ID,
     QWEN3_ADAPTER_ID,
     QWEN3_ADAPTER_REVISION,
@@ -739,11 +738,11 @@ async def test_medcpt_passage_encoding_does_not_depend_on_batch_composition(
         pair, query_runtime=_DualEncoderRuntime(1.0), document_runtime=document_runtime
     )
 
-    vectors = await adapter.embed_documents(
+    vectors = await adapter.embed_passages(
         (
-            f"Monitoring{MEDCPT_PASSAGE_SEPARATOR}Check viral load at week 4.",
-            "A chunk with no section heading.",
-            f"Dosing{MEDCPT_PASSAGE_SEPARATOR}Give 50 mg once daily.",
+            ("Monitoring", "Check viral load at week 4."),
+            ("", "A chunk with no section heading."),
+            ("Dosing", "Give 50 mg once daily."),
         )
     )
 
@@ -761,6 +760,36 @@ async def test_medcpt_passage_encoding_does_not_depend_on_batch_composition(
     assert vectors[0][1] == float(len("Monitoring"))
     assert vectors[1][1] == float(len("A chunk with no section heading."))
     assert vectors[2][1] == float(len("Dosing"))
+
+
+async def test_medcpt_release_documents_are_encoded_chunk_only(tmp_path: Path) -> None:
+    """Production passages carry no title, and the adapter must not invent one.
+
+    The sealed release record has no title or section field, so the producer hands over
+    chunk text alone. An earlier version split on a ``"\\n\\n"`` separator that
+    ``content_search`` can never contain — all whitespace runs are collapsed to single
+    spaces before the record is sealed — so titles appeared supported while every passage
+    silently encoded untitled. This pins the honest behaviour: one untitled call, no
+    sequence pair, whatever the text looks like.
+    """
+
+    pair = _medcpt_pair(tmp_path, parameters=_medcpt_parameters(batch_size=4))
+    document_runtime = _DualEncoderRuntime(2.0)
+    adapter = MedCPTDualEncoderAdapter(
+        pair, query_runtime=_DualEncoderRuntime(1.0), document_runtime=document_runtime
+    )
+
+    vectors = await adapter.embed_documents(
+        ("Monitoring Check viral load at week 4.", "Give 50 mg once daily.")
+    )
+
+    assert len(vectors) == 2
+    assert len(document_runtime.calls) == 1, "untitled passages take a single branch"
+    assert document_runtime.calls[0]["texts"] == (
+        "Monitoring Check viral load at week 4.",
+        "Give 50 mg once daily.",
+    )
+    assert document_runtime.calls[0]["text_pairs"] is None
 
 
 async def test_medcpt_pair_is_dispatched_only_through_the_paired_allowlist(

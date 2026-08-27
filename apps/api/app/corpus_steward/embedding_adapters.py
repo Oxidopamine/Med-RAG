@@ -48,7 +48,6 @@ MEDCPT_MAX_POSITIONS = 512
 MEDCPT_ADAPTER_ID = "med-rag/medcpt-dual-encoder-transformers"
 MEDCPT_ADAPTER_REVISION = "1.0.0"
 MEDCPT_PASSAGE_FORMAT = "medcpt-title-section-chunk-v1"
-MEDCPT_PASSAGE_SEPARATOR = "\n\n"
 
 BM25_MODEL_ID = "med-rag/qdrant-bm25-unicode"
 BM25_MODEL_REVISION = "1.0.0"
@@ -667,9 +666,19 @@ class MedCPTDualEncoderAdapter:
 
     Queries go through the query encoder and passages through the article encoder, each
     from its own verified root. Both preserve the official contract: ``[CLS]`` pooling,
-    768 dimensions, and BERT's 512-position truncation ceiling. Passages are encoded as
-    the official title/abstract sequence pair, filled here by the versioned
-    title/section-plus-chunk format sealed in the manifest.
+    768 dimensions, and BERT's 512-position truncation ceiling.
+
+    Known limitation - passages are encoded chunk-only in production. MedCPT's official
+    article encoding is a title/abstract sequence pair, and ``embed_passages`` implements
+    exactly that. Nothing can currently call it with a real title: the sealed release
+    record (``CorpusEvidenceRecord``) carries no title or section field, so the producer
+    has only ``content_search`` to hand over. The title exists upstream on
+    ``MaterializedEvidenceContent`` and is dropped at promotion. Carrying it through would
+    be a corpus contract version bump, invalidating the sealed release and every
+    attestation bound to it, so it is deliberately deferred rather than faked.
+
+    This adapter is also English-only. It is a specialist lane and must never be selected
+    as the multilingual default; ``BGEM3DenseAdapter`` is the multilingual control.
     """
 
     def __init__(
@@ -753,9 +762,18 @@ class MedCPTDualEncoderAdapter:
         return tuple(vectors)
 
     async def embed_documents(self, texts: Sequence[str]) -> Sequence[Sequence[float]]:
-        return await self.embed_passages(
-            tuple(self._split_passage(text) for text in texts)
-        )
+        """Encode release passages, which reach this adapter as chunk text alone.
+
+        Deliberately does not try to recover a title from the text. An earlier version
+        split on a sealed ``"\\n\\n"`` separator, which could never fire: ``content_search``
+        is built by collapsing all whitespace runs to single spaces, so the separator is
+        destroyed before the producer ever sees the record. Every passage silently took
+        the untitled branch while appearing to support titles. Encoding chunk-only and
+        saying so is honest; ``embed_passages`` remains the real pair API for whenever the
+        corpus contract carries a title.
+        """
+
+        return await self.embed_passages(tuple(("", text) for text in texts))
 
     async def embed_passages(
         self, passages: Sequence[tuple[str, str]]
@@ -794,14 +812,6 @@ class MedCPTDualEncoderAdapter:
         if any(vector is None for vector in vectors):
             raise RuntimeError("MedCPT passage encoding was incomplete")
         return tuple(vector for vector in vectors if vector is not None)
-
-    def _split_passage(self, text: str) -> tuple[str, str]:
-        if not isinstance(text, str) or not text.strip():
-            raise ValueError("MedCPT inputs must be non-empty text")
-        head, separator, tail = text.partition(MEDCPT_PASSAGE_SEPARATOR)
-        if not separator or not tail.strip():
-            return "", text
-        return head, tail
 
     async def _encode(
         self,
