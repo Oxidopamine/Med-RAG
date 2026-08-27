@@ -1,5 +1,39 @@
 # Implementation roadmap
 
+## Current direction: one narrow corpus, answered end to end
+
+Decided 2026-08-27. The MVP is **WHO SMART HIV only** — the existing validated release of
+5,145 approved records. The goal is a product that answers a clinical question from that
+corpus, refuses convincingly when evidence is incomplete, and shows its sources. Corpus
+breadth is explicitly deferred.
+
+The reasoning: build-side rigor is far ahead of product surface. Signed attestations,
+immutable releases, and a benchmark that has survived three self-corrections all exist,
+and nothing has ever answered a question. Every additional benchmark refinement has lower
+marginal return than reading real outputs. Breadth first would still leave nothing
+answerable end to end; depth first yields a working product on a narrow corpus.
+
+Priority order:
+
+1. one live generation call against Vertex — the largest remaining unknown
+2. read 50 real outputs by hand; expect this to change chunking (see the first-contact
+   findings below, which it already has)
+3. write 30–40 questions phrased as a clinician would ask them
+4. evidence cards and exact PDF highlighting, once the render licence is decided
+5. harden abstention against plausible negatives, then re-derive that gate
+6. corpus breadth, unblocked by narrative-only materialization
+
+Explicitly **not** now: spending the sealed holdout, adding publishers, adding benchmark
+machinery. Frame the product as a WHO HIV guidelines assistant, not a clinical guidelines
+assistant — the narrower claim is both true and the stronger position.
+
+### Blocking licence decision
+
+Every WHO asset is `render_allowed: false` pending deployment-specific licence review.
+Evidence cards and exact highlighting — the visible payoff of all the anchor and locator
+work — are gated on resolving that. CC BY-NC-SA 3.0 IGO plausibly permits attributed
+non-commercial display, but this is a decision to be made and recorded, not a code change.
+
 ## Complete: foundation
 
 - strict canonical schemas and executable synthetic safety fixtures
@@ -85,8 +119,168 @@
 - signed index validation attestation and `NOT_BUILT` to `VALIDATED` registration
 - activation retained as a separate signed gate
 
-## Next: additional authoritative publishers
+## Complete: serving retrieval path and first contact with real questions
 
+- `ServingRetrievalService` (`app/reasoning/retrieval_service.py`): release-filtered
+  hybrid dense/sparse retrieval, weighted RRF, deterministic tie-breaking, isolated lane
+  failures, and an evidence-role completeness gate that blocks generation rather than
+  reporting a metric afterwards
+- deliberately separate from `RetrievalBenchmarkRunner`. That runner is the measured
+  system: the accepted development report and the frozen comparator floor were produced
+  by that exact code path, so reshaping it to serve free-text questions would silently
+  break comparability with every prior report. The payload-integrity checks are
+  reproduced rather than shared, because failing closed on a corrupted index is a safety
+  property both paths need
+- `scripts/ask.py`: asks one question end to end against a validated release without
+  activating it, so no sealed-holdout claim is consumed to look at an answer
+- verified against the real release: 5,145 records, ~320 ms, role gate passing
+
+### First-contact findings — the corpus does not answer clinical questions well
+
+Three real questions against the accepted candidate, and the result reframes the 0.9647
+development score. The score is not wrong; it measures what the suite is built from.
+Because every benchmark query is a normalized source fragment, the suite rewards
+near-duplicate lookup, and near-duplicate lookup is exactly what works here.
+
+- *"When should ART be started in adults with HIV?"* returned two monitoring-indicator
+  spreadsheet rows, two near-duplicate data-dictionary rows about **infants**, and a page
+  of references. Nothing answered the question.
+- *"What are the contraindications to dolutegravir?"* returned data-dictionary rows
+  defining `DTG` as an input-option code, labelled `PRIMARY_SUPPORT`.
+- *"How often should viral load be monitored during ART?"* worked — the decision-support
+  logic genuinely encodes 6-month and 12-month intervals and the >1000 copies/mL
+  threshold.
+
+Three distinct defects, in increasing order of seriousness:
+
+1. **Passage text carries spreadsheet coordinates.** `content_exact` for XLSX rows reads
+   `A145=HIV.D8 … B145=HIV.D.DE144 …`. Correct as an exact anchor, unusable as passage
+   text for either a model or a reader. A separate presentation rendering is needed;
+   the anchor must not change.
+2. **Near-duplicate pollution.** The same logical row recurs at different sheet offsets
+   and consumes top-k slots — items 1 and 2 were the same content in two of three
+   questions.
+3. **Role labels overstate support.** A code-list entry labelled `PRIMARY_SUPPORT` means
+   the role-completeness gate is satisfied by evidence that supports no clinical claim.
+   This is the safety-relevant one: the gate meant to prevent unsafe answers currently
+   passes on data-dictionary rows.
+
+Underlying all three: the DAK is operational and tabular — data dictionaries, decision
+logic, indicators. It answers "what data element records this" far better than "what
+should a clinician do". Where the decision logic covers a question, retrieval is good.
+Where the question needs clinical narrative, the corpus largely does not hold it.
+
+This is evidence for the narrative-only materialization path, not against it — the WHO
+consolidated HIV guidelines are narrative PDFs and would carry exactly the missing
+content.
+
+## Complete: serving presentation layer
+
+All three first-contact defects are addressed in the serving layer. `content_exact`,
+anchors, and evidence digests are untouched: `app/reasoning/presentation.py` is a *view*
+over approved records, and citation stays bound to `evidence_id`, so the QA ledger and
+the signed release still describe exactly what is served. The three roadmap questions now
+return readable, distinct passages.
+
+- **Defect 1, coordinates in passage text — fixed.** `PassagePresenter` parses the
+  extractor's cell-addressed form back into cells and renders them under the publisher's
+  own column labels. `A145=HIV.D8 … E145=Input Option …` becomes
+  `HIV.D Care-Treatment - data element HIV.D.DE144 DTG` followed by labelled facts.
+  Decision-table rows are rendered as a `When:`/`Then:` split, derived from the position
+  of the publisher's own `Output Type` column rather than assumed. Labels for the
+  thirteen Annex B decision tables are read out of the release itself — their header rows
+  were approved as evidence, so the labels cannot drift from what is being served — and
+  the Annex A data dictionary, Annex B schedules, and Annex C indicator sheets are
+  declared, because their header rows were quarantined as `HEADER_OR_FOOTER`. A table
+  with no schema still renders without coordinates, and an ambiguous header is skipped
+  rather than resolved.
+- **Defect 2, near-duplicate pollution — fixed, and it was not "near".** The cause is
+  exact: the Annex A `all` worksheet is a verbatim copy of all thirteen topic worksheets
+  with one extra column recording which tab each row came from. QA's exact-content
+  deduplication could not see it, because that extra column changes `content_search`.
+  **2,080 of 5,145 approved records (40.4%) are second copies**, and the release holds
+  3,065 distinct passages. Suppression is exact rather than thresholded: the fingerprint
+  covers every substantive cell, the `Tab` column is declared structural, and the measured
+  collision count matches the copy count exactly, so nothing merges that should not.
+  Suppression runs before top-k, the highest-ranked copy survives, and the suppressed ID
+  is recorded against the passage that displaced it.
+- **Defect 3, role labels overstate support — mitigated at serving; the durable fix is at
+  QA time.** See below.
+
+### Finding: role labelling is wrong at the point it is written
+
+`qa_classification._base_roles` assigns roles by *source asset*, not by content. Every
+Annex A row gets `PRIMARY_SUPPORT` because Annex A is the data dictionary; every Annex B
+row gets it because Annex B is decision support. So a code-list entry defining `DTG` as
+an input option, a row of column headings, and a section title all arrive labelled as
+stating a recommendation.
+
+Measured over the release: **4,664 of 5,145 approved records (90.7%) carry
+`PRIMARY_SUPPORT`, and 4,244 of those (91.0%) cannot bear a recommendation** — 4,211
+data-dictionary entries, 16 section titles, 13 table headers, 4 caption rows. The
+release's genuinely recommendation-bearing surface is **420 records**, not 4,664. That is
+the sharpest statement yet of why this corpus does not answer clinical questions, and it
+is independent evidence for narrative-only materialization.
+
+The durable fix is the classifier, and it is deliberately **not** made here. `evidence_roles`
+is inside `CorpusEvidenceRecord`, so re-deciding it changes every affected evidence digest
+and therefore the manifest, the release, the Qdrant collection, and the comparability of
+every benchmark report produced against it. That is a re-release, not a patch, and it
+should be done once — alongside narrative materialization — rather than twice.
+
+What serving does instead is stop the abstention gate resting on a claim it never
+verified. `ROLES_REQUIRING_RECOMMENDATION` qualifies `PRIMARY_SUPPORT` on the passage's
+*form* — `presentation.RECOMMENDATION_BEARING_KINDS`, never a reading of what the passage
+says — so a data-dictionary entry, header, caption, or section title cannot satisfy it. An
+unrecognised table cannot either, because the view cannot tell what it is and the gate
+exists to fail closed. This is the same argument as reproducing the payload-integrity
+checks rather than trusting the index. It is narrow by design: only `PRIMARY_SUPPORT` is
+qualified, and disqualified claims are reported rather than hidden, so an answer withheld
+because of the corpus's labelling says so.
+
+Effect on the three questions, at `top_k=10` with the accepted conflict-aware candidate:
+
+- *"When should ART be started in adults with HIV?"* — ten distinct passages, eight of
+  them ART-regimen decision rules; one copy suppressed, one role claim not counted.
+  Previously: two indicator rows, two copies of a data-dictionary row about infants, and
+  a page of references.
+- *"What are the contraindications to dolutegravir?"* — five copies suppressed, six role
+  claims not counted. Still answerable at depth 10, but now on two drug-interaction
+  decision rules rather than on a code list; at `top_k=5` it abstains with
+  `MISSING REQUIRED ROLES: PRIMARY_SUPPORT`, which is the correct outcome and was not
+  reachable before.
+- *"How often should viral load be monitored during ART?"* — unchanged and clean: the
+  `HIV.S.2` schedule entries carrying the 6-month, 12-month, and >1000 copies/mL rules,
+  no duplicates, no disqualified claims.
+
+Two consequences worth carrying forward. Which copy of a duplicate pair survives is
+decided by rank, not by worksheet, so a citation can point at the `all` worksheet rather
+than the topic sheet; both are approved records anchored to real cells, so this is
+correct but reads worse.
+
+And serving and the measured system have now diverged in a way they had not before.
+`RetrievalBenchmarkRunner` does not deduplicate, so at `top_k=10` it is scored on
+rankings that can spend up to half their depth on copies, while serving is not. The
+0.9647 development acceptance therefore measures a slightly different system from the one
+that answers a question. This is not urgent — suppression can only raise the number of
+*distinct* passages at a given depth — but it means a later decision: either the runner
+gains the same suppression, which mints a new benchmark under contract 1.6 and requires
+re-measuring the comparator floor, or the divergence is recorded as a known and bounded
+difference. Do not fold it into an unrelated change.
+
+## Deferred: additional authoritative publishers
+
+Deferred under the current direction; the connector work below is built and parked rather
+than pending.
+
+- complete: `who-guidelines-hub` connector over the official WHO publications OData
+  catalogue (358 GRC-approved guidelines), with IRIS handle resolution, recorded
+  acquisition blockers, and reproducible inventory fingerprints
+- parked: `data/trust-roots/who-guidelines-ncd.json`, an authored but `enabled: false`
+  NCD expansion candidate. It cannot be reconciled to evidence until narrative-only
+  materialization exists
+- blocked: PDF-only sources cannot reach evidence. `MaterializationService.materialize`
+  requires a structured report, which on the HIV path came from FHIR package processing
 - add licensed and released XML/JSON/JATS publisher connectors
 - retain credential-gated NICE integration until licensed API credentials are provisioned
 
@@ -249,7 +443,13 @@
   sufficiency signal can lower an outcome to abstention but can never raise one to an
   answer, because a model given insufficient context answers more confidently, not less
 - known limit: the answer lane is unit-tested against a stubbed backend only. No live
-  Bedrock or Vertex call has been made, and no generation candidate has been benchmarked
+  Bedrock or Vertex call has been made, and no generation candidate has been benchmarked.
+  Vertex is the selected platform. `scripts/ask.py --generate` is the path to the first
+  live call and needs only `MEDRAG_VERTEX_PROJECT_ID` plus application-default credentials
+- known limit: `QuestionService._run` is still a stub. It emits progress events and then
+  abstains with `RETRIEVAL_PIPELINE_NOT_CONFIGURED` without calling retrieval or the
+  answer lane, so the HTTP surface does not yet reach either. Abstaining with an honest
+  reason code is correct fail-closed behaviour; it is simply not wired
 - complete: sample mass rebalanced away from the strata that cannot separate systems. The five
   verbatim-fragment topics carry 15 cases each; `TERMINOLOGY`, `CONFLICTING_EVIDENCE`, and
   `PARAPHRASED_INTENT` carry 60. On the rebalanced 430-case suite the deterministic control
@@ -270,7 +470,13 @@
   expansion boundary. On the sealed holdout the same fault would have consumed a one-time
   custody-controlled execution claim, because the ledger binds the candidate even when a run
   fails
-- next: freeze a complete candidate and run the untouched sealed holdout exactly once
+- deferred: freezing a candidate and opening the sealed holdout. Under the current
+  direction the holdout stays unspent, for three reasons: acceptance binds the release,
+  so any later corpus change voids it; the 0.6B candidate is the declared deployment
+  floor rather than the intended selection, and the 4B/8B artifacts are not yet acquired;
+  and the first-contact findings above indicate the corpus and chunking will change
+  before a candidate is worth freezing. The holdout is a one-shot resource and this is
+  not the moment to spend it
 
 Development-suite scores must be read against how the suite is built. Its queries are
 normalized source fragments, so most strata reward exact lexical overlap and BM25 alone reaches

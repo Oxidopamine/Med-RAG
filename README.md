@@ -4,6 +4,13 @@ Research-only clinical guideline evidence engine. The system is being built arou
 
 > Not authorized for patient care. Do not enter protected health information (PHI).
 
+## Current direction
+
+The MVP is **WHO SMART HIV only** — one validated release of 5,145 approved records,
+answered end to end. Corpus breadth is deferred until the product vertical works. See
+[docs/roadmap.md](docs/roadmap.md) for the reasoning, the priority order, and the
+first-contact findings that reframe the development-suite scores.
+
 ## Current slice
 
 The foundation and authenticated-ingestion slices establish:
@@ -35,9 +42,14 @@ The foundation and authenticated-ingestion slices establish:
   and controlling-authority gates plus signed structured reports;
 - a separate `corpus-steward` process entry point for build-side validation and
   reconciliation;
+- an official WHO guidelines catalogue connector with IRIS artifact resolution;
+- a serving retrieval path with an evidence-role completeness gate, separate from the
+  benchmark runner;
 - fail-closed abstention while no approved corpus is configured.
 
-The implementation deliberately does not generate medical answers yet.
+The HTTP question surface deliberately does not generate medical answers yet:
+`QuestionService` still abstains with `RETRIEVAL_PIPELINE_NOT_CONFIGURED`. Retrieval and
+grounded answer composition are reachable today only through `scripts/ask.py`.
 
 ## Run locally
 
@@ -124,6 +136,44 @@ The benchmark command executes sealed sparse/dense/hybrid ablations and returns 
 status 8 when the declared candidate misses an acceptance gate. Activation also requires
 a matching, signed, unexpired sealed-holdout acceptance record. See
 [docs/corpus-steward.md](docs/corpus-steward.md) for the complete sequence.
+
+## Ask one question end to end
+
+`scripts/ask.py` drives the serving path — retrieval, the evidence-role completeness
+gate, and grounded answer composition — against a validated release **without activating
+it**. Activation is a separate signed gate requiring a sealed-holdout acceptance record,
+and opening the holdout to look at an answer would spend a one-time custody-controlled
+claim.
+
+```powershell
+.\.venv\Scripts\python scripts\ask.py `
+  --question "How often should viral load be monitored during ART?" `
+  --bundle data\local\validated-who-smart-hiv-release.json `
+  --vectors data\local\benchmark-source-derived\qwen3-0.6b-release-vectors.json `
+  --collection corpus_cr_<release>--vp-<profile> `
+  --embedding-backend verified-local `
+  --dense-model-root models\local\qwen3-embedding-0.6b `
+  --dense-model-manifest data\local\model-manifests\qwen3-embedding-0.6b-cpu-float32.json `
+  --dense-artifact-sha256 <digest> `
+  --sparse-model-root models\artifacts\qdrant-bm25-unicode-v1 `
+  --sparse-model-manifest data\local\model-manifests\qdrant-bm25-who-smart-hiv-v1.json `
+  --sparse-artifact-sha256 <digest>
+```
+
+Retrieval runs with no generation credentials. Add `--generate` to compose an answer,
+which additionally needs `MEDRAG_VERTEX_PROJECT_ID` and application-default credentials
+(`gcloud auth application-default login`). An incomplete evidence-role set abstains
+before any model call.
+
+Read the retrieved passages, not just the metrics. The development-suite score measures
+near-duplicate lookup over normalized source fragments; real clinical questions behave
+differently, and [docs/roadmap.md](docs/roadmap.md) records what first contact showed.
+
+Passages print as the presentation view, not as `content_exact`: spreadsheet rows are
+rendered under the publisher's own column labels, verbatim copies are suppressed before
+top-k, and each passage names its form. `role claims not counted` means a passage
+declared `PRIMARY_SUPPORT` that its form cannot carry — a data-dictionary entry, a table
+header, a section title — which is the corpus's role labelling, not the question's fault.
 
 In a second terminal:
 
