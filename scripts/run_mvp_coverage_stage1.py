@@ -195,6 +195,25 @@ def digest_of(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def _load_ask_module():
+    """Load `scripts/ask.py` by path, since `scripts/` is not an importable package.
+
+    Registered in `sys.modules` before execution because module-level decorators resolve
+    their own module through it, and a spec loaded by path alone leaves that entry unset.
+    """
+
+    import importlib.util
+
+    path = Path(__file__).resolve().parent / "ask.py"
+    spec = importlib.util.spec_from_file_location("medrag_ask_entrypoint", path)
+    if spec is None or spec.loader is None:  # pragma: no cover - unreachable in-tree
+        raise SystemExit(f"could not load {path}")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
 @dataclass(frozen=True)
 class QuestionItem:
     question_id: str
@@ -432,19 +451,44 @@ async def main() -> int:
         )
 
     composer: GroundedAnswerComposer | None = None
+    generation_binding: dict[str, Any] | None = None
     if arguments.generate:
-        # Imported here rather than at module scope so a retrieval-only run needs none of
-        # the generation extras installed.
-        from scripts.ask import gemini_parameters, vertex_parameters  # type: ignore
+        # Loaded here rather than at module scope so a retrieval-only run needs none of
+        # the generation extras installed, and loaded *by path* because `scripts/` is a
+        # directory of entry points rather than a package - there is no `scripts.ask` to
+        # import. Reusing ask.py's readers rather than re-reading the environment keeps
+        # one definition of what MEDRAG_VERTEX_* mean, including their error messages.
+        ask = _load_ask_module()
+        gemini_parameters = ask.gemini_parameters
+        vertex_parameters = ask.vertex_parameters
 
+        # Recorded, not just used. `generation_provider` alone says "gemini" or "claude",
+        # which does not identify what produced the number: model IDs move, and one of
+        # them (`gemini-flash-latest`) is an alias that moves by design. Every other
+        # artifact in this repo pins model identity; a coverage measurement that does not
+        # is uncomparable to its own re-run.
         if arguments.generation_provider == "gemini":
             from app.reasoning.gemini_adapters import GeminiGenerationAdapter
 
-            composer = GroundedAnswerComposer(GeminiGenerationAdapter(gemini_parameters()))
+            gemini = gemini_parameters()
+            composer = GroundedAnswerComposer(GeminiGenerationAdapter(gemini))
+            generation_binding = {
+                "model_id": gemini.model_id,
+                "max_output_tokens": gemini.max_output_tokens,
+                "thinking_budget": gemini.thinking_budget,
+                "gcp_region": gemini.gcp_region,
+            }
         else:
             from app.reasoning.generation_adapters import AnthropicGenerationAdapter
 
-            composer = GroundedAnswerComposer(AnthropicGenerationAdapter(vertex_parameters()))
+            vertex = vertex_parameters()
+            composer = GroundedAnswerComposer(AnthropicGenerationAdapter(vertex))
+            generation_binding = {
+                "model_id": vertex.qualified_model_id(),
+                "max_tokens": vertex.max_tokens,
+                "effort": vertex.effort.value,
+                "gcp_region": vertex.gcp_region,
+            }
 
     records: list[dict[str, Any]] = []
     started = time.perf_counter()
@@ -489,10 +533,24 @@ async def main() -> int:
 
         # Written after every question rather than once at the end: the run takes minutes
         # and a crash at question 40 should not discard the first 39.
-        write_output(arguments, document, records, registered=registered, elapsed=None)
+        write_output(
+            arguments,
+            document,
+            records,
+            registered=registered,
+            elapsed=None,
+            generation_binding=generation_binding,
+        )
 
     elapsed = time.perf_counter() - started
-    summary = write_output(arguments, document, records, registered=registered, elapsed=elapsed)
+    summary = write_output(
+        arguments,
+        document,
+        records,
+        registered=registered,
+        elapsed=elapsed,
+        generation_binding=generation_binding,
+    )
 
     print()
     print("=" * 72)
@@ -518,6 +576,7 @@ def write_output(
     *,
     registered: bool,
     elapsed: float | None,
+    generation_binding: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     summary = summarize(records)
     payload = {
@@ -529,6 +588,7 @@ def write_output(
         "registered": registered,
         "generation_ran": bool(arguments.generate),
         "generation_provider": arguments.generation_provider if arguments.generate else None,
+        "generation_binding": generation_binding,
         "question_set": {
             "set_id": document.get("set_id"),
             "path": str(arguments.questions),

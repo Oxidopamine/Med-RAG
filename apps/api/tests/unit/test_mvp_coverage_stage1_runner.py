@@ -244,6 +244,30 @@ class TestSummary:
         assert summary["gate_passed"] == 1
 
 
+class TestGenerationWiring:
+    """The --generate path is reached only at runtime, so nothing else type-checks it.
+
+    Regression test: the first version imported `scripts.ask`, which cannot resolve
+    because `scripts/` is a directory of entry points and not a package. The failure
+    surfaced only when a real run reached the composer, after the embedding model had
+    already loaded.
+    """
+
+    def test_the_ask_entrypoint_loads_by_path(self):
+        module = runner._load_ask_module()
+        assert callable(module.gemini_parameters)
+        assert callable(module.vertex_parameters)
+
+    def test_the_parameter_readers_refuse_an_unset_project(self, monkeypatch):
+        """An unset project is a configuration error rather than a default to guess at."""
+
+        module = runner._load_ask_module()
+        monkeypatch.delenv("MEDRAG_VERTEX_PROJECT_ID", raising=False)
+        for read in (module.gemini_parameters, module.vertex_parameters):
+            with pytest.raises(SystemExit, match="MEDRAG_VERTEX_PROJECT_ID"):
+                read()
+
+
 class TestRegistrationStamp:
     """A run of an unreviewed set must be distinguishable from the measurement itself."""
 

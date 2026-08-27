@@ -1,8 +1,9 @@
 # Rendering licence decision
 
-Status: **OPEN — requires a decision by the project owner**
+Status: **DECIDED 2026-08-27 — branch A, with C to be filed in parallel**
 Raised: 2026-08-27
-Blocks: priority item 5 (evidence cards and exact highlighting)
+Was blocking: priority item 5 (evidence cards and exact highlighting); unblocked for
+locators and excerpts, still blocked for page images pending the branch-C request
 
 The roadmap records this as "CC BY-NC-SA 3.0 IGO plausibly permits attributed
 non-commercial display, but this is a decision to be made and recorded, not a code
@@ -117,13 +118,30 @@ definition as such rather than silently satisfied.
 ## Decision
 
 ```
-Branch chosen:      ____________________
-Decided by:         ____________________
-Date:               ____________________
+Branch chosen:      A now, C in parallel
+Decided by:         Oxidopamine (project owner)
+Date:               2026-08-27
 Conditional on:     research-only, non-commercial framing
 Revisit if:         the product takes on any commercial character
-WHO permission ref: ____________________  (branch C only)
+WHO permission ref: ____________________  (branch C, request not yet filed)
 ```
+
+**Status: decided.** Locators (item 1) and passage excerpts (item 2) are served with full
+attribution. Page images (item 3) stay behind `render_allowed: false` until WHO answers
+the branch-C permissions request, which has not yet been filed — that reference stays
+blank until it is, and a blank reference is not an argument for rendering pages anyway.
+
+Two consequences, recorded here so neither is discovered later:
+
+- **MVP done-item 3 is narrower than it reads.** "Every rendered claim resolves to a
+  passage a reader can locate" now means locatable by address and quotable by excerpt,
+  not visible as a page. This is written into
+  [mvp-definition.md](mvp-definition.md) rather than silently satisfied.
+- **This is a policy input, not a licence-wide switch.** `render_allowed` is a
+  conjunction — `evidence.render_allowed and source.license_render_allowed` in
+  `corpus/releases.py` — so branch A is applied by setting the source-level licence
+  policy for WHO assets, and the per-evidence flag continues to govern independently.
+  Nothing about the anchor chain, the evidence digest, or anchor replay changes.
 
 Once taken, this decision sets `render_allowed` policy per asset in the materialization
 layer. It is a policy input, not a code change to the anchor chain — the locator, the

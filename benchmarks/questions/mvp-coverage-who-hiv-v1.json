@@ -19,7 +19,7 @@
     "n_usable": 49
   },
   "question_construction": "Ely generic clinical question forms; see ely-generic-question-types.md",
-  "review_status": "DRAFT - model-authored, not reviewed by the project owner",
+  "review_status": "REVIEWED - all 49 usable questions accepted as drafted by the project owner, 2026-08-27. No question text was rewritten.",
   "items": [
     {
       "question_id": "MVPQ-C2-003",

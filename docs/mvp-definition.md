@@ -1,6 +1,8 @@
 # MVP definition and the coverage measurement
 
-Status: decided; measurement not yet run
+Status: decided; stage 1 run 2026-08-27 on the Gemini lane — p_answered 0.4286,
+Wilson 95% [0.300, 0.567], which the pre-registered rule sends to stage 2. Buckets
+not yet classified.
 Authored: 2026-08-27
 Scope: what "done" means for the WHO SMART HIV MVP, and the one measurement that decides
 whether this corpus can carry a product at all
@@ -26,6 +28,15 @@ The MVP is complete when, against a question set the corpus did not author:
    it withholds an answer, because it sends a reader to the wrong next step.
 3. **every rendered claim resolves to a passage a reader can locate.** The anchor chain
    terminates in a picture, under whatever the licence decision permits.
+
+   **Narrowed 2026-08-27 by the licence decision.** Branch A was taken
+   ([rendering-licence.md](rendering-licence.md)): locators and passage excerpts are
+   served with attribution, page images stay behind `render_allowed: false` pending a
+   WHO permissions request that has not yet been filed. So for this MVP the criterion
+   reads *locatable by address and quotable by excerpt*, and the anchor chain does
+   **not** terminate in a picture. That is a narrower claim than the sentence above and
+   is recorded here rather than silently satisfied. It reverts to the full criterion if
+   and when WHO grants the branch-C permission.
 4. **answerable coverage is known, stated with its uncertainty, and above the floor
    fixed below.**
 
@@ -281,16 +292,84 @@ that reads like it was written by someone who had already read the recommendatio
 `review_status` to `REVIEWED` before running stage 1; a coverage number measured on unreviewed
 questions inherits whatever bias the drafting introduced.
 
+## Stage 1 result, run 2026-08-27
+
+Run by [scripts/run_mvp_coverage_stage1.py](../scripts/run_mvp_coverage_stage1.py)
+against the reviewed set at n = 49, on the WHO SMART HIV release
+`CR_b6155a25415b25f3ba787b3b036da10d`, Qwen3-0.6B dense plus BM25 sparse, top-k 10, no
+query expansion. Raw record: `data/local/mvp-coverage-stage1-run.json` (untracked).
+
+**`p_answered` = 21/49 = 0.4286, Wilson 95% [0.300, 0.567]. The rule sends this to
+stage 2** — the interval is neither entirely below 0.25 nor entirely above 0.50, which
+is the outcome the two-stage design was built to handle rather than a failure of it.
+
+Where the 28 non-answers came from:
+
+| outcome | n |
+|---|---:|
+| answered, at least one claim rendered | 21 |
+| `MODEL_DECLARED_INSUFFICIENT` — gate passed, model judged the passages insufficient | 21 |
+| `INCOMPLETE_EVIDENCE_ROLE_SET` — blocked at the gate, no model call | 5 |
+| `NO_CLAIM_SURVIVED_GROUNDING` — claims composed, none survived verification | 2 |
+
+**The gate is not what withholds answers; grounding is.** 44 of 49 cleared the role
+gate and 21 of those were then refused downstream. That is the division
+`retrieval_service` predicts in its own comment — `is_answerable` tests role
+completeness rather than topical relevance, and "a claim citing an off-topic passage is
+discarded whole at grounding". The architecture behaved as designed. It also means a
+retrieval-only run cannot approximate this number: the gate-pass rate was 0.898, which
+is an upper bound so loose it excludes nothing.
+
+### The shape, which is the load-bearing part
+
+The pre-registered expectation was that chapter 6 would account for most of a low
+result. It does, and chapter 5 is worse.
+
+| chapter | answered | share |
+|---|---:|---:|
+| 2 HIV testing and diagnosis | 7/7 | 100% |
+| 7 Service delivery | 3/3 | 100% |
+| 4 ART for people living with HIV | 3/6 | 50% |
+| 3 HIV prevention | 1/3 | 33% |
+| 6 Coinfections and comorbidities | 7/24 | 29% |
+| 5 Advanced HIV disease | 0/6 | 0% |
+
+This is the predicted pattern and it is sharper than predicted. The DAK's business
+processes — testing, PrEP, care and treatment visits, PMTCT, infant diagnosis,
+diagnostics, referral, reporting — are answered at or near ceiling. Everything the DAK
+does not operationalize falls away, and advanced HIV disease is answered **zero times in
+six**. Read this as *this corpus operationalizes a narrow slice of its parent*, which is
+the reading the definition pre-registered, not as a defect in retrieval.
+
+### What this result does not yet establish
+
+Three limits, none of which the number above can be read past.
+
+- **No question has been classified.** `p_answered` as defined counts
+  `ANSWERED_CORRECT`, `ANSWERED_DEFECTIVE` and `ANSWERED_WRONG` together, and every
+  `bucket` in the run file is null. The 0.4286 is "the system rendered claims", not "the
+  system answered correctly". **`ANSWERED_WRONG` is the stop-the-MVP bucket and requires
+  reading all 21.** The 5.9% residual bound at n = 49 applies only if that reading finds
+  zero.
+- **The 28 abstentions are unsplit.** Whether this is a corpus ceiling or a retrieval
+  defect depends entirely on the `ABSTAINED_CORRECT` / `ABSTAINED_AVOIDABLE` division,
+  and that division is also the input to priority item 4.
+- **This is the Gemini comparator, not the sealed candidate.** The `anthropic-*` Vertex
+  quota is still ungranted, so the production Claude lane has not run this set. Every
+  grounding and abstention rule is shared, but the number belongs to the lane that
+  produced it and must be re-measured on Claude before it is quoted as the product's.
+
 ## Corrected priority order
 
 Replaces the six-item list in the roadmap. Changes are marked.
 
-1. **One live generation call against Vertex.** `MEDRAG_VERTEX_PROJECT_ID` plus
-   application-default credentials, then `scripts/ask.py --generate`. *Narrowed:* this
-   de-risks the plumbing — the SDK on Vertex, the cache breakpoint on the frozen
-   instruction block, a refusal becoming an abstention, the citation-discard path firing
-   on real output. What it shows about answer *quality* is provisional, because the
-   passages feeding it come from a corpus expected to change.
+1. ~~**One live generation call against Vertex.**~~ **Done 2026-08-27, on the Gemini
+   lane.** The plumbing is de-risked: the SDK reaches Vertex, grounded composition
+   returns cited claims, the verification path reports rendered/supported/withheld, and
+   49 questions ran end to end without a plumbing failure. *Still open:* the Claude lane
+   has never made a live call, because the `anthropic-*` base-model quota on the Vertex
+   project is unset and returns 429. That is a quota grant, not a code defect, and it is
+   the one thing standing between this result and a measurement on the sealed candidate.
 2. **Build the question set** from the parent guidelines, as above. *Moved ahead of the
    reading.* The earlier ordering — read first, author later — is right when authoring is
    expensive and reading is cheap. Extraction from published recommendation statements is
