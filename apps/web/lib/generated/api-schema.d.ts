@@ -212,8 +212,23 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
-        /** AbstentionDetail */
+        /**
+         * AbstentionDetail
+         * @description Why no claim was rendered, in terms a reader can act on.
+         *
+         *     ``closest_evidence_ids`` names what came closest; ``closest_evidence`` carries the
+         *     canonical record for each one where it could be resolved. The two are separate because
+         *     they can legitimately diverge: an abstention raised *because* detail was unavailable
+         *     knows the identifiers and by definition cannot resolve them, and a reader is still
+         *     better served by the identifiers than by silence.
+         *
+         *     Nothing here passed a claim gate. The detail exists so a reader can open a near miss
+         *     and judge whether the corpus is thin or the question was wrong - not so it can be read
+         *     as support.
+         */
         AbstentionDetail: {
+            /** Closest Evidence */
+            closest_evidence?: components["schemas"]["EvidenceDetail"][];
             /** Closest Evidence Ids */
             closest_evidence_ids?: string[];
             /** Message */
@@ -244,17 +259,16 @@ export interface components {
         };
         /** ActiveCorpusRelease */
         ActiveCorpusRelease: {
-            /**
-             * Activated At
-             * Format: date-time
-             */
-            activated_at: string;
+            /** Activated At */
+            activated_at?: string | null;
             /** Corpus Release Id */
             corpus_release_id: string;
             /** Manifest Sha256 */
             manifest_sha256: string;
             /** Qdrant Collection */
             qdrant_collection: string;
+            /** @default ACTIVATED */
+            serving_mode: components["schemas"]["ReleaseServingMode"];
         };
         /** ArtifactRecord */
         ArtifactRecord: {
@@ -290,7 +304,15 @@ export interface components {
             /** Storage Key */
             storage_key: string;
         };
-        /** ClinicalContext */
+        /**
+         * ClinicalContext
+         * @description What the system believes about the patient, and how it came to believe it.
+         *
+         *     ``inferred_fields`` names the fields the extractor *derived* rather than read from the
+         *     question. A stated age and an inferred one are not the same claim, and rendering both
+         *     in identical type asks a reader to audit everything or nothing. Measurements carry
+         *     their own ``provenance`` and are not listed here unless the whole list was derived.
+         */
         ClinicalContext: {
             /** Age */
             age?: number | null;
@@ -298,6 +320,8 @@ export interface components {
             care_setting?: string | null;
             /** Conditions */
             conditions?: string[];
+            /** Inferred Fields */
+            inferred_fields?: string[];
             /** Jurisdiction */
             jurisdiction?: string | null;
             /** Known Absent Conditions */
@@ -554,6 +578,23 @@ export interface components {
          * @enum {string}
          */
         QuestionStatus: "QUEUED" | "CONTEXT_EXTRACTED" | "RETRIEVING" | "RERANKING" | "SEARCHING_COUNTER_EVIDENCE" | "CHECKING_EVIDENCE_COMPLETENESS" | "VERIFYING" | "ANSWER_READY" | "ABSTAINED" | "FAILED";
+        /**
+         * ReleaseServingMode
+         * @description How a release being served earned the right to be served.
+         *
+         *     `ACTIVATED` is the governed path: a signed activation decision backed by a sealed
+         *     holdout acceptance, recorded in the singleton active-release pointer.
+         *
+         *     `RESEARCH_UNACTIVATED` is a validated release served without one. It exists so the
+         *     serving path can be exercised by a person before activation is reachable, and it is
+         *     named in the payload rather than inferred, because the presence of a release is
+         *     otherwise indistinguishable from clinical acceptance to any client. A client that
+         *     does not understand this field must not treat a release as accepted; that is why the
+         *     field is required reading for the provenance surface and why `activated_at` is null
+         *     here rather than carrying a plausible-looking timestamp.
+         * @enum {string}
+         */
+        ReleaseServingMode: "ACTIVATED" | "RESEARCH_UNACTIVATED";
         /** RenderedClaim */
         RenderedClaim: {
             /** Claim Id */

@@ -167,6 +167,12 @@ which additionally needs `MEDRAG_VERTEX_PROJECT_ID` and application-default cred
 (`gcloud auth application-default login`). An incomplete evidence-role set abstains
 before any model call.
 
+`--generation-provider gemini` swaps the Claude lane for a Gemini comparator on the same
+Vertex project (extra: `generation-gemini`). It exists because the `anthropic-*` base
+models need a Vertex quota grant that a new project does not have; every grounding and
+abstention rule is identical across the two, and only the Claude lane is a sealed
+candidate.
+
 Read the retrieved passages, not just the metrics. The development-suite score measures
 near-duplicate lookup over normalized source fragments; real clinical questions behave
 differently, and [docs/roadmap.md](docs/roadmap.md) records what first contact showed.
@@ -176,6 +182,28 @@ rendered under the publisher's own column labels, verbatim copies are suppressed
 top-k, and each passage names its form. `role claims not counted` means a passage
 declared `PRIMARY_SUPPORT` that its form cannot carry — a data-dictionary entry, a table
 header, a section title — which is the corpus's role labelling, not the question's fault.
+
+## Serving the workspace against a real release
+
+By default the HTTP surface abstains with `RETRIEVAL_PIPELINE_NOT_CONFIGURED`: the API
+runs with no serving path, which is an accurate description of that deployment rather
+than a defect. Setting `SERVING_ENABLED=true` plus the `SERVING_*` block in
+`.env.example` wires retrieval and grounded composition into the API, so the Next.js
+workspace answers questions instead of abstaining.
+
+**This does not activate the release.** Activation is a signed gate requiring a
+sealed-holdout acceptance record, and opening that holdout to look at an answer would
+spend a one-time custody-controlled claim. Research serving leaves the singleton pointer
+empty and serves a `VALIDATED` release directly, so every answer carries
+`serving_mode: RESEARCH_UNACTIVATED` and a null `activated_at`. The workspace renders
+that as **"Research serving - not clinically accepted"** with no activation date, rather
+than the shield and "Approved corpus release" an activated release earns. Per-record
+guarantees are unchanged: approval status, digest agreement, servable lifecycle, and the
+licence conjunction behind `render_allowed` all run the same code either way.
+
+Serving loads the embedding model in-process - roughly 5.4 GiB resident and about 680 ms
+per query encode for Qwen3-0.6B on CPU/fp32 - so startup is slow and the first question
+is not the one to time.
 
 In a second terminal:
 

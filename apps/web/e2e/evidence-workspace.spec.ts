@@ -62,6 +62,7 @@ const verifiedResult = {
     manifest_sha256: "a".repeat(64),
     qdrant_collection: "guidelines_2026_08",
     activated_at: "2026-08-24T08:00:00+00:00",
+    serving_mode: "ACTIVATED" as const,
   },
   interpreted_context: context,
   claims: [

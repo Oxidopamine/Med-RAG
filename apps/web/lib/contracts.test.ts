@@ -22,6 +22,7 @@ const validContext: ClinicalContext = {
   jurisdiction: null,
   question_type: "treatment_guideline",
   topic: "anticoagulation",
+  inferred_fields: [],
 };
 
 const validResult: QuestionResult = {
@@ -44,6 +45,7 @@ const validResult: QuestionResult = {
     message: "No approved guideline corpus is configured.",
     missing_evidence_roles: ["CURRENT_PRIMARY_GUIDELINE"],
     closest_evidence_ids: [],
+    closest_evidence: [],
   },
   created_at: "2026-08-25T10:00:00+00:00",
   updated_at: "2026-08-25T10:00:01+00:00",
@@ -57,6 +59,7 @@ const validAnswerReadyResult: QuestionResult = {
     manifest_sha256: "a".repeat(64),
     qdrant_collection: "guidelines-release-2026-08",
     activated_at: "2026-08-25T09:00:00+00:00",
+    serving_mode: "ACTIVATED" as const,
   },
   claims: [
     {

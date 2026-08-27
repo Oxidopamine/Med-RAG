@@ -387,12 +387,14 @@ Replaces the six-item list in the roadmap. Changes are marked.
    uncommitted; see below.
 6. **Corpus breadth via narrative materialization** — or promoted to blocking by step 3.
 
-*Removed from the near-term list:* wiring `ReleaseServingPipeline` into `main.py`. Nothing
-in steps 1-4 needs it; `scripts/ask.py` covers all of them. It matters when this goes in
-front of a person, and it is not free — serving means the embedding model in-process, at
-5.38 GiB peak RSS and roughly 680 ms per query encode for Qwen3-0.6B on CPU/fp32, before
-retrieval. Do it when there is someone to show, behind a mode that names itself as not
-clinically accepted.
+*Removed from the near-term list, then done 2026-08-27:* wiring `ReleaseServingPipeline`
+into `main.py`. The condition this was deferred under — "do it when there is someone to
+show" — was met, so it is wired behind `SERVING_ENABLED`, off by default, serving a
+validated release without activating it and labelling every answer
+`RESEARCH_UNACTIVATED`. The costs are as predicted: the embedding model loads in-process
+at roughly 5.4 GiB resident. Verified end to end through the HTTP API on all three
+outcomes — a six-claim answer, a model refusal, and a gate block — matching what stage 1
+produced for the same questions through `scripts/ask.py`.
 
 ## Two decisions that cost nothing and are being deferred anyway
 

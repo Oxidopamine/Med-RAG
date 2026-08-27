@@ -540,8 +540,41 @@ class CorpusReleaseRecord(CanonicalModel):
     activated_by: str | None = None
 
 
+class ReleaseServingMode(str, Enum):
+    """How a release being served earned the right to be served.
+
+    `ACTIVATED` is the governed path: a signed activation decision backed by a sealed
+    holdout acceptance, recorded in the singleton active-release pointer.
+
+    `RESEARCH_UNACTIVATED` is a validated release served without one. It exists so the
+    serving path can be exercised by a person before activation is reachable, and it is
+    named in the payload rather than inferred, because the presence of a release is
+    otherwise indistinguishable from clinical acceptance to any client. A client that
+    does not understand this field must not treat a release as accepted; that is why the
+    field is required reading for the provenance surface and why `activated_at` is null
+    here rather than carrying a plausible-looking timestamp.
+    """
+
+    ACTIVATED = "ACTIVATED"
+    RESEARCH_UNACTIVATED = "RESEARCH_UNACTIVATED"
+
+
 class ActiveCorpusRelease(CanonicalModel):
     corpus_release_id: str
     manifest_sha256: str = Field(pattern=SHA256_PATTERN)
     qdrant_collection: str
-    activated_at: datetime
+    # Null exactly when `serving_mode` is RESEARCH_UNACTIVATED: an unactivated release
+    # has no activation instant, and inventing one would be the single most misleading
+    # value this payload could carry.
+    activated_at: datetime | None = None
+    serving_mode: ReleaseServingMode = ReleaseServingMode.ACTIVATED
+
+    @model_validator(mode="after")
+    def activation_instant_matches_mode(self) -> ActiveCorpusRelease:
+        if self.serving_mode is ReleaseServingMode.ACTIVATED and self.activated_at is None:
+            raise ValueError("an ACTIVATED release must carry activated_at")
+        if self.serving_mode is ReleaseServingMode.RESEARCH_UNACTIVATED and (
+            self.activated_at is not None
+        ):
+            raise ValueError("a RESEARCH_UNACTIVATED release must not carry activated_at")
+        return self

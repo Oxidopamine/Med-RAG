@@ -27,6 +27,7 @@ const CORPUS_RELEASE = {
   manifest_sha256: "b".repeat(64),
   qdrant_collection: "who_ncd_2026_08",
   activated_at: "2026-08-24T08:00:00+00:00",
+  serving_mode: "ACTIVATED" as const,
 };
 
 const INTERPRETED_CONTEXT = {
@@ -48,6 +49,8 @@ const INTERPRETED_CONTEXT = {
   jurisdiction: null,
   question_type: "treatment_guideline",
   topic: "hypertension",
+  // Care setting was not stated in the question; the extractor concluded it.
+  inferred_fields: ["care_setting", "topic"],
 };
 
 /**
@@ -356,6 +359,7 @@ export function abstainedResult(
       message: "No verified answer was produced for this question.",
       missing_evidence_roles: [],
       closest_evidence_ids: [],
+      closest_evidence: [],
       ...abstention,
     },
     created_at: "2026-08-25T10:00:00+00:00",

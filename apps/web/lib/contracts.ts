@@ -52,6 +52,10 @@ export const clinicalContextSchema: z.ZodType<ClinicalContext> = z
     jurisdiction: z.string().nullable(),
     question_type: z.string().nullable(),
     topic: z.string().nullable(),
+    // Which fields the extractor derived rather than read. Defaulted for payloads that
+    // predate it: an unmarked field reads as stated, which is the safe direction only
+    // because the panel's job is to draw the eye to guesses, not to certify the rest.
+    inferred_fields: uniqueStrings.default([]),
   })
   .superRefine((context, issue) => {
     const presentConditions = new Set(context.conditions);
@@ -214,19 +218,62 @@ const verificationSummarySchema = z.strictObject({
   withheld_claims: z.number().int().nonnegative(),
 });
 
-const abstentionSchema = z.strictObject({
-  reason_code: z.string().trim().min(1),
-  message: z.string().trim().min(1),
-  missing_evidence_roles: uniqueStrings,
-  closest_evidence_ids: uniqueStrings,
-});
+const abstentionSchema = z
+  .strictObject({
+    reason_code: z.string().trim().min(1),
+    message: z.string().trim().min(1),
+    missing_evidence_roles: uniqueStrings,
+    closest_evidence_ids: uniqueStrings,
+    // Optional so a payload from an API that predates near-miss detail still parses; the
+    // identifiers alone remain a usable answer to "what came closest".
+    closest_evidence: z.array(evidenceDetailSchema).max(20).default([]),
+  })
+  .superRefine((abstention, issue) => {
+    // Detail may be absent - resolution is best effort - but detail for a passage the
+    // abstention never named would be a passage arriving through the back door, on the
+    // one result type that is defined by having rendered nothing.
+    const named = new Set(abstention.closest_evidence_ids);
+    for (const detail of abstention.closest_evidence) {
+      if (!named.has(detail.evidence_id)) {
+        issue.addIssue({
+          code: "custom",
+          message: `${detail.evidence_id} is not named in closest_evidence_ids`,
+          path: ["closest_evidence"],
+        });
+      }
+    }
+    const resolved = abstention.closest_evidence.map((detail) => detail.evidence_id);
+    if (new Set(resolved).size !== resolved.length) {
+      issue.addIssue({
+        code: "custom",
+        message: "closest evidence detail must not repeat an evidence ID",
+        path: ["closest_evidence"],
+      });
+    }
+  });
 
-const activeCorpusReleaseSchema = z.strictObject({
-  corpus_release_id: z.string().trim().min(1),
-  manifest_sha256: z.string().regex(/^[a-f0-9]{64}$/),
-  qdrant_collection: z.string().trim().min(1),
-  activated_at: z.string().datetime({ offset: true }),
-});
+const activeCorpusReleaseSchema = z
+  .strictObject({
+    corpus_release_id: z.string().trim().min(1),
+    manifest_sha256: z.string().regex(/^[a-f0-9]{64}$/),
+    qdrant_collection: z.string().trim().min(1),
+    activated_at: z.string().datetime({ offset: true }).nullable(),
+    // Defaulted so a payload from an older API still parses; the default is the
+    // governed value, which is the safe direction only because the API cannot serve a
+    // research release without saying so explicitly.
+    serving_mode: z.enum(["ACTIVATED", "RESEARCH_UNACTIVATED"]).default("ACTIVATED"),
+  })
+  // The cross-field invariant the API enforces, restated rather than trusted. A release
+  // claiming activation without an instant, or carrying one while calling itself
+  // unactivated, is a payload this interface must not render: both would let the
+  // provenance strip assert a governance state that does not exist.
+  .refine(
+    (release) =>
+      release.serving_mode === "ACTIVATED"
+        ? release.activated_at !== null
+        : release.activated_at === null,
+    { message: "activated_at must be present exactly when serving_mode is ACTIVATED" },
+  );
 
 export const questionResultSchema: z.ZodType<QuestionResult> = z
   .strictObject({

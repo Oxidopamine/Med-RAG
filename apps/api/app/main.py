@@ -14,6 +14,22 @@ from app.ingestion.service import IngestionService
 from app.ingestion.storage import ImmutablePDFStore
 from app.persistence.database import Database
 from app.reasoning.question_service import QuestionService
+from app.reasoning.serving_bootstrap import build_serving_runtime
+
+
+class _ResearchEvidenceDetails:
+    """Adapts the release repository to the provider shape, on the research route.
+
+    A named class rather than a lambda so the call site says which of the two resolvers
+    is in use, and so nothing can pass the repository itself by accident and get silent
+    empty results.
+    """
+
+    def __init__(self, releases: SQLCorpusReleaseRepository) -> None:
+        self._releases = releases
+
+    async def evidence_details(self, corpus_release_id, evidence_ids):
+        return await self._releases.research_evidence_details(corpus_release_id, evidence_ids)
 
 
 @asynccontextmanager
@@ -21,8 +37,23 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     settings = get_settings()
     database = Database(settings.database_url)
     corpus_releases = SQLCorpusReleaseRepository(database)
+    # Research serving is off unless asked for, and asking for it does not activate
+    # anything: the governed pointer is untouched and the release this serves is stamped
+    # RESEARCH_UNACTIVATED all the way to the client. When it is off, the release
+    # provider stays the governed one, which returns None until a signed activation
+    # exists, and the service abstains with RETRIEVAL_PIPELINE_NOT_CONFIGURED.
+    serving = build_serving_runtime(
+        settings,
+        # The research resolver, not the activated one: an unactivated release has no
+        # pointer, and the governed `evidence_details` correctly returns nothing for it.
+        # Every per-record guarantee is identical; only the pointer check differs.
+        evidence_details_provider=_ResearchEvidenceDetails(corpus_releases),
+    )
     service = QuestionService(
-        active_release_provider=corpus_releases.active_release,
+        active_release_provider=(
+            serving.active_release if serving is not None else corpus_releases.active_release
+        ),
+        pipeline=serving.pipeline if serving is not None else None,
     )
     ingestion_service = IngestionService(
         registry=SQLSourceRegistry(database),

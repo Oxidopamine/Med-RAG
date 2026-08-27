@@ -704,20 +704,64 @@ class SQLCorpusReleaseRepository:
         abstain if any required detail is absent.
         """
 
+        return await self._evidence_details(
+            corpus_release_id, evidence_ids, require_activation=True
+        )
+
+    async def research_evidence_details(
+        self,
+        corpus_release_id: str,
+        evidence_ids: Collection[str],
+    ) -> list[EvidenceDetail]:
+        """Resolve evidence for a release being served for research, without activation.
+
+        **This is the only check that is relaxed, and it is relaxed in exactly one
+        direction.** The release must still exist and must be `VALIDATED` or `ACTIVE`;
+        every per-record guarantee - approval status, digest agreement, publisher and
+        jurisdiction agreement, servable lifecycle, and the licence conjunction that
+        decides `render_allowed` - is the same code path the activated route uses. What
+        this skips is the singleton pointer, because a research deployment deliberately
+        has none, and only that.
+
+        Reached solely from `serving_bootstrap`, which stamps every release it serves
+        `RESEARCH_UNACTIVATED` so no client can mistake this for the governed route.
+        """
+
+        return await self._evidence_details(
+            corpus_release_id, evidence_ids, require_activation=False
+        )
+
+    async def _evidence_details(
+        self,
+        corpus_release_id: str,
+        evidence_ids: Collection[str],
+        *,
+        require_activation: bool,
+    ) -> list[EvidenceDetail]:
         requested_ids = sorted(set(evidence_ids))
         if not requested_ids or len(requested_ids) > MAX_EVIDENCE_DETAILS_PER_RESULT:
             return []
 
         async with self._database.session() as session:
-            pointer = await session.get(ActiveCorpusReleaseRow, 1)
             release = await session.get(CorpusReleaseRow, corpus_release_id)
-            if (
-                pointer is None
-                or release is None
-                or pointer.corpus_release_id != corpus_release_id
-                or pointer.manifest_sha256 != release.manifest_sha256
-                or release.state != ReleaseState.ACTIVE.value
+            if release is None:
+                return []
+            if require_activation:
+                pointer = await session.get(ActiveCorpusReleaseRow, 1)
+                if (
+                    pointer is None
+                    or pointer.corpus_release_id != corpus_release_id
+                    or pointer.manifest_sha256 != release.manifest_sha256
+                    or release.state != ReleaseState.ACTIVE.value
+                ):
+                    return []
+            elif release.state not in (
+                ReleaseState.VALIDATED.value,
+                ReleaseState.ACTIVE.value,
             ):
+                # A candidate, rejected, or superseded release is not servable by any
+                # route. Research serving lowers the activation bar, not the validation
+                # one.
                 return []
 
             rows = (

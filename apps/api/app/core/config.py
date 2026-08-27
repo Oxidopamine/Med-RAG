@@ -35,6 +35,35 @@ class Settings(BaseSettings):
     corpus_steward_signing_key_id: str | None = None
     corpus_steward_signer_identity: str | None = None
 
+    # Research serving path. Off by default, and off means the API keeps its fail-closed
+    # behaviour of abstaining with RETRIEVAL_PIPELINE_NOT_CONFIGURED. Enabling it serves
+    # a *validated* release without activating it - activation is a signed gate backed by
+    # a sealed holdout, and nothing here forges one. Every answer produced this way is
+    # labelled RESEARCH_UNACTIVATED in the payload.
+    #
+    # Serving costs what the roadmap says it costs: the embedding model is loaded
+    # in-process at startup, roughly 5.4 GiB resident for Qwen3-0.6B on CPU/fp32.
+    serving_enabled: bool = False
+    serving_release_bundle_path: Path | None = None
+    serving_vectors_path: Path | None = None
+    # Overrides the collection named in the release manifest. Required in practice
+    # because a release indexed under several vector profiles has one collection per
+    # profile (`<collection>--vp-<profile>`), and the manifest names only the first.
+    serving_qdrant_collection: str | None = None
+    serving_embedding_backend: str = "verified-local"
+    serving_dense_model_root: Path | None = None
+    serving_dense_model_manifest: Path | None = None
+    serving_dense_artifact_sha256: str | None = None
+    serving_sparse_model_root: Path | None = None
+    serving_sparse_model_manifest: Path | None = None
+    serving_sparse_artifact_sha256: str | None = None
+    serving_top_k: int = 10
+    serving_candidate_limit: int = 100
+    serving_rrf_k: int = 60
+    # "claude" is the intended production lane; "gemini" is the development comparator
+    # that exists while the anthropic-* Vertex quota is ungranted.
+    serving_generation_provider: str = "claude"
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
