@@ -211,6 +211,47 @@
   tuned comparator encodes this suite's own iteration history, so non-inferiority against
   it cannot detect the two systems overfitting together; an untuned lexical baseline can.
   The gate is implemented and unpopulated - it activates once that baseline is measured
+- complete: the naive floor is measured, and it changes the reading of the accepted
+  candidate. `who-smart-hiv-naive-bm25-floor-v1` is the accepted candidate with both
+  expansions disabled; its sparse mode is release BM25 on raw queries, which is the
+  untuned lexical baseline. On the exact 430-case v7 suite it scores 0.9608 answerable
+  complete-evidence (245/255, Wilson 95% [0.9293, 0.9786]), report
+  `9102f8ad07a36eaf2b10dad9e79b55977c4455cc56c99bce7240f8d9749945ad`
+- the accepted Qwen3-Embedding-0.6B/BM25 conflict-aware candidate scores 0.9647
+  (246/255). Against BM25 alone that is one case in 255, inside both confidence
+  intervals. The +0.137 margin the candidate was accepted on was measured against
+  `who-smart-hiv-deterministic-expanded-control-v3`, whose lanes are the
+  `baseline-hashing-dense` and `baseline-hashing-sparse` plumbing stubs, so the tuned
+  comparator is a synthetic control rather than a retrieval system and 0.8275 is not a
+  lexical baseline. This is the case the naive floor was built to catch
+- observed: query expansion does not change the single-lane ablations at all. The
+  expanded and unexpanded runs report byte-identical sparse (0.9608) and dense (0.6824)
+  summaries, so expansion acts only on the fused path. Its measured effect there is to
+  repair fusion rather than to add recall - unexpanded hybrid is 0.9137, below BM25
+  alone at 0.9608, because fusing a 0.6824 dense lane with a 0.9608 sparse lane loses
+  cases; expansion brings the fused score back to 0.9647. The mechanism is worth
+  confirming in code before this is relied on
+- decision needed: the naive margin. At `minimum_naive_comparator_margin` 0.0 the
+  candidate clears the floor by one case. At the 0.02 recorded below for the tuned
+  comparator it does not clear it at all, because 0.9608 + 0.02 exceeds 0.9647. The
+  policy ships the measurement with the margin left at its existing 0.0; raising it is a
+  decision about whether a one-case gain justifies a neural dense lane and its latency
+- known limit: the naive floor is populated for `development_acceptance` only. A
+  comparator floor is defensible because it was measured on the same case set, and this
+  one was measured on the development suite. Pinning it into `sealed_holdout_acceptance`
+  would compare holdout performance against a development-measured baseline; measuring
+  a naive floor on the holdout instead would consume that suite's one permitted
+  execution. The tuned comparator is already pinned into holdout acceptance from a
+  development measurement, which has the same defect and predates this work
+- discrepancy: this entry claims 0.02, and the sealed artifacts say 0.0.
+  `minimum_comparator_margin` is 0.0 in both acceptance blocks of
+  `automated-thresholds-v1` and in the v7 suite's embedded acceptance. The margin was
+  never applied, so the tuned floor currently permits an exact tie
+- discrepancy: `comparator_report_sha256` `d15276f6...` names a run against
+  `who-smart-hiv-source-derived-development-v6`, while the sealed suite is v7. The run
+  is in the execution ledger and its metrics are identical to the v7 re-run
+  (`460e6d68...`), because v7 is v6's cases re-sealed under contract 1.6 - but the pin
+  references a different suite digest than the one under test
 - complete: the non-inferiority margin is 0.02 rather than 0. Tying a deterministic
   control is not evidence that a neural stack earns a 10x latency cost
 - complete: sampling moved off uniform 25s onto measured headroom. The comparator scores
