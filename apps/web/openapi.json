@@ -1349,21 +1349,60 @@
         "properties": {
           "rendered_claims": {
             "default": 0,
+            "minimum": 0.0,
             "title": "Rendered Claims",
             "type": "integer"
           },
           "supported_claims": {
             "default": 0,
+            "minimum": 0.0,
             "title": "Supported Claims",
             "type": "integer"
           },
+          "withheld_by_validator": {
+            "items": {
+              "$ref": "#/components/schemas/WithheldClaimSummary"
+            },
+            "maxItems": 20,
+            "title": "Withheld By Validator",
+            "type": "array"
+          },
           "withheld_claims": {
             "default": 0,
+            "minimum": 0.0,
             "title": "Withheld Claims",
             "type": "integer"
           }
         },
         "title": "VerificationSummary",
+        "type": "object"
+      },
+      "WithheldClaimSummary": {
+        "additionalProperties": false,
+        "description": "How many proposed claims one validator withheld, and in which state.\n\nDeliberately carries no claim text. A withheld claim is unverified model output, and\nthe entire point of withholding it is that it must not reach a reader; putting it in\nthe response under a diagnostic name would hand it to exactly the audience the check\nprotects. Counts by validator are enough to tell a careful model from a broken\nvalidator, which is what this exists for.",
+        "properties": {
+          "count": {
+            "exclusiveMinimum": 0.0,
+            "title": "Count",
+            "type": "integer"
+          },
+          "status": {
+            "minLength": 1,
+            "title": "Status",
+            "type": "string"
+          },
+          "validator": {
+            "minLength": 1,
+            "title": "Validator",
+            "type": "string"
+          }
+        },
+        "required": [
+          "validator",
+          "status",
+          "count"
+        ],
+        "title": "WithheldClaimSummary",
         "type": "object"
       }
     },

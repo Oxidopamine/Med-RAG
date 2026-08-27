@@ -100,6 +100,12 @@ class ClaimVerification:
             if finding.status is not VerificationStatus.SUPPORTED
         )
 
+    @property
+    def failed_validators(self) -> tuple[ValidatorName, ...]:
+        """The distinct validators that withheld this claim, in the order they ran."""
+
+        return tuple(dict.fromkeys(finding.validator for finding in self.failures))
+
     def summary(self) -> str:
         """A single line naming why a claim was withheld, for operator diagnostics."""
 

@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { contextRows, humanizeConcept, STATUS_LABELS } from "./presentation";
+import {
+  contextRows,
+  humanizeConcept,
+  STATUS_LABELS,
+  withheldReasonLabel,
+} from "./presentation";
 
 describe("presentation helpers", () => {
   it("uses evidence-safe status language", () => {
@@ -75,5 +80,26 @@ describe("presentation helpers", () => {
     });
 
     expect(rows).toEqual([["Sex", "female"]]);
+  });
+
+  it("names which part of a claim failed rather than which module decided", () => {
+    expect(withheldReasonLabel({ validator: "UNIT", status: "UNSUPPORTED", count: 1 })).toBe(
+      "1 claim withheld for a unit that does not match the cited source",
+    );
+    expect(withheldReasonLabel({ validator: "NUMERIC", status: "UNSUPPORTED", count: 2 })).toBe(
+      "2 claims withheld for a value that is not in the cited source",
+    );
+  });
+
+  it("distinguishes a check that could not run from a claim found wrong", () => {
+    expect(withheldReasonLabel({ validator: "NUMERIC", status: "UNRESOLVED", count: 1 })).toBe(
+      "1 claim could not be checked against the cited source",
+    );
+  });
+
+  it("degrades to a generic phrase for a validator it does not know", () => {
+    expect(withheldReasonLabel({ validator: "FUTURE", status: "UNSUPPORTED", count: 1 })).toBe(
+      "1 claim withheld by an automated check",
+    );
   });
 });

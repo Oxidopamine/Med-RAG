@@ -1,4 +1,4 @@
-import type { ClinicalContext, QuestionStatus } from "./types";
+import type { ClinicalContext, QuestionStatus, WithheldClaimSummary } from "./types";
 
 export const STATUS_LABELS: Record<QuestionStatus, string> = {
   QUEUED: "Queued",
@@ -57,4 +57,29 @@ export function contextRows(context: ClinicalContext | null): Array<[string, str
   if (context.care_setting) rows.push(["Care setting", humanizeConcept(context.care_setting)]);
   if (context.jurisdiction) rows.push(["Jurisdiction", context.jurisdiction]);
   return rows;
+}
+
+// What each automated check means in a clinician's terms. The validator names are
+// engineering vocabulary; a reader needs to know which part of a claim failed to match
+// its source, not which module decided that.
+const WITHHELD_REASONS: Record<string, string> = {
+  NUMERIC: "a value that is not in the cited source",
+  UNIT: "a unit that does not match the cited source",
+  OPERATOR: "a threshold that does not match the cited source",
+  QUOTE: "a quotation that is not in the cited source",
+  PROVENANCE: "a citation that cannot support it",
+};
+
+export function withheldReasonLabel(summary: WithheldClaimSummary): string {
+  const claims = `${summary.count} claim${summary.count === 1 ? "" : "s"}`;
+  if (summary.status === "UNRESOLVED") {
+    // An unresolved check is not a detected error, and the difference matters to a
+    // reader: the usual cause is source text the release does not permit rendering, so
+    // the check could not run rather than the claim being found wrong.
+    return `${claims} could not be checked against the cited source`;
+  }
+  const reason = WITHHELD_REASONS[summary.validator];
+  return reason
+    ? `${claims} withheld for ${reason}`
+    : `${claims} withheld by an automated check`;
 }

@@ -185,11 +185,31 @@ const evidenceDetailSchema = z
     }
   });
 
-const verificationSummarySchema = z.strictObject({
-  rendered_claims: z.number().int().nonnegative(),
-  supported_claims: z.number().int().nonnegative(),
-  withheld_claims: z.number().int().nonnegative(),
+const withheldClaimSummarySchema = z.strictObject({
+  validator: z.string().trim().min(1),
+  status: z.string().trim().min(1),
+  count: z.number().int().positive(),
 });
+
+const verificationSummarySchema = z
+  .strictObject({
+    rendered_claims: z.number().int().nonnegative(),
+    supported_claims: z.number().int().nonnegative(),
+    withheld_claims: z.number().int().nonnegative(),
+    withheld_by_validator: z.array(withheldClaimSummarySchema).max(20).optional(),
+  })
+  .superRefine((summary, issue) => {
+    // The same invariant the API enforces. Validating it again here is not redundant:
+    // a summary that does not add up means the payload and the checks disagree, and the
+    // UI would otherwise report a count it cannot substantiate.
+    if (summary.supported_claims + summary.withheld_claims !== summary.rendered_claims) {
+      issue.addIssue({
+        code: "custom",
+        message: "A verification summary must account for every rendered claim",
+        path: ["rendered_claims"],
+      });
+    }
+  });
 
 const abstentionSchema = z.strictObject({
   reason_code: z.string().trim().min(1),

@@ -14,6 +14,7 @@ export type EvidenceDetail = Omit<Required<ApiSchemas["EvidenceDetail"]>, "locat
 };
 export type AbstentionDetail = Required<ApiSchemas["AbstentionDetail"]>;
 export type VerificationSummary = ApiSchemas["VerificationSummary"];
+export type WithheldClaimSummary = ApiSchemas["WithheldClaimSummary"];
 export type ActiveCorpusRelease = Required<ApiSchemas["ActiveCorpusRelease"]>;
 
 export interface ProgressEvent {

@@ -673,11 +673,31 @@ export interface components {
              * @default 0
              */
             supported_claims: number;
+            /** Withheld By Validator */
+            withheld_by_validator?: components["schemas"]["WithheldClaimSummary"][];
             /**
              * Withheld Claims
              * @default 0
              */
             withheld_claims: number;
+        };
+        /**
+         * WithheldClaimSummary
+         * @description How many proposed claims one validator withheld, and in which state.
+         *
+         *     Deliberately carries no claim text. A withheld claim is unverified model output, and
+         *     the entire point of withholding it is that it must not reach a reader; putting it in
+         *     the response under a diagnostic name would hand it to exactly the audience the check
+         *     protects. Counts by validator are enough to tell a careful model from a broken
+         *     validator, which is what this exists for.
+         */
+        WithheldClaimSummary: {
+            /** Count */
+            count: number;
+            /** Status */
+            status: string;
+            /** Validator */
+            validator: string;
         };
     };
     responses: never;

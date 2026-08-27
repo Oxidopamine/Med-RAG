@@ -23,10 +23,16 @@ from app.reasoning.generation_schemas import AbstentionReason, ModelAnswer
 from app.reasoning.verification import (
     ClaimVerification,
     DeterministicClaimVerifier,
+    ValidatorName,
     VerifiableEvidence,
     VerificationStatus,
 )
-from app.schemas.questions import AbstentionDetail, RenderedClaim, VerificationSummary
+from app.schemas.questions import (
+    AbstentionDetail,
+    RenderedClaim,
+    VerificationSummary,
+    WithheldClaimSummary,
+)
 
 SYSTEM_PROMPT = """You answer clinical questions strictly from numbered guideline \
 passages supplied with each question.
@@ -111,6 +117,7 @@ class WithheldClaim:
     evidence_ids: tuple[str, ...]
     status: str
     reason: str
+    validators: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -144,6 +151,26 @@ def render_evidence_block(passages: tuple[RetrievedPassage, ...]) -> str:
     return "\n".join(lines).strip()
 
 
+def _summarize_withheld(
+    withheld_claims: tuple[WithheldClaim, ...],
+) -> list[WithheldClaimSummary]:
+    """Aggregate withheld claims into per-validator counts, dropping their text.
+
+    This is the only shape in which withheld claims cross the API boundary. The text is
+    unverified model output and stays inside the service, where an operator log can hold
+    it; a reader gets the counts.
+    """
+
+    tally: dict[tuple[str, str], int] = {}
+    for claim in withheld_claims:
+        for validator in claim.validators or ("PROVENANCE",):
+            tally[(validator, claim.status)] = tally.get((validator, claim.status), 0) + 1
+    return [
+        WithheldClaimSummary(validator=validator, status=status, count=count)
+        for (validator, status), count in sorted(tally.items())
+    ]
+
+
 def _abstain(
     reason: AbstentionReason,
     *,
@@ -157,7 +184,10 @@ def _abstain(
         claims=(),
         conflicts=(),
         verification=VerificationSummary(
-            rendered_claims=rendered, supported_claims=0, withheld_claims=withheld
+            rendered_claims=rendered,
+            supported_claims=0,
+            withheld_claims=withheld,
+            withheld_by_validator=_summarize_withheld(withheld_claims),
         ),
         abstention=AbstentionDetail(
             reason_code=reason.value,
@@ -245,6 +275,10 @@ class GroundedAnswerComposer:
                         evidence_ids=tuple(cited),
                         status=VerificationStatus.UNSUPPORTED.value,
                         reason="cites evidence that was not retrieved for this question",
+                        # A citation pointing outside the retrieved set is a provenance
+                        # defect, so it aggregates with the other provenance failures
+                        # rather than appearing as an unattributed count.
+                        validators=(ValidatorName.PROVENANCE.value,),
                     )
                 )
                 continue
@@ -262,6 +296,9 @@ class GroundedAnswerComposer:
                         evidence_ids=tuple(cited),
                         status=verification.status.value,
                         reason=verification.summary(),
+                        validators=tuple(
+                            item.value for item in verification.failed_validators
+                        ),
                     )
                 )
                 continue
@@ -313,6 +350,7 @@ class GroundedAnswerComposer:
                 rendered_claims=rendered,
                 supported_claims=len(supported),
                 withheld_claims=withheld,
+                withheld_by_validator=_summarize_withheld(tuple(withheld_claims)),
             ),
             abstention=None,
             withheld=tuple(withheld_claims),

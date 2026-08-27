@@ -9,6 +9,7 @@ import {
   ShieldAlert,
 } from "lucide-react";
 
+import { withheldReasonLabel } from "@/lib/presentation";
 import type { QuestionResult } from "@/lib/types";
 
 import styles from "./workspace.module.css";
@@ -33,6 +34,7 @@ export function AnswerPanel({
   selectedClaimId,
 }: AnswerPanelProps) {
   const isReady = result.status === "ANSWER_READY";
+  const withheldBreakdown = result.verification_summary.withheld_by_validator ?? [];
 
   return (
     <section
@@ -86,6 +88,15 @@ export function AnswerPanel({
               warning={Boolean(result.verification_summary.withheld_claims)}
             />
           </div>
+          {withheldBreakdown.length ? (
+            <ul className={styles["withheld-breakdown"]} aria-label="Withheld claim checks">
+              {withheldBreakdown.map((summary) => (
+                <li key={`${summary.validator}-${summary.status}`}>
+                  {withheldReasonLabel(summary)}
+                </li>
+              ))}
+            </ul>
+          ) : null}
           <div className={styles["answer-actions"]}>
             <button type="button" onClick={onCopyAnswer}>
               <Clipboard size={16} aria-hidden="true" />

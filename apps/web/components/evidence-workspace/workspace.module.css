@@ -1501,6 +1501,17 @@
   gap: 10px;
 }
 
+.withheld-breakdown {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.85rem;
+  line-height: 1.45;
+  color: var(--ink-soft);
+}
+
 .signal {
   min-height: 35px;
   padding: 7px 11px;

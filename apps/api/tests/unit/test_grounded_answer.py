@@ -25,6 +25,7 @@ from app.reasoning.generation_schemas import (
     GenerationProvider,
     ModelAnswer,
 )
+from app.schemas.questions import VerificationSummary
 
 PASSAGES = (
     RetrievedPassage(
@@ -266,6 +267,45 @@ async def test_ungrounded_and_unverified_abstentions_stay_distinguishable() -> N
         composed.abstention.reason_code
         == AbstentionReason.NO_CLAIM_SURVIVED_GROUNDING.value
     )
+
+
+async def test_withheld_counts_reach_the_api_without_the_withheld_text() -> None:
+    """The reason a claim was withheld is diagnostic; the claim itself is not.
+
+    Putting unverified text in the response under a diagnostic name would hand it to the
+    reader the check exists to protect, so only counts by validator cross the boundary.
+    """
+
+    backend = StubBackend(answer(claims=[FAITHFUL_DOSE, FABRICATED_DOSE]))
+    composed = await GroundedAnswerComposer(backend).compose("Q?", DOSING_PASSAGES)
+
+    summary = composed.verification
+    assert summary.rendered_claims == 2
+    assert summary.supported_claims == 1
+    breakdown = [
+        (item.validator, item.status, item.count) for item in summary.withheld_by_validator
+    ]
+    assert breakdown == [("NUMERIC", "UNSUPPORTED", 1)]
+
+    serialized = summary.model_dump_json()
+    assert "400 mg" not in serialized
+    assert "dolutegravir" not in serialized
+
+
+async def test_ungrounded_claims_aggregate_as_a_provenance_defect() -> None:
+    backend = StubBackend(
+        answer(claims=[{"text": "Invented.", "evidence_ids": ["EV_zzz"]}])
+    )
+    composed = await GroundedAnswerComposer(backend).compose("Q?", DOSING_PASSAGES)
+
+    assert [item.validator for item in composed.verification.withheld_by_validator] == [
+        "PROVENANCE"
+    ]
+
+
+def test_a_verification_summary_must_account_for_every_rendered_claim() -> None:
+    with pytest.raises(ValueError, match="account for every rendered claim"):
+        VerificationSummary(rendered_claims=3, supported_claims=1, withheld_claims=1)
 
 
 def bedrock_parameters(**overrides) -> GenerationAdapterParameters:

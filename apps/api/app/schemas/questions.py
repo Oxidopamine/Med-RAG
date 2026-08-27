@@ -129,10 +129,41 @@ class EvidenceDetail(ApiContractModel):
         return self
 
 
+class WithheldClaimSummary(ApiContractModel):
+    """How many proposed claims one validator withheld, and in which state.
+
+    Deliberately carries no claim text. A withheld claim is unverified model output, and
+    the entire point of withholding it is that it must not reach a reader; putting it in
+    the response under a diagnostic name would hand it to exactly the audience the check
+    protects. Counts by validator are enough to tell a careful model from a broken
+    validator, which is what this exists for.
+    """
+
+    validator: str = Field(min_length=1)
+    status: str = Field(min_length=1)
+    count: int = Field(gt=0)
+
+
 class VerificationSummary(ApiContractModel):
-    rendered_claims: int = 0
-    supported_claims: int = 0
-    withheld_claims: int = 0
+    rendered_claims: int = Field(default=0, ge=0)
+    supported_claims: int = Field(default=0, ge=0)
+    withheld_claims: int = Field(default=0, ge=0)
+    withheld_by_validator: list[WithheldClaimSummary] = Field(
+        default_factory=list, max_length=20
+    )
+
+    @model_validator(mode="after")
+    def reconcile_counts(self) -> "VerificationSummary":
+        if self.supported_claims + self.withheld_claims != self.rendered_claims:
+            raise ValueError(
+                "a verification summary must account for every rendered claim as either "
+                "supported or withheld"
+            )
+        # One claim can fail several validators at once, so the per-validator counts sum
+        # to at least the number of withheld claims rather than exactly to it.
+        if self.withheld_by_validator and not self.withheld_claims:
+            raise ValueError("per-validator counts require at least one withheld claim")
+        return self
 
 
 class AbstentionDetail(ApiContractModel):

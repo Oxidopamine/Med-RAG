@@ -394,7 +394,23 @@ or evidence that the product is safe for autonomous clinical use.
 - calibrate verifier thresholds per claim type and language, measure entailment precision,
   contradiction recall, calibration error, and selective risk, and fail closed to
   `UNRESOLVED` for unsupported languages, truncation, low margin, or conflicting evidence
-- evidence cards and exact PDF highlighting
+- complete: withheld-claim diagnostics reach the API as per-validator counts and never
+  as text. A withheld claim is unverified model output, so putting it in the response
+  under a diagnostic name would hand it to exactly the reader the check protects; the
+  text stays inside the service. `VerificationSummary` now enforces that supported plus
+  withheld equals rendered, on both sides of the boundary, and the answer panel names
+  which part of a claim failed rather than which module decided it
+- evidence cards exist and carry page and printed-page locators; exact PDF highlighting
+  does not, and is blocked rather than unbuilt. `EvidenceLocator.bbox` is already
+  populated and unused, but drawing it requires serving the source PDF to the browser,
+  and `AssetLicensingPolicy.redistribution_allowed` defaults to false per asset. Whether
+  a given publisher's PDF may be redistributed to a clinician's browser is a licensing
+  determination, not an engineering one, and it has not been made for any asset. Until
+  it is, the honest surface is the locator reference the cards already show
+- blocked: decide per-asset redistribution for rendering before building a PDF viewer.
+  If redistribution is refused for a publisher, exact highlighting for that publisher
+  needs a different design - a rendered page image produced under the materialization
+  policy rather than the source file itself
 
 ## Finally: clinician review of the complete product
 
