@@ -1,6 +1,10 @@
 .env
 .env.local
 .vscode/
+# Agent worktrees. These are full checkouts of this repo on other branches, so
+# leaving them untracked is not enough - `find`, ripgrep and test collection all
+# walk into them and report duplicate source trees.
+.claude/
 .venv/
 __pycache__/
 *.py[cod]

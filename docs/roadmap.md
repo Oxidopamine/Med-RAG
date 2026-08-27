@@ -174,6 +174,47 @@ This is evidence for the narrative-only materialization path, not against it —
 consolidated HIV guidelines are narrative PDFs and would carry exactly the missing
 content.
 
+### Re-measured after the presentation fix
+
+All three questions re-run against the same release, with and without `--expand`, six runs
+at 246–359 ms. The presentation layer did what it claims; the corpus did not improve.
+
+- **Q1, ART initiation timing.** The infant rows are gone — zero occurrences of "infant"
+  in the top ten either way — but the reclaimed slots went to more ART-regimen rules, and
+  pushing to depth 30 surfaces nothing that states a start time. **This is a corpus fact,
+  not a ranking one.** The corpus holds the timing vocabulary ("within 7 days" ×56,
+  "same day" ×16) almost exclusively as *reasons for not initiating*: a coded list of
+  delay reasons each phrased "did not initiate ART at diagnosis or within 7 days
+  because…", plus a Boolean recording whether the target was met. The recommendation is
+  never asserted; it exists only as the negative space those fields are defined around.
+  No ranking can retrieve an assertion the corpus does not contain.
+- **Q2, dolutegravir contraindications.** The earlier entry above overstated the plain
+  result. Measured: six data-dictionary code-list entries, one PrEP-suitability rule, two
+  boilerplate narratives, one table section title. The genuinely relevant record — the
+  DTG-plus-metformin interaction rule — sits at rank 19 plain and only reaches rank 10
+  with `--expand`. That is the one place expansion earned its keep across all six runs.
+- **Q3, viral-load monitoring interval.** Plain is clean and correct. `--expand` is a
+  **regression**: it drops the single passage that literally states the 6-month,
+  12-month, and every-12-months intervals, replacing it with paediatric
+  regimen-transition rules that merely contain the phrase "viral load testing". Expansion
+  displaces the best passage on the one question this corpus actually answers.
+
+Two findings outrank the rest.
+
+**The role gate passes on off-topic evidence.** Q2 reported `answerable: true` when its
+only countable `PRIMARY_SUPPORT` was a *tenofovir* contraindication. The gate proves
+completeness of kind, never of subject, and cannot be made to prove subject without
+becoming a relevance judgement. Recorded as a known limit at `REQUIRED_ANSWER_ROLES`.
+What actually protects the reader is claim-level grounding in the answer lane, which
+discards a claim whose cited passages do not support it.
+
+**Expansion is not uniformly positive.** It rescued one question and broke another. Its
+value is not established, and the sealed candidate that was development-accepted uses it.
+This is independent corroboration of a conclusion reached on the unmerged
+`m2-verified-rendering` branch — "the dense lane is correctly configured; the benchmark is
+the problem" — reached there by paired significance testing. Read that branch before
+tuning retrieval further.
+
 ## Complete: serving presentation layer
 
 All three first-contact defects are addressed in the serving layer. `content_exact`,

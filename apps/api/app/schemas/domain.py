@@ -40,6 +40,25 @@ class SourceStatus(str, Enum):
     QUARANTINED = "QUARANTINED"
 
 
+# The single answer to "may a client be served content from a source in this state?"
+# It lives here rather than in either consumer because retrieval and evidence-detail
+# resolution answer the same question about the same record and must never diverge: a
+# detail that renders for a record retrieval refuses to return is the system disagreeing
+# with itself about what is current.
+#
+# Deliberately an allowlist. A state added to `SourceStatus` later is excluded until
+# somebody decides it is safe to answer from, rather than admitted by default.
+#
+# `APPROVED` is excluded because approved-for-retrieval is not the same as in force.
+# `PARTIALLY_SUPERSEDED` is excluded because neither consumer can tell which part of a
+# record was superseded, and a superseded clause is textually indistinguishable from a
+# current one.
+SERVABLE_LIFECYCLE_STATES: tuple[SourceStatus, ...] = (SourceStatus.EFFECTIVE,)
+SERVABLE_LIFECYCLE_VALUES: frozenset[str] = frozenset(
+    status.value for status in SERVABLE_LIFECYCLE_STATES
+)
+
+
 class RelationshipType(str, Enum):
     SUPERSEDES = "SUPERSEDES"
     PARTIALLY_SUPERSEDES = "PARTIALLY_SUPERSEDES"

@@ -44,10 +44,19 @@ from app.schemas.corpus import (
     SignedActivationDecision,
     canonical_sha256,
 )
-from app.schemas.domain import SourceStatus, utc_now
+from app.schemas.domain import SERVABLE_LIFECYCLE_VALUES, SourceStatus, utc_now
 from app.schemas.questions import EvidenceDetail, EvidenceLocator
 
-RETRIEVAL_APPROVED_SOURCE_STATES = {
+# What a *release* may contain at registration time. Deliberately wider than what may be
+# served: a source can be approved-and-not-yet-in-force when a release is built, and a
+# partially superseded source can still be a legitimate release member.
+#
+# The looseness is real and recorded rather than silently relied upon: a release can hold
+# a record that neither retrieval nor evidence-detail resolution will ever serve, because
+# both of those answer from `SERVABLE_LIFECYCLE_VALUES`, which admits `EFFECTIVE` only.
+# Such a record is inert, not unsafe. Narrowing this set would change which releases may
+# be registered at all, which is a corpus-policy decision and not a serving one.
+RELEASABLE_SOURCE_STATES = {
     SourceStatus.APPROVED.value,
     SourceStatus.EFFECTIVE.value,
     SourceStatus.PARTIALLY_SUPERSEDED.value,
@@ -133,7 +142,7 @@ class SQLCorpusReleaseRepository:
                             contract_blockers.append(
                                 f"SOURCE_NOT_RETRIEVAL_APPROVED:{evidence.source_version_id}"
                             )
-                        if source_version.status not in RETRIEVAL_APPROVED_SOURCE_STATES:
+                        if source_version.status not in RELEASABLE_SOURCE_STATES:
                             contract_blockers.append(
                                 f"SOURCE_NOT_EFFECTIVE:{evidence.source_version_id}"
                             )
@@ -736,7 +745,7 @@ class SQLCorpusReleaseRepository:
                         CanonicalEvidenceRow.approval_status
                         == EvidenceApprovalStatus.APPROVED.value,
                         SourceVersionRow.approved_for_retrieval.is_(True),
-                        SourceVersionRow.status.in_(RETRIEVAL_APPROVED_SOURCE_STATES),
+                        SourceVersionRow.status.in_(SERVABLE_LIFECYCLE_VALUES),
                     )
                 )
             ).all()
@@ -782,7 +791,7 @@ class SQLCorpusReleaseRepository:
             or evidence.jurisdiction != source.jurisdiction
             or evidence.lifecycle_status.value != source_version.status
             or not source_version.approved_for_retrieval
-            or source_version.status not in RETRIEVAL_APPROVED_SOURCE_STATES
+            or source_version.status not in SERVABLE_LIFECYCLE_VALUES
             or evidence.sha256 != evidence_row.evidence_sha256
         ):
             return None

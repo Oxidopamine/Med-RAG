@@ -46,7 +46,10 @@ from app.corpus_steward.qdrant_index import stable_qdrant_point_id
 from app.corpus_steward.query_expansion import ExpandedQuery
 from app.reasoning.presentation import PassageKind, PassagePresenter, RenderedPassage
 from app.schemas.corpus import CorpusEvidenceRecord, EvidenceRole
-from app.schemas.domain import SourceStatus
+
+# Re-exported so callers of the serving path read the constraint from the module
+# that enforces it; the definition is shared with evidence-detail resolution.
+from app.schemas.domain import SERVABLE_LIFECYCLE_STATES
 
 # Metadata the serving filter and the integrity check need. Deliberately identical to
 # the benchmark's projection: a divergence here would mean the two paths validate
@@ -65,16 +68,27 @@ SERVING_PAYLOAD_FIELDS = [
     "source_version_id",
 ]
 
-# Lifecycle states a passage may be served from. Deliberately an allowlist: a state
-# added later is excluded until someone decides it is safe to answer from, rather than
-# admitted by default. `PARTIALLY_SUPERSEDED` is excluded because the serving path has
-# no way to tell which part of a record was superseded.
-SERVABLE_LIFECYCLE_STATES: tuple[SourceStatus, ...] = (SourceStatus.EFFECTIVE,)
 
 # Roles that must be present before a clinical answer may be composed. This is the
 # serving-side reading of the minimum complete evidence set: a recommendation with no
 # applicability statement, or with its exceptions missing, is not a safe answer even
 # when the retrieval scores are high.
+#
+# KNOWN LIMIT - the gate proves completeness of *kind*, never of *subject*. It asks
+# whether the retrieved set contains a passage of each required role; it has no notion of
+# whether those passages are about the question. Measured: asked for dolutegravir
+# contraindications, the set was reported answerable when its only countable
+# PRIMARY_SUPPORT was a contraindication for tenofovir - a different drug. The gate did
+# exactly what it claims and the claim is narrower than it reads.
+#
+# Nothing here can close that. Topical relevance is a ranking property, and a gate built
+# from role labels cannot become a relevance judgement without becoming the very thing
+# this layer refuses to be - a model deciding what evidence means. Closing it needs a
+# separate relevance floor, or the claim-level grounding in `answer_service` to reject
+# claims whose cited passages do not bear on the question. Until one of those exists,
+# `is_answerable` means "a complete set of role kinds was retrieved", and the answer lane
+# behind it is what actually protects the reader: a claim citing an off-topic passage is
+# discarded whole at grounding.
 REQUIRED_ANSWER_ROLES: tuple[EvidenceRole, ...] = (
     EvidenceRole.PRIMARY_SUPPORT,
     EvidenceRole.APPLICABILITY,

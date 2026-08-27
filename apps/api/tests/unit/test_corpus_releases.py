@@ -7,6 +7,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from sqlalchemy import func, select
 
 from app.corpus.releases import (
+    RELEASABLE_SOURCE_STATES,
     CorpusReleaseConflictError,
     CorpusReleaseGateError,
     SQLCorpusReleaseRepository,
@@ -53,7 +54,7 @@ from app.schemas.corpus import (
     canonical_json_bytes,
     canonical_sha256,
 )
-from app.schemas.domain import utc_now
+from app.schemas.domain import SERVABLE_LIFECYCLE_VALUES, SourceStatus, utc_now
 
 FIXTURE_PATH = Path(__file__).parents[4] / "data" / "fixtures" / "corpus-release-v1.json"
 
@@ -638,3 +639,34 @@ async def test_evidence_detail_resolution_honors_license_and_fails_closed(tmp_pa
         == []
     )
     await database.close()
+
+
+def test_servable_states_are_a_subset_of_releasable_states() -> None:
+    """Nothing may be served that could not have been released.
+
+    Two independent literals previously answered "may this be served?" - retrieval
+    admitted EFFECTIVE only while evidence-detail resolution also admitted APPROVED and
+    PARTIALLY_SUPERSEDED. With one HIV source version that was inert; with a second
+    edition the two would have disagreed about the same record, and a detail rendering
+    for a record retrieval refuses to return is the system contradicting itself about
+    what is current.
+    """
+
+    assert SERVABLE_LIFECYCLE_VALUES <= RELEASABLE_SOURCE_STATES
+    # The direction that matters: a superseded or withdrawn source is never servable.
+    assert SourceStatus.SUPERSEDED.value not in SERVABLE_LIFECYCLE_VALUES
+    assert SourceStatus.WITHDRAWN.value not in SERVABLE_LIFECYCLE_VALUES
+    assert SourceStatus.PARTIALLY_SUPERSEDED.value not in SERVABLE_LIFECYCLE_VALUES
+    # Approved is not in force. Releasable, never servable.
+    assert SourceStatus.APPROVED.value in RELEASABLE_SOURCE_STATES
+    assert SourceStatus.APPROVED.value not in SERVABLE_LIFECYCLE_VALUES
+
+
+def test_retrieval_and_detail_resolution_share_one_definition() -> None:
+    """The serving path and the corpus layer must read the same constant, not copies."""
+
+    from app.reasoning.retrieval_service import (
+        SERVABLE_LIFECYCLE_STATES as retrieval_states,
+    )
+
+    assert {status.value for status in retrieval_states} == set(SERVABLE_LIFECYCLE_VALUES)
