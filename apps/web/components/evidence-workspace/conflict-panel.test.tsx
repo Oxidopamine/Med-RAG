@@ -46,7 +46,7 @@ describe("ConflictPanel", () => {
           {
             conflict_type: "CONFLICTING_RECOMMENDATIONS",
             summary: "One edition recommends treating at a threshold the other does not.",
-            evidence_ids: "EV_WHO_HTN_001, EV_WHO_HTN_003",
+            evidence_ids: ["EV_WHO_HTN_001", "EV_WHO_HTN_003"],
           },
         ],
       }),
@@ -78,7 +78,7 @@ describe("ConflictPanel", () => {
           {
             conflict_type: "NO_CONFLICT",
             summary: "The cited passages agree.",
-            evidence_ids: "EV_WHO_HTN_001, EV_WHO_HTN_002",
+            evidence_ids: ["EV_WHO_HTN_001", "EV_WHO_HTN_002"],
           },
         ],
       }),
@@ -128,7 +128,7 @@ describe("ConflictPanel", () => {
         conflicts: [
           {
             conflict_type: "CONTRADICTORY_SOURCE",
-            evidence_ids: "EV_WHO_HTN_001, EV_WHO_HTN_014",
+            evidence_ids: ["EV_WHO_HTN_001", "EV_WHO_HTN_014"],
           },
         ],
       }),

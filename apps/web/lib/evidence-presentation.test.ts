@@ -198,7 +198,7 @@ describe("conflict taxonomy", () => {
         {
           conflict_type: "NO_CONFLICT",
           summary: "The cited passages agree.",
-          evidence_ids: "EV_WHO_HTN_001, EV_WHO_HTN_002",
+          evidence_ids: ["EV_WHO_HTN_001", "EV_WHO_HTN_002"],
         },
       ],
       citations,
@@ -221,7 +221,7 @@ describe("conflict taxonomy", () => {
 
   it("names evidence the answer did not cite rather than dropping it", () => {
     const [conflict] = presentConflicts(
-      [{ conflict_type: "CONTRADICTORY_SOURCE", evidence_ids: "EV_WHO_HTN_001, EV_UNKNOWN" }],
+      [{ conflict_type: "CONTRADICTORY_SOURCE", evidence_ids: ["EV_WHO_HTN_001", "EV_UNKNOWN"] }],
       citations,
     );
 
@@ -232,7 +232,7 @@ describe("conflict taxonomy", () => {
 
   it("keeps fields outside the typed contract instead of discarding them", () => {
     const [conflict] = presentConflicts([
-      { organization: "Regional formulary", rationale: "Local policy is stricter.", note: "  " },
+      { organization: "Regional formulary", rationale: "Local policy is stricter.", summary: "  " },
     ]);
 
     expect(conflict?.extraFields).toEqual([
@@ -245,7 +245,16 @@ describe("conflict taxonomy", () => {
 describe("abstention reason codes", () => {
   it("gives every reason code its own title and next step", () => {
     const presentations = ABSTENTION_REASON_CODES.map((reason_code) =>
-      presentAbstention({ reason_code, message: "", missing_evidence_roles: [], closest_evidence_ids: [] }, "ABSTAINED"),
+      presentAbstention(
+        {
+          reason_code,
+          message: "",
+          missing_evidence_roles: [],
+          closest_evidence_ids: [],
+          closest_evidence: [],
+        },
+        "ABSTAINED",
+      ),
     );
 
     expect(presentations.every((presentation) => presentation.code !== null)).toBe(true);
@@ -316,6 +325,7 @@ describe("abstention reason codes", () => {
         reason_code: "NO_CLAIM_SURVIVED_GROUNDING",
         missing_evidence_roles: ["EXCEPTION_OR_CONTRAINDICATION"],
         closest_evidence_ids: ["EV_WHO_HTN_014"],
+        closest_evidence: [],
       }).abstention,
       "ABSTAINED",
     );

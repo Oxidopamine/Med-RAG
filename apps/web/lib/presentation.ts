@@ -30,32 +30,69 @@ export function humanizeConcept(concept: string): string {
   return known[concept] ?? concept.replaceAll("_", " ").toLowerCase();
 }
 
-export function contextRows(context: ClinicalContext | null): Array<[string, string]> {
+/**
+ * One row of the interpreted-context panel.
+ *
+ * `inferred` says the extractor derived this rather than reading it from the question.
+ * A stated age and an inferred one are not the same claim, and a panel that renders both
+ * identically asks a reader to audit everything or nothing.
+ */
+/**
+ * Provenance values that mean a person supplied the value.
+ *
+ * `USER_TEXT_EXPLICIT` is read out of the question; `USER_ENTERED` is typed into the
+ * context editor and is the schema default. Both are stated. Testing for one of them alone
+ * marked every hand-entered measurement "inferred" - inverting the distinction on the
+ * panel whose only job is to draw the eye to what the system guessed.
+ */
+const STATED_PROVENANCE = new Set(["USER_TEXT_EXPLICIT", "USER_ENTERED"]);
+
+export interface ContextRow {
+  label: string;
+  value: string;
+  inferred: boolean;
+}
+
+export function contextRows(context: ClinicalContext | null): ContextRow[] {
   if (!context) return [];
 
-  const rows: Array<[string, string]> = [];
-  if (context.age !== null) rows.push(["Age", String(context.age)]);
-  if (context.sex) rows.push(["Sex", humanizeConcept(context.sex)]);
+  const inferred = new Set(context.inferred_fields);
+  const rows: ContextRow[] = [];
+  const push = (label: string, value: string, field: string) => {
+    rows.push({ label, value, inferred: inferred.has(field) });
+  };
+
+  if (context.age !== null) push("Age", String(context.age), "age");
+  if (context.sex) push("Sex", humanizeConcept(context.sex), "sex");
   for (const condition of context.conditions) {
-    rows.push(["Condition", humanizeConcept(condition)]);
+    push("Condition", humanizeConcept(condition), "conditions");
   }
   for (const condition of context.known_absent_conditions) {
-    rows.push(["Known absent", humanizeConcept(condition)]);
+    push("Known absent", humanizeConcept(condition), "known_absent_conditions");
   }
   for (const measurement of context.measurements) {
-    rows.push([
-      humanizeConcept(measurement.concept),
-      `${measurement.value} ${measurement.unit}`,
-    ]);
+    // A measurement carries its own provenance, which is more specific than the
+    // field-level marker: one derived value does not make the whole list derived.
+    rows.push({
+      label: humanizeConcept(measurement.concept),
+      value: `${measurement.value} ${measurement.unit}`,
+      inferred: !STATED_PROVENANCE.has(measurement.provenance) || inferred.has("measurements"),
+    });
   }
   for (const population of context.special_populations) {
-    rows.push(["Population", humanizeConcept(population)]);
+    push("Population", humanizeConcept(population), "special_populations");
   }
   for (const population of context.known_absent_special_populations) {
-    rows.push(["Known absent population", humanizeConcept(population)]);
+    push(
+      "Known absent population",
+      humanizeConcept(population),
+      "known_absent_special_populations",
+    );
   }
-  if (context.care_setting) rows.push(["Care setting", humanizeConcept(context.care_setting)]);
-  if (context.jurisdiction) rows.push(["Jurisdiction", context.jurisdiction]);
+  if (context.care_setting) {
+    push("Care setting", humanizeConcept(context.care_setting), "care_setting");
+  }
+  if (context.jurisdiction) push("Jurisdiction", context.jurisdiction, "jurisdiction");
   return rows;
 }
 

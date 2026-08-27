@@ -1,14 +1,19 @@
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { SourceFilters } from "@/lib/types";
 
-import { EXAMPLE_QUESTIONS, QuestionComposer } from "./question-composer";
+import { EXAMPLES, QuestionComposer } from "./question-composer";
+
+/** The example questions carry regex metacharacters, so they are matched literally. */
+function escapeRegExp(value: string): string {
+  return value.replaceAll(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
+}
 
 const defaultFilters: SourceFilters = {
-  jurisdictions: ["US", "EU", "UK"],
+  jurisdictions: ["WORLD"],
   organizations: [],
 };
 
@@ -58,20 +63,35 @@ describe("QuestionComposer", () => {
     expect(
       screen.getByRole("heading", { name: "What guideline decision are you reviewing?" }),
     ).toBeInTheDocument();
-    expect(
-      screen.getByLabelText(
-        "A focused question includes population, condition, and decision",
-      ),
-    ).toBeInTheDocument();
+    // The Population/Condition/Decision chips are visual cues and are hidden from
+    // assistive technology on purpose: the same guidance reaches it as the field's own
+    // description, in prose, which is asserted there rather than here.
+    expect(screen.getByText("Population", { exact: true })).toBeInTheDocument();
+    expect(screen.getByText("Condition", { exact: true })).toBeInTheDocument();
+    expect(screen.getByText("Decision", { exact: true })).toBeInTheDocument();
     expect(screen.getByText("No patient identifiers")).toBeInTheDocument();
 
     const question = screen.getByRole("textbox", { name: "Guideline question" });
     expect(question).toHaveValue("");
     expect(question).toHaveAttribute("aria-keyshortcuts", "Control+Enter Meta+Enter");
-    expect(screen.getByRole("button", { name: "Review evidence" })).toBeDisabled();
+    expect(question).toHaveAccessibleDescription(
+      /Include the population, condition, and clinical decision/i,
+    );
 
-    await user.click(screen.getByRole("button", { name: EXAMPLE_QUESTIONS[0] }));
-    expect(question).toHaveValue(EXAMPLE_QUESTIONS[0]);
+    const submit = screen.getByRole("button", { name: "Review evidence" });
+    expect(submit).toHaveAttribute("aria-disabled", "true");
+    // Marked unavailable, never natively disabled: a disabled control loses focus, and
+    // this one is made unavailable at the moment it is holding it.
+    expect(submit).not.toBeDisabled();
+
+    // The accessible name leads with the visible topic, so speech input can activate the
+    // button by what it reads (WCAG 2.5.3), and still carries the question it inserts.
+    const example = screen.getByRole("button", {
+      name: new RegExp(`^${escapeRegExp(EXAMPLES[0]!.label)}: `),
+    });
+    expect(example).toHaveAccessibleName(new RegExp(escapeRegExp(EXAMPLES[0]!.question)));
+    await user.click(example);
+    expect(question).toHaveValue(EXAMPLES[0]!.question);
     expect(question).toHaveFocus();
     expect(onSubmit).not.toHaveBeenCalled();
 
@@ -117,23 +137,27 @@ describe("QuestionComposer", () => {
     expect(onSubmit).not.toHaveBeenCalled();
   });
 
-  it("keeps valid coverage, tokenizes organizations, and submits drafts without blur", async () => {
+  it("states the release scope, tokenizes organizations, and submits drafts without blur", async () => {
     const user = userEvent.setup();
     const onSubmit = vi.fn(async () => true);
     render(<ComposerHarness onSubmit={onSubmit} />);
 
     await user.click(screen.getByText("Sources", { exact: true }));
-    const us = screen.getByRole("checkbox", { name: "US, United States" });
-    const eu = screen.getByRole("checkbox", { name: "EU, European Union" });
-    const uk = screen.getByRole("checkbox", { name: "UK, United Kingdom" });
-    await user.click(us);
-    await user.click(eu);
-    await user.click(uk);
 
-    expect(uk).toBeChecked();
-    expect(screen.getByRole("alert")).toHaveTextContent(
-      "Keep at least one jurisdiction selected.",
-    );
+    // No jurisdiction control: every record in the active release is scoped WORLD and the
+    // serving path widens any selection to include it, so a country filter could only
+    // claim to narrow. Coverage is stated instead, and travels unchanged to the request.
+    expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
+
+    // The panel names every guideline body this product intends to cover and marks the
+    // ones that are not served yet, so the corpus boundary is visible rather than implied
+    // by an empty answer. None of them is selectable.
+    const bodies = screen.getByRole("list", { name: "Guideline bodies" });
+    expect(within(bodies).getByText("World Health Organization")).toBeInTheDocument();
+    expect(within(bodies).getByText("Active")).toBeInTheDocument();
+    expect(within(bodies).getAllByText("Coming soon")).toHaveLength(4);
+    expect(within(bodies).queryByRole("button")).not.toBeInTheDocument();
+    expect(within(bodies).queryByRole("checkbox")).not.toBeInTheDocument();
 
     const organizations = screen.getByRole("textbox", { name: "Organizations" });
     await user.type(organizations, "ACC, AHA, acc");
@@ -145,7 +169,7 @@ describe("QuestionComposer", () => {
 
     await waitFor(() =>
       expect(onSubmit).toHaveBeenCalledWith("A focused guideline question", {
-        jurisdictions: ["UK"],
+        jurisdictions: ["WORLD"],
         organizations: ["ACC", "AHA"],
       }),
     );
@@ -155,7 +179,7 @@ describe("QuestionComposer", () => {
     const user = userEvent.setup();
     render(
       <ComposerHarness
-        initialFilters={{ jurisdictions: ["US"], organizations: ["ACC"] }}
+        initialFilters={{ jurisdictions: ["WORLD"], organizations: ["ACC"] }}
         onSubmit={vi.fn(async () => true)}
       />,
     );
@@ -172,9 +196,6 @@ describe("QuestionComposer", () => {
 
     await user.click(summary);
     await user.click(screen.getByRole("button", { name: "Reset" }));
-    expect(screen.getByRole("checkbox", { name: "US, United States" })).toBeChecked();
-    expect(screen.getByRole("checkbox", { name: "EU, European Union" })).toBeChecked();
-    expect(screen.getByRole("checkbox", { name: "UK, United Kingdom" })).toBeChecked();
     expect(screen.queryByRole("button", { name: "Remove ACC" })).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Done" }));
@@ -193,12 +214,19 @@ describe("QuestionComposer", () => {
     await user.dblClick(screen.getByRole("button", { name: "Review evidence" }));
 
     expect(onSubmit).toHaveBeenCalledOnce();
-    expect(screen.getByRole("button", { name: "Starting..." })).toBeDisabled();
+    const starting = screen.getByRole("button", { name: "Starting..." });
+    expect(starting).toHaveAttribute("aria-disabled", "true");
     expect(question).toHaveAttribute("readonly");
+    // The point of not disabling it: the click that started the run left focus here, and
+    // a run can take minutes. Disabling would hand focus back to <body> for all of it.
+    expect(starting).toHaveFocus();
 
     request.resolve(true);
     await waitFor(() =>
-      expect(screen.getByRole("button", { name: "Review evidence" })).toBeEnabled(),
+      expect(screen.getByRole("button", { name: "Review evidence" })).toHaveAttribute(
+        "aria-disabled",
+        "false",
+      ),
     );
 
     const onStopWaiting = vi.fn();
@@ -209,7 +237,10 @@ describe("QuestionComposer", () => {
         onSubmit={vi.fn(async () => true)}
       />,
     );
-    expect(screen.getByRole("button", { name: "Reviewing..." })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Reviewing..." })).toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
     expect(screen.getByRole("textbox", { name: "Guideline question" })).toHaveAttribute(
       "readonly",
     );

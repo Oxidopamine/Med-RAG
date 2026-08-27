@@ -1,21 +1,215 @@
+/*
+ * Design tokens.
+ *
+ * One light theme, deliberately. This is a clinical evidence surface read in daylight
+ * against printed guidelines, and a half-considered second theme costs more than it earns.
+ * `color-scheme: light` says so to the browser, so its scrollbars and native selects agree
+ * with the page instead of guessing.
+ *
+ * Components reference the semantic layer only (--bg-*, --text-*, --border-*, --ink-*,
+ * --ok/--warn/--danger-*). The ramps exist so the semantic names have one place to point.
+ * Nothing outside this file carries a literal colour.
+ */
+
 :root {
-  --ink: #071633;
-  --ink-soft: #5a667a;
-  --line: #d8dee8;
-  --line-strong: #c7d0de;
-  --paper: #ffffff;
-  --canvas: #f7f9fc;
-  --navy: #0a2b62;
-  --blue: #075dce;
-  --blue-dark: #064ca8;
-  --blue-soft: #edf4ff;
-  --green: #159957;
-  --green-soft: #eaf8f0;
-  --amber: #b66a00;
-  --amber-soft: #fff7e8;
-  --red: #b13e44;
-  --red-soft: #fff0f1;
-  --shadow: 0 1px 3px rgba(13, 31, 61, 0.06);
+  color-scheme: light;
+
+  /* Neutral ramp. Cool zinc rather than blue-grey: the accent is near-black, and a navy
+     bias in the greys made every surface read as tinted. */
+  --n-0: #ffffff;
+  --n-25: #fcfcfd;
+  --n-50: #fafafa;
+  --n-100: #f4f4f5;
+  --n-150: #ececee;
+  --n-200: #e4e4e7;
+  --n-300: #d4d4d8;
+  --n-400: #a1a1aa;
+  --n-500: #71717a;
+  --n-600: #52525b;
+  --n-700: #3f3f46;
+  --n-800: #27272a;
+  --n-900: #18181b;
+  --n-950: #0a0a0a;
+
+  /* Link and selection blue. Used for text links, the focus ring and nothing decorative. */
+  --b-50: #eff4ff;
+  --b-100: #dbe6fe;
+  --b-200: #c2d6fd;
+  --b-500: #2563eb;
+  --b-600: #1d4ed8;
+  --b-700: #1e40af;
+
+  /* Status. Quiet by construction: a tint, a hairline, and text dark enough to read. */
+  --g-50: #ecfdf3;
+  --g-200: #abefc6;
+  --g-500: #17b26a;
+  --g-700: #067647;
+
+  --a-50: #fffaeb;
+  --a-200: #fedf89;
+  --a-500: #f79009;
+  --a-700: #b54708;
+
+  --r-50: #fef3f2;
+  --r-200: #fecdca;
+  --r-500: #f04438;
+  --r-700: #b42318;
+
+  /* ---- surfaces ---- */
+  --bg-canvas: var(--n-50);
+  --bg-surface: var(--n-0);
+  --bg-raised: var(--n-0);
+  --bg-sunk: var(--n-100);
+  --bg-inset: var(--n-150);
+  --bg-overlay: var(--n-0);
+  --bg-paper: var(--n-0);
+
+  /* ---- text ---- */
+  --text-strong: var(--n-950);
+  --text-primary: var(--n-900);
+  --text-secondary: var(--n-600);
+  /*
+   * Both of these carry text, so both are held to 4.5:1 rather than to where they sit on
+   * the ramp. --text-muted must clear it on --bg-sunk as well as on white, which is what
+   * pushed it off zinc-500; --text-faint is the lightest text tone and is for white
+   * surfaces and decorative icons only.
+   */
+  --text-muted: #67676f;
+  --text-faint: #71717a;
+  --text-inverse: var(--n-0);
+
+  /* ---- borders ---- */
+  --border-subtle: var(--n-150);
+  --border: var(--n-200);
+  --border-strong: var(--n-300);
+
+  /* ---- the black action ---- */
+  --ink: var(--n-950);
+  --ink-hover: var(--n-800);
+  --ink-active: #000000;
+  --ink-on: var(--n-0);
+  --ink-ring: rgba(10, 10, 10, 0.16);
+
+  /* ---- accent: links, selection, focus ---- */
+  --accent: var(--b-600);
+  --accent-hover: var(--b-700);
+  --accent-text: var(--b-600);
+  --accent-strong: var(--b-700);
+  --accent-wash: var(--b-50);
+  --accent-wash-soft: var(--b-50);
+  --accent-border: var(--b-200);
+  --accent-border-strong: var(--b-500);
+  --accent-on: var(--n-0);
+
+  /* ---- status ---- */
+  --ok-text: var(--g-700);
+  --ok-wash: var(--g-50);
+  --ok-border: var(--g-200);
+  --ok-mark: var(--g-500);
+
+  --warn-text: var(--a-700);
+  --warn-wash: var(--a-50);
+  --warn-border: var(--a-200);
+  --warn-mark: var(--a-500);
+
+  --danger-text: var(--r-700);
+  --danger-wash: var(--r-50);
+  --danger-border: var(--r-200);
+  --danger-mark: var(--r-500);
+
+  /* Composited overlays. Tokens because an rgba() literal is invisible to a hex sweep. */
+  --focus-ring: var(--n-950);
+  --focus-glow: rgba(10, 10, 10, 0.12);
+  --danger-glow: rgba(240, 68, 56, 0.16);
+  --hatch-line: rgba(10, 10, 10, 0.06);
+  --veil-surface: rgba(255, 255, 255, 0.85);
+  --veil-surface-strong: rgba(255, 255, 255, 0.95);
+  --veil-surface-soft: rgba(255, 255, 255, 0.6);
+  --veil-canvas: rgba(250, 250, 250, 0.6);
+  --scrim: rgba(10, 10, 10, 0.4);
+
+  /* The verified-excerpt highlighter. Load-bearing, so it stays yellow. */
+  --highlight-bg: #fef3c7;
+  --highlight-text: var(--n-950);
+
+  /*
+   * Elevation. Two-layer, low-opacity, tight: a contact shadow plus a soft spread. The
+   * button shadow carries an inset top highlight, which is what stops a flat black
+   * rectangle reading as a disabled block.
+   */
+  --shadow-xs: 0 1px 2px rgba(16, 24, 40, 0.04);
+  --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.06), 0 1px 3px rgba(16, 24, 40, 0.04);
+  --shadow-md: 0 2px 4px -2px rgba(16, 24, 40, 0.06), 0 4px 8px -2px rgba(16, 24, 40, 0.08);
+  --shadow-lg: 0 4px 6px -2px rgba(16, 24, 40, 0.03), 0 12px 16px -4px rgba(16, 24, 40, 0.08);
+  --shadow-xl: 0 8px 8px -4px rgba(16, 24, 40, 0.03), 0 20px 24px -4px rgba(16, 24, 40, 0.1);
+  --shadow-ink: 0 1px 2px rgba(10, 10, 10, 0.24), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+
+  /*
+   * Type scale.
+   *
+   * 12px is the hard floor: nothing renders below --t-2xs, including inside the source
+   * sheet, whose `em` ratios are set so their 100% state still clears it. Prose a person
+   * reads through sits at --t-base or above. --t-xs carries labels and metadata and is
+   * the largest tier by count, which is the intent rather than a drift.
+   *
+   * rem so a raised browser default actually raises the interface (WCAG 1.4.4).
+   */
+  --t-2xs: 0.75rem; /* 12px - floor; chrome and dense labels */
+  --t-xs: 0.8125rem; /* 13px - labels, metadata */
+  --t-sm: 0.875rem; /* 14px - secondary content */
+  --t-base: 0.9375rem; /* 15px - prose floor */
+  --t-md: 1rem; /* 16px - body, panel headings */
+  --t-lg: 1.125rem; /* 18px */
+  --t-xl: 1.375rem; /* 22px */
+  --t-2xl: 1.75rem; /* 28px */
+  --t-3xl: 2.125rem; /* 34px */
+
+  --w-regular: 400;
+  --w-medium: 500;
+  --w-semibold: 600;
+  --w-bold: 700;
+
+  /* Headings tighten as they grow; labels open up. Set once, applied by tier. */
+  --track-tight: -0.021em;
+  --track-snug: -0.013em;
+  --track-normal: -0.006em;
+  --track-label: 0.04em;
+
+  /* 4px spacing scale. */
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-5: 20px;
+  --s-6: 24px;
+  --s-8: 32px;
+  --s-10: 40px;
+  --s-12: 48px;
+  --s-16: 64px;
+
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
+  --radius-xl: 14px;
+  --radius-pill: 999px;
+
+  /*
+   * The smallest an interactive control may be. Controls were landing between 38 and 42px
+   * one rule at a time, which is a decision nobody made sixteen times - so it is a token,
+   * and a control that opts out has to say so where it does it.
+   */
+  --control-min: 44px;
+  --control-sm: 36px;
+  /* Compact controls are a pointer affordance. On touch, every control takes the full
+     target - one line here rather than a rule per control. */
+
+  --header-h: 60px;
+}
+
+@media (max-width: 860px) {
+  :root {
+    --control-sm: var(--control-min);
+  }
 }
 
 * {
@@ -26,11 +220,27 @@ html,
 body {
   margin: 0;
   min-height: 100%;
-  overflow-x: hidden;
-  background: var(--canvas);
-  color: var(--ink);
-  font-family: var(--font-sans), Inter, Arial, sans-serif;
-  letter-spacing: 0;
+  background: var(--bg-canvas);
+  color: var(--text-primary);
+  font-family: var(--font-sans), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size: 100%;
+  letter-spacing: var(--track-normal);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  font-size: var(--t-md);
+  line-height: 1.5;
+}
+
+code,
+kbd,
+samp,
+pre {
+  font-family: var(--font-mono), ui-monospace, "SF Mono", Menlo, monospace;
+  font-feature-settings: "liga" 0;
 }
 
 button,
@@ -38,13 +248,54 @@ input,
 select,
 textarea {
   font: inherit;
-  letter-spacing: 0;
+  letter-spacing: inherit;
+  color: inherit;
 }
 
 button {
   cursor: pointer;
+  background: none;
+  border: none;
+  padding: 0;
 }
 
 button:disabled {
   cursor: not-allowed;
+}
+
+a {
+  color: var(--accent-text);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+::selection {
+  background: var(--n-900);
+  color: var(--n-0);
+}
+
+/* Numbers that sit in columns line up; identifiers never re-wrap mid-token. */
+[data-tabular] {
+  font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

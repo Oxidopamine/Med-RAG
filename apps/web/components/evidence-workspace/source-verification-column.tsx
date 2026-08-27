@@ -8,17 +8,23 @@ import {
   CircleDashed,
   ExternalLink,
   FileSearch,
-  FileText,
   Minus,
   Plus,
 } from "lucide-react";
-import { useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+} from "react";
 
 import type {
   EvidenceProgressEvent,
   EvidenceRunLifecycle,
 } from "@/components/evidence-workspace/use-evidence-run";
-import { primaryAnchor, renderPolicy } from "@/lib/evidence-presentation";
+import { humanizeCode, primaryAnchor, renderPolicy } from "@/lib/evidence-presentation";
 import type { RankedEvidence } from "@/lib/presentation";
 import type { EvidenceDetail, QuestionResult, QuestionStatus } from "@/lib/types";
 
@@ -71,20 +77,54 @@ interface SourceViewerProps {
   selectedEvidenceId: string | null;
 }
 
+/**
+ * The reader's text size, kept across runs.
+ *
+ * It is an accessibility preference, not a per-run whim, and it was resetting on every
+ * question. Reads are wrapped because a browser set to block site data throws here rather
+ * than returning null.
+ */
+const TEXT_SCALE_KEY = "evidence-workspace.text-scale";
+
+function storedTextScale(): number {
+  if (typeof window === "undefined") return 100;
+  try {
+    const raw = Number(window.localStorage.getItem(TEXT_SCALE_KEY));
+    return Number.isFinite(raw) && raw >= 90 && raw <= 140 ? raw : 100;
+  } catch {
+    return 100;
+  }
+}
+
 export function SourceViewer({
   candidates,
   evidence,
   onSelectEvidence,
   selectedEvidenceId,
 }: SourceViewerProps) {
-  const [zoom, setZoom] = useState(100);
+  // Read in the initializer rather than an effect: this panel renders only once a result
+  // exists, which never happens during the server render, so there is no markup for a
+  // stored value to disagree with.
+  const [textScale, setTextScale] = useState(storedTextScale);
+  const railRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(TEXT_SCALE_KEY, String(textScale));
+    } catch {
+      // A browser that refuses storage still gets the control; it just does not persist.
+    }
+  }, [textScale]);
   // Cited evidence first, then the ranked passages nothing cited. Reading order is the
   // retrieval ranking, so stepping past the last citation is what the next ranked result
   // means here - but the two halves stay labelled apart everywhere they are shown.
-  const items: Array<{ detail: EvidenceDetail; retrievalRank: number | null }> = [
-    ...evidence.map((detail) => ({ detail, retrievalRank: null })),
-    ...candidates.map(({ detail, retrievalRank }) => ({ detail, retrievalRank })),
-  ];
+  const items: Array<{ detail: EvidenceDetail; retrievalRank: number | null }> = useMemo(
+    () => [
+      ...evidence.map((detail) => ({ detail, retrievalRank: null })),
+      ...candidates.map(({ detail, retrievalRank }) => ({ detail, retrievalRank })),
+    ],
+    [candidates, evidence],
+  );
   const selectedIndex = Math.max(
     0,
     items.findIndex((item) => item.detail.evidence_id === selectedEvidenceId),
@@ -92,6 +132,26 @@ export function SourceViewer({
   const selectedItem = items[selectedIndex] ?? null;
   const selected = selectedItem?.detail ?? null;
   const candidateRank = selectedItem?.retrievalRank ?? null;
+
+  /**
+   * Walk the ranking from the keyboard.
+   *
+   * Bound to the rail rather than the document: a global handler would swallow `j` and
+   * `k` while someone is typing a question. Focus follows the selection so the reader can
+   * keep pressing without reaching for the mouse between passages.
+   */
+  const walk = useCallback(
+    (event: ReactKeyboardEvent<HTMLDivElement>) => {
+      const step = event.key === "j" ? 1 : event.key === "k" ? -1 : 0;
+      if (step === 0 || event.metaKey || event.ctrlKey || event.altKey) return;
+      const next = items[selectedIndex + step];
+      if (!next) return;
+      event.preventDefault();
+      onSelectEvidence(next.detail.evidence_id);
+      railRef.current?.querySelectorAll("button")[selectedIndex + step]?.focus();
+    },
+    [items, onSelectEvidence, selectedIndex],
+  );
 
   if (!selected) {
     return (
@@ -132,7 +192,10 @@ export function SourceViewer({
         )}
       </div>
 
-      <div className={styles["pdf-toolbar"]} aria-label="Source inspector controls">
+      {/* `group`, not `toolbar`: a toolbar promises roving arrow-key navigation this
+          does not implement, and a role that overstates the keyboard contract is worse
+          than the plain grouping the controls actually form. */}
+      <div className={styles["source-toolbar"]} role="group" aria-label="Source inspector controls">
         <div className={styles["toolbar-group"]}>
           <button
             type="button"
@@ -151,21 +214,26 @@ export function SourceViewer({
             <ArrowDown size={19} aria-hidden="true" />
           </button>
           <span className={styles["evidence-position"]}>{positionLabel}</span>
+          <span className={styles["rail-shortcut"]} aria-hidden="true">
+            <kbd>j</kbd>
+            <kbd>k</kbd>
+          </span>
         </div>
+        {/* A text-size control, not a page zoom: there is no page here to magnify. */}
         <div className={styles["toolbar-center"]}>
           <button
             type="button"
-            onClick={() => setZoom((current) => Math.max(80, current - 10))}
-            disabled={zoom <= 80}
+            onClick={() => setTextScale((current) => Math.max(90, current - 10))}
+            disabled={textScale <= 90}
             aria-label="Decrease source text size"
           >
             <Minus size={18} aria-hidden="true" />
           </button>
-          <span className={styles["zoom-control"]}>{zoom}%</span>
+          <span className={styles["text-size-label"]}>Text size</span>
           <button
             type="button"
-            onClick={() => setZoom((current) => Math.min(140, current + 10))}
-            disabled={zoom >= 140}
+            onClick={() => setTextScale((current) => Math.min(140, current + 10))}
+            disabled={textScale >= 140}
             aria-label="Increase source text size"
           >
             <Plus size={18} aria-hidden="true" />
@@ -180,10 +248,17 @@ export function SourceViewer({
       </div>
 
       <div className={styles["viewer-layout"]}>
-        <div className={styles.thumbnails} aria-label="Ranked results">
+        <div
+          className={styles["evidence-rail"]}
+          ref={railRef}
+          role="group"
+          aria-label="Retrieved records"
+          aria-keyshortcuts="j k"
+          onKeyDown={walk}
+        >
           {items.map(({ detail, retrievalRank }, index) => (
             <button
-              className={`${styles.thumbnail} ${retrievalRank === null ? "" : styles.candidate} ${detail.evidence_id === selected.evidence_id ? styles.selected : ""}`}
+              className={`${styles["rail-item"]} ${retrievalRank === null ? "" : styles.candidate} ${detail.evidence_id === selected.evidence_id ? styles.selected : ""}`}
               type="button"
               key={detail.evidence_id}
               onClick={() => onSelectEvidence(detail.evidence_id)}
@@ -194,9 +269,13 @@ export function SourceViewer({
               }
               aria-current={detail.evidence_id === selected.evidence_id ? "true" : undefined}
             >
-              <FileText size={22} aria-hidden="true" />
-              <span>
-                {locatorPage(detail) ?? (retrievalRank === null ? index + 1 : `#${retrievalRank}`)}
+              {/* Rank is the identity, in every row. The page or section is secondary
+                  text beneath it, and uncited entries carry their own colour rather than
+                  a third label vocabulary - three of those in a 66px column was a puzzle
+                  rather than a wayfinder. */}
+              <span className={styles["rail-rank"]}>{index + 1}</span>
+              <span className={styles["rail-locator"]}>
+                {locatorPage(detail) ?? (retrievalRank === null ? "cited" : "uncited")}
               </span>
             </button>
           ))}
@@ -208,10 +287,10 @@ export function SourceViewer({
         <div
           className={styles["document-stage"]}
           role="group"
-          aria-label="Source document"
+          aria-label="Source excerpt"
           tabIndex={0}
         >
-          <article className={styles["document-paper"]} style={{ fontSize: `${zoom}%` }}>
+          <article className={styles["excerpt-sheet"]} style={{ fontSize: `${textScale}%` }}>
             <header className={styles["paper-heading"]}>
               <span>{selected.publisher_name}</span>
               <span>{selected.source_version_label}</span>
@@ -239,7 +318,10 @@ export function SourceViewer({
             <AnchorViewer detail={selected} key={selected.evidence_id} />
 
             <footer className={styles["paper-footer"]}>
-              <span>{selected.evidence_id}</span>
+              {/* Said plainly, because the surrounding chrome once implied otherwise:
+                  this is text extracted from the source at the location named, not an
+                  image of the page. */}
+              <span>Verified excerpt &middot; {selected.evidence_id}</span>
               <span>{sourceLocation(selected)}</span>
             </footer>
           </article>
@@ -268,6 +350,9 @@ function SourceMetadata({
     <aside className={`${styles["document-metadata"]} ${mobile ? styles["metadata-mobile"] : ""}`}>
       <h3>Document</h3>
       <p>{evidence.source_title}</p>
+      {/* The single home for this record's provenance. The claim-linked panel carries the
+          passage and the licence decision; everything that identifies and dates the
+          source is stated here once. */}
       <dl>
         <div>
           <dt>Publisher</dt>
@@ -282,12 +367,30 @@ function SourceMetadata({
           <dd>{evidence.jurisdiction}</dd>
         </div>
         <div>
+          <dt>Section</dt>
+          <dd>{evidence.section_path.join(" › ") || "Not supplied"}</dd>
+        </div>
+        <div>
           <dt>Page</dt>
           <dd>{locatorPage(evidence) ?? "Not supplied"}</dd>
         </div>
         <div>
           <dt>Highlight</dt>
           <dd>{highlightSummary(evidence, policy.canHighlightExactly)}</dd>
+        </div>
+        <div>
+          <dt>Effective</dt>
+          <dd>{dateRange(evidence.effective_from, evidence.effective_to)}</dd>
+        </div>
+        <div>
+          <dt>Evidence roles</dt>
+          <dd>{evidence.evidence_roles.map(humanizeCode).join(", ")}</dd>
+        </div>
+        <div>
+          <dt>Evidence type</dt>
+          <dd>
+            {evidence.evidence_type ? humanizeCode(evidence.evidence_type) : "Not supplied"}
+          </dd>
         </div>
         <div>
           <dt>Lifecycle</dt>
@@ -299,7 +402,7 @@ function SourceMetadata({
         <SourceAnchorList detail={evidence} />
       </div>
       <a href={evidence.source_url} target="_blank" rel="noreferrer">
-        View publisher source
+        Open publisher source
         <ExternalLink size={15} aria-hidden="true" />
       </a>
     </aside>
@@ -336,7 +439,6 @@ export function VerificationPanel({
   status,
 }: VerificationPanelProps) {
   const badge = verificationBadge(result, lifecycle);
-  const isCompleted = result?.status === "ANSWER_READY";
 
   return (
     <section className={`${styles.panel} ${styles["verification-panel"]}`} aria-labelledby="verification-heading">
@@ -356,8 +458,11 @@ export function VerificationPanel({
 
       <p className={styles["verification-summary"]}>{badge.message}</p>
 
-      <details className={styles["verification-details"]} open={isRunning || !isCompleted}>
-        <summary>{isCompleted ? "View audit steps" : "Audit steps"}</summary>
+      {/* Open on every state, including answer-ready. Five named gates and what each one
+          concluded is the product's differentiator; collapsing it by default on the best
+          case was the interface being modest about the thing that distinguishes it. */}
+      <details className={styles["verification-details"]} open>
+        <summary>Audit steps</summary>
         <ol className={styles["verification-timeline"]}>
           {VERIFICATION_STEPS.map((step, index) => {
             const state = verificationStepState({
@@ -368,9 +473,10 @@ export function VerificationPanel({
               result,
               status,
             });
-            const event = [...progressEvents]
-              .reverse()
-              .find((progressEvent) => step.statuses.includes(progressEvent.status));
+            const event = progressEvents.findLast((progressEvent) =>
+              step.statuses.includes(progressEvent.status),
+            );
+            const duration = stepDuration(progressEvents, index);
             return (
               <li className={styles[state]} key={step.label}>
                 <div className={styles["step-track"]}>
@@ -390,7 +496,9 @@ export function VerificationPanel({
                 </div>
                 <strong>{index + 1}.</strong>
                 <span>{stepLabel(step, state)}</span>
-                <small>{event ? formatTime(event.occurredAt) : stepStateLabel(state)}</small>
+                <small title={event ? formatTime(event.occurredAt) : undefined}>
+                  {duration ?? (event ? formatTime(event.occurredAt) : stepStateLabel(state))}
+                </small>
               </li>
             );
           })}
@@ -449,6 +557,26 @@ function stepLabel(
   return step.label;
 }
 
+/**
+ * How long a stage took, from the events already on the wire.
+ *
+ * The gap between the previous stage's last event and this one's. The first stage has no
+ * predecessor to measure from, so it reports nothing rather than timing from the run's
+ * acceptance - the queue is not the stage.
+ */
+function stepDuration(events: EvidenceProgressEvent[], index: number): string | null {
+  if (index === 0) return null;
+  const step = VERIFICATION_STEPS[index]!;
+  const end = events.findLast((event) => step.statuses.includes(event.status));
+  if (!end) return null;
+  const previous = VERIFICATION_STEPS[index - 1]!;
+  const start = events.findLast((event) => previous.statuses.includes(event.status));
+  if (!start) return null;
+  const ms = Date.parse(end.occurredAt) - Date.parse(start.occurredAt);
+  if (!Number.isFinite(ms) || ms < 0) return null;
+  return ms < 1000 ? `${ms}ms` : `${(ms / 1000).toFixed(1)}s`;
+}
+
 function stepStateLabel(state: ReturnType<typeof verificationStepState>): string {
   if (state === "complete") return "Complete";
   if (state === "currentStep") return "In progress";
@@ -503,7 +631,7 @@ function verificationBadge(
   };
 }
 
-/** The compact page label used on thumbnails, from the most precise anchor available. */
+/** The compact page label used on the evidence rail, from the most precise anchor. */
 function locatorPage(evidence: EvidenceDetail): string | null {
   const anchor = primaryAnchor(evidence);
   if (!anchor) return null;
@@ -519,6 +647,19 @@ function sourceLocation(evidence: EvidenceDetail): string {
 function humanize(value: string): string {
   const words = value.replaceAll("_", " ").toLowerCase();
   return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
+function dateRange(start: string | null, end: string | null): string {
+  if (!start && !end) return "Dates not supplied";
+  if (start && end) return `${formatDay(start)}–${formatDay(end)}`;
+  if (start) return `From ${formatDay(start)}`;
+  return `Until ${formatDay(end!)}`;
+}
+
+function formatDay(value: string): string {
+  return new Intl.DateTimeFormat("en", { dateStyle: "medium", timeZone: "UTC" }).format(
+    new Date(`${value}T00:00:00Z`),
+  );
 }
 
 function formatTime(value: string): string {

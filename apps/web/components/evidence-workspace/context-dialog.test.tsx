@@ -26,6 +26,7 @@ const context: ClinicalContext = {
   jurisdiction: null,
   question_type: "treatment_guideline",
   topic: "anticoagulation",
+  inferred_fields: [],
 };
 
 interface DialogHarnessProps {

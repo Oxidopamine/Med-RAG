@@ -34,8 +34,13 @@ import type { ClinicalContext, QuestionResult, SourceFilters } from "@/lib/types
 
 import styles from "./evidence-workspace/workspace.module.css";
 
+/*
+ * The active release is WHO SMART HIV, whose records are scoped WORLD. Requesting
+ * US/EU/UK asked the serving path to narrow to editions this corpus does not contain,
+ * and it silently widened the request back to WORLD anyway.
+ */
 const DEFAULT_SOURCE_FILTERS: SourceFilters = {
-  jurisdictions: ["US", "EU", "UK"],
+  jurisdictions: ["WORLD"],
   organizations: [],
 };
 
@@ -48,13 +53,19 @@ interface TransientFeedback {
 
 const INITIAL_CORPUS_STATUS: CorpusStatus = {
   approvedCorpusAvailable: false,
+  servingMode: null,
   error: null,
   isLoading: true,
   registryAvailable: false,
   releaseId: null,
 };
 
-export function EvidenceWorkspace() {
+export function EvidenceWorkspace({
+  initialQuestionId,
+}: {
+  /** Set when the workspace was opened at /r/[questionId] rather than at the root. */
+  initialQuestionId?: string;
+} = {}) {
   const [question, setQuestion] = useState("");
   const [sourceFilters, setSourceFilters] = useState<SourceFilters>(DEFAULT_SOURCE_FILTERS);
   const [editOpen, setEditOpen] = useState(false);
@@ -66,6 +77,7 @@ export function EvidenceWorkspace() {
   const feedbackTimerRef = useRef<number | null>(null);
   const previousLifecycleRef = useRef("idle");
   const feedbackIdRef = useRef(0);
+  const adoptedRef = useRef(false);
   const run = useEvidenceRun();
 
   const workspaceResult = run.result ?? run.previousResult;
@@ -122,6 +134,28 @@ export function EvidenceWorkspace() {
     [],
   );
 
+  // Opened at /r/[questionId]: attach to that run rather than starting from empty, and
+  // show the question it was asked with.
+  useEffect(() => {
+    if (!initialQuestionId || adoptedRef.current) return;
+    adoptedRef.current = true;
+    void run.adopt(initialQuestionId).then((adopted) => {
+      if (adopted) setQuestion((current) => current || adopted.question);
+    });
+  }, [initialQuestionId, run]);
+
+  // Keep the address bar on the run being shown, so a reload or a shared link lands
+  // back on it. `replaceState` rather than a router push: the workspace is already
+  // mounted and a navigation would tear down the run it is monitoring.
+  useEffect(() => {
+    const id = run.questionId;
+    if (!id) return;
+    const path = `/r/${encodeURIComponent(id)}`;
+    if (window.location.pathname !== path) {
+      window.history.replaceState(null, "", path);
+    }
+  }, [run.questionId]);
+
   useEffect(() => {
     let active = true;
     void getCorpusReadiness()
@@ -129,6 +163,7 @@ export function EvidenceWorkspace() {
         if (!active) return;
         setCorpusStatus({
           approvedCorpusAvailable: readiness.approved_corpus_available,
+          servingMode: readiness.serving_mode,
           error: null,
           isLoading: false,
           registryAvailable: readiness.corpus_registry_available,
@@ -139,6 +174,7 @@ export function EvidenceWorkspace() {
         if (!active) return;
         setCorpusStatus({
           approvedCorpusAvailable: false,
+          servingMode: null,
           error: error instanceof Error ? error.message : "Corpus readiness could not be checked.",
           isLoading: false,
           registryAvailable: false,
@@ -168,6 +204,23 @@ export function EvidenceWorkspace() {
         "Server processing may continue. Submit again if you need a new monitored review.",
         6500,
       );
+    }
+
+    // A run can take minutes, so the reader who submitted it is not looking at the same
+    // place when it lands. Move focus onto the result rather than announcing it and
+    // leaving a keyboard user to tab in from the top of the document. The answer heading
+    // already carries `tabIndex={-1}` and a suppressed focus ring for exactly this.
+    //
+    // Only idle focus is taken over: focus sitting on the submit button that started the
+    // run, or dropped to <body>. Someone who has deliberately moved on - typing a
+    // follow-up question, reading a source - keeps their place.
+    if (["completed", "abstained", "failed"].includes(run.lifecycle)) {
+      const active = document.activeElement;
+      const focusIsIdle =
+        !active ||
+        active === document.body ||
+        (active instanceof HTMLButtonElement && active.type === "submit");
+      if (focusIsIdle) document.getElementById("answer-heading")?.focus();
     }
   }, [run.lifecycle, showTransient]);
 
@@ -222,6 +275,23 @@ export function EvidenceWorkspace() {
     void copyText(questionId, "Run ID copied", "The run identifier is available on your clipboard.");
   }
 
+  /**
+   * The run's address, not its name.
+   *
+   * A colleague can open this; a run identifier only tells them what to search for. The
+   * identifier stays visible in the provenance strip for the support-ticket case.
+   */
+  function copyRunLink() {
+    const questionId = run.questionId ?? workspaceResult?.question_id;
+    if (!questionId) return;
+    const url = new URL(`/r/${encodeURIComponent(questionId)}`, window.location.origin);
+    void copyText(
+      url.toString(),
+      "Link copied",
+      "Anyone with access can open this review, with its release and verification intact.",
+    );
+  }
+
   function copyAnswer() {
     if (!workspaceResult || workspaceResult.status !== "ANSWER_READY") return;
     const sourceById = new Map(
@@ -273,13 +343,23 @@ export function EvidenceWorkspace() {
   }
 
   const errorFeedback = run.error ? friendlyError(run.error) : null;
+  // A stalled monitor is not a failed run: the server is very likely still working, so
+  // the offer is to keep watching rather than to start over.
+  const monitoringStalled = Boolean(
+    run.error && /stopped waiting|connection/i.test(run.error) && run.canResumeMonitoring,
+  );
+  const errorAction = monitoringStalled
+    ? { label: "Keep waiting", run: () => void run.resumeMonitoring() }
+    : run.canRetry
+      ? { label: "Try again", run: () => void run.retry() }
+      : null;
   const shouldShowGettingStarted =
     run.lifecycle === "idle" ||
     ((run.lifecycle === "cancelled" || run.lifecycle === "failed") && !workspaceResult);
 
   return (
     <div className={styles.appShell}>
-      <AppHeader />
+      <AppHeader corpusStatus={corpusStatus} />
 
       <main id="main-content">
         <QuestionComposer
@@ -296,9 +376,9 @@ export function EvidenceWorkspace() {
         {errorFeedback ? (
           <>
             <FeedbackBanner
-              actionLabel={run.canRetry ? "Try again" : undefined}
+              actionLabel={errorAction?.label}
               message={errorFeedback.message}
-              onAction={run.canRetry ? () => void run.retry() : undefined}
+              onAction={errorAction?.run}
               onDismiss={run.clearError}
               title={errorFeedback.title}
               tone="error"
@@ -310,13 +390,36 @@ export function EvidenceWorkspace() {
           </>
         ) : null}
 
-        {transientFeedback ? (
+        {/* In flow, above the workspace, with its slot reserved while a result is on
+            screen. It was floated over the workspace to stop an inline banner pushing the
+            result down on arrival and pulling it back on dismiss - but bottom-right put it
+            on top of the source inspector, hiding the highlight and evidence-role rows for
+            as long as it showed. Occluding provenance is the worse of the two: this is the
+            one panel whose whole job is to be read. Reserving the space keeps the result
+            still without covering any of it. */}
+        <div
+          className={`${styles["transient-feedback"]} ${
+            workspaceResult ? styles["transient-feedback-reserved"] : ""
+          }`}
+        >
+          {transientFeedback ? (
+            <FeedbackBanner
+              key={transientFeedback.id}
+              message={transientFeedback.message}
+              onDismiss={() => setTransientFeedback(null)}
+              title={transientFeedback.title}
+              tone={transientFeedback.tone}
+            />
+          ) : null}
+        </div>
+
+        {run.lifecycle === "cancelled" && run.canResumeMonitoring && !run.error ? (
           <FeedbackBanner
-            key={transientFeedback.id}
-            message={transientFeedback.message}
-            onDismiss={() => setTransientFeedback(null)}
-            title={transientFeedback.title}
-            tone={transientFeedback.tone}
+            actionLabel="Resume monitoring"
+            message="This browser stopped watching the run. The server may still be working on it."
+            onAction={() => void run.resumeMonitoring()}
+            title="Monitoring stopped"
+            tone="info"
           />
         ) : null}
 
@@ -347,7 +450,7 @@ export function EvidenceWorkspace() {
             citations={citations}
             isPrevious={isPreviousResult}
             onCopyAnswer={copyAnswer}
-            onCopyRunId={copyRunId}
+            onCopyLink={copyRunLink}
             onEditContext={openContextEditor}
             onExportAudit={exportAudit}
             onRetry={() => void run.retry()}
@@ -384,7 +487,7 @@ function ResultWorkspace({
   citations,
   isPrevious,
   onCopyAnswer,
-  onCopyRunId,
+  onCopyLink,
   onEditContext,
   onExportAudit,
   onRetry,
@@ -403,7 +506,7 @@ function ResultWorkspace({
   citations: CitationIndex;
   isPrevious: boolean;
   onCopyAnswer: () => void;
-  onCopyRunId: () => void;
+  onCopyLink: () => void;
   onEditContext: () => void;
   onExportAudit: () => void;
   onRetry: () => void;
@@ -420,13 +523,12 @@ function ResultWorkspace({
   const ready = result.status === "ANSWER_READY";
   return (
     <>
-      <ProvenanceStrip onCopyRunId={onCopyRunId} result={result} />
+      <ProvenanceStrip onCopyLink={onCopyLink} onExportAudit={onExportAudit} result={result} />
       <div className={styles["workspace-grid"]}>
         <div className={styles["result-column"]}>
           <AnswerPanel
             isPrevious={isPrevious}
             onCopyAnswer={onCopyAnswer}
-            onExportAudit={onExportAudit}
             onRetry={onRetry}
             onSelectClaim={onSelectClaim}
             onSelectEvidence={onSelectEvidence}
@@ -494,7 +596,8 @@ function friendlyError(error: string): { message: string; title: string } {
   if (normalized.includes("five minutes")) {
     return {
       title: "This browser stopped waiting",
-      message: "The server may still be processing the run. Retry monitoring when the service is available.",
+      message:
+        "The run was not finished after five minutes. The server may still be working on it - keep waiting to pick monitoring back up.",
     };
   }
   return {

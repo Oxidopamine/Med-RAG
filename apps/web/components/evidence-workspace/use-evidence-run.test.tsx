@@ -68,6 +68,7 @@ const terminalResult: QuestionResult = {
     message: "No approved guideline corpus is configured.",
     missing_evidence_roles: ["CURRENT_PRIMARY_GUIDELINE"],
     closest_evidence_ids: [],
+    closest_evidence: [],
   },
   created_at: "2026-08-25T10:00:00+00:00",
   updated_at: "2026-08-25T10:00:04+00:00",
@@ -85,6 +86,7 @@ const context: ClinicalContext = {
   jurisdiction: "UK",
   question_type: "treatment_guideline",
   topic: "anticoagulation",
+  inferred_fields: [],
 };
 
 function progress(

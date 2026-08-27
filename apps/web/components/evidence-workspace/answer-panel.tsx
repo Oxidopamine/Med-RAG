@@ -3,7 +3,6 @@ import {
   BadgeCheck,
   CheckCircle2,
   Clipboard,
-  Download,
   FileLock2,
 } from "lucide-react";
 
@@ -17,7 +16,6 @@ import styles from "./workspace.module.css";
 interface AnswerPanelProps {
   isPrevious?: boolean;
   onCopyAnswer: () => void;
-  onExportAudit: () => void;
   onRetry: () => void;
   onSelectClaim: (claimId: string) => void;
   onSelectEvidence: (evidenceId: string) => void;
@@ -29,7 +27,6 @@ interface AnswerPanelProps {
 export function AnswerPanel({
   isPrevious = false,
   onCopyAnswer,
-  onExportAudit,
   onRetry,
   onSelectClaim,
   onSelectEvidence,
@@ -68,11 +65,12 @@ export function AnswerPanel({
             claims={result.claims}
             onSelectClaim={onSelectClaim}
             onSelectEvidence={onSelectEvidence}
+            result={result}
             selectedClaimId={selectedClaimId}
             selectedEvidenceId={selectedEvidenceId}
           />
 
-          <div className={styles["answer-signals"]} aria-label="Answer checks">
+          <div className={styles["answer-signals"]} role="group" aria-label="Answer checks">
             <Signal label="Evidence gate passed" />
             <Signal
               label={
@@ -92,13 +90,9 @@ export function AnswerPanel({
           </div>
 
           <div className={styles["answer-actions"]}>
-            <button type="button" onClick={onCopyAnswer}>
+            <button className={styles["primary-action"]} type="button" onClick={onCopyAnswer}>
               <Clipboard size={16} aria-hidden="true" />
               Copy with citations
-            </button>
-            <button type="button" onClick={onExportAudit}>
-              <Download size={16} aria-hidden="true" />
-              Export audit record
             </button>
           </div>
         </>

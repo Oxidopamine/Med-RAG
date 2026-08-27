@@ -1,8 +1,8 @@
 import { FileLock2, FileSearch } from "lucide-react";
 
 import type { Citation, CitationIndex } from "@/lib/evidence-presentation";
-import { claimCitations, humanizeCode } from "@/lib/evidence-presentation";
-import type { RenderedClaim } from "@/lib/types";
+import { claimCitations, claimRoles, humanizeCode } from "@/lib/evidence-presentation";
+import type { QuestionResult, RenderedClaim } from "@/lib/types";
 
 import styles from "./workspace.module.css";
 
@@ -11,6 +11,7 @@ interface ClaimListProps {
   claims: RenderedClaim[];
   onSelectClaim: (claimId: string) => void;
   onSelectEvidence: (evidenceId: string) => void;
+  result: QuestionResult;
   selectedClaimId: string | null;
   selectedEvidenceId: string | null;
 }
@@ -28,6 +29,7 @@ export function ClaimList({
   claims,
   onSelectClaim,
   onSelectEvidence,
+  result,
   selectedClaimId,
   selectedEvidenceId,
 }: ClaimListProps) {
@@ -35,6 +37,7 @@ export function ClaimList({
     <ol className={styles["claim-list"]}>
       {claims.map((claim, index) => {
         const cited = claimCitations(claim, citations);
+        const roles = claimRoles(claim, result);
         const isSelected = claim.claim_id === selectedClaimId;
         return (
           <li className={isSelected ? styles["selected-claim"] : ""} key={claim.claim_id}>
@@ -68,6 +71,23 @@ export function ClaimList({
                 Cited evidence for this claim is unavailable in this result.
               </p>
             )}
+
+            {/* What carried this claim, on the claim itself. The gate decided whether to
+                render it by looking at these roles; showing them here is the difference
+                between "supported" as a badge and "supported" as a statement a reader can
+                weigh. A claim resting only on background reads differently from one
+                resting on a current primary guideline, and it should. */}
+            {roles.length ? (
+              <ul className={styles["claim-roles"]} aria-label={`Evidence roles behind claim ${index + 1}`}>
+                {roles.map((role) => (
+                  <li className={styles[`role-${role.tone}`]} key={role.code}>
+                    {role.label}
+                    {role.count > 1 ? <span aria-hidden="true"> ×{role.count}</span> : null}
+                    {role.count > 1 ? <span className={styles.srOnly}>, {role.count} sources</span> : null}
+                  </li>
+                ))}
+              </ul>
+            ) : null}
 
             <div className={styles["claim-footer"]}>
               <button type="button" onClick={() => onSelectClaim(claim.claim_id)}>

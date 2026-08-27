@@ -1,4 +1,11 @@
-import { BookOpenCheck, CheckCircle2, CircleDashed, ShieldCheck, TriangleAlert } from "lucide-react";
+import {
+  BookOpenCheck,
+  CheckCircle2,
+  CircleDashed,
+  FlaskConical,
+  ShieldCheck,
+  TriangleAlert,
+} from "lucide-react";
 import type { ReactNode } from "react";
 
 import styles from "./workspace.module.css";
@@ -9,6 +16,9 @@ export interface CorpusStatus {
   isLoading: boolean;
   registryAvailable: boolean;
   releaseId: string | null;
+  /** Null when nothing is being served; see the readiness endpoint for why this is
+   *  separate from `approvedCorpusAvailable`. */
+  servingMode: "ACTIVATED" | "RESEARCH_UNACTIVATED" | null;
 }
 
 export function GettingStarted({ corpusStatus }: { corpusStatus: CorpusStatus }) {
@@ -53,7 +63,7 @@ function coverageMessage(status: CorpusStatus): {
   icon: ReactNode;
   label: string;
   message: string;
-  tone: "neutral" | "passed" | "withheld";
+  tone: "neutral" | "passed" | "research" | "withheld";
 } {
   if (status.isLoading) {
     return {
@@ -61,6 +71,25 @@ function coverageMessage(status: CorpusStatus): {
       label: "Checking corpus",
       message: "Confirming which approved guideline release is available for retrieval.",
       tone: "neutral",
+    };
+  }
+  /*
+   * Research serving answers from a release that never passed activation.
+   *
+   * It is neither of the other two states, and saying "no clinical answer will be
+   * rendered" here is false in the opposite direction from calling it approved - answers
+   * *are* rendered, they simply carry no clinical acceptance. This branch exists because
+   * the header already reports it correctly, and one screen disagreeing with itself about
+   * whether a result can appear is worse than either message alone.
+   */
+  if (status.servingMode === "RESEARCH_UNACTIVATED") {
+    return {
+      icon: <FlaskConical size={15} aria-hidden="true" />,
+      label: "Research release",
+      message: status.releaseId
+        ? `Questions will be checked against research release ${status.releaseId}, which has not passed clinical acceptance. Answers are for research review only.`
+        : "Questions will be checked against a research release that has not passed clinical acceptance. Answers are for research review only.",
+      tone: "research",
     };
   }
   if (status.approvedCorpusAvailable) {

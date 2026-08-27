@@ -1,6 +1,7 @@
 import type {
   AbstentionDetail,
   EvidenceDetail,
+  GuidelineConflict,
   EvidenceLocator,
   QuestionResult,
   QuestionStatus,
@@ -123,32 +124,20 @@ function isConflictType(value: string): value is ConflictType {
   return (CONFLICT_TYPES as readonly string[]).includes(value);
 }
 
-/**
- * Split the evidence-ID field of a conflict record.
- *
- * The composer joins the IDs into one comma-separated string because the transport
- * types a conflict as `dict[str, str]`. Splitting here lets the conflict display and
- * the claim list work from the same identifiers, and so share one citation numbering.
- */
-function parseEvidenceIds(value: string | undefined): string[] {
-  if (!value) return [];
-  const seen = new Set<string>();
-  for (const part of value.split(",")) {
-    const trimmed = part.trim();
-    if (trimmed) seen.add(trimmed);
-  }
-  return [...seen];
-}
 
 export function presentConflicts(
-  conflicts: ReadonlyArray<Record<string, string>>,
+  conflicts: ReadonlyArray<Partial<GuidelineConflict>>,
   citations: CitationIndex = emptyCitationIndex(),
 ): PresentedConflict[] {
   return conflicts.map((conflict, index) => {
     const rawType = conflict.conflict_type?.trim() ?? "";
     const type = isConflictType(rawType) ? rawType : null;
     const descriptor = conflictDescriptor(type);
-    const evidenceIds = parseEvidenceIds(conflict.evidence_ids);
+    // Typed on the wire now. Deduplicated and trimmed here anyway, because the panel
+    // pairs them positionally and a repeat would compare a passage with itself.
+    const evidenceIds = [
+      ...new Set((conflict.evidence_ids ?? []).map((id) => id.trim()).filter(Boolean)),
+    ];
     const summary = conflict.summary?.trim();
 
     return {
@@ -166,7 +155,10 @@ export function presentConflicts(
         (evidenceId) => !citations.byEvidenceId.has(evidenceId),
       ),
       extraFields: Object.entries(conflict).filter(
-        ([field, value]) => !TYPED_CONFLICT_KEYS.has(field) && value.trim().length > 0,
+        (entry): entry is [string, string] =>
+          !TYPED_CONFLICT_KEYS.has(entry[0]) &&
+          typeof entry[1] === "string" &&
+          entry[1].trim().length > 0,
       ),
       requiresReview: descriptor.requiresReview,
     };
@@ -211,6 +203,14 @@ export interface AbstentionPresentation {
   cause: AbstentionCause;
   missingEvidenceRoles: string[];
   closestEvidenceIds: string[];
+  /**
+   * Canonical detail for the near misses, where the release could resolve it.
+   *
+   * Ranked order, and never longer than `closestEvidenceIds`. Each of these passed no
+   * claim gate: they are here so a reader can judge whether the corpus is thin or the
+   * question was wrong, and every surface that shows one has to say so.
+   */
+  closestEvidence: EvidenceDetail[];
 }
 
 interface ReasonGuidance {
@@ -331,6 +331,7 @@ export function presentAbstention(
     cause: guidance.cause,
     missingEvidenceRoles: abstention?.missing_evidence_roles ?? [],
     closestEvidenceIds: abstention?.closest_evidence_ids ?? [],
+    closestEvidence: abstention?.closest_evidence ?? [],
   };
 }
 
@@ -815,4 +816,56 @@ export function isFullyLicenceRestricted(index: CitationIndex): boolean {
 export function humanizeCode(value: string): string {
   const words = value.replaceAll("_", " ").toLowerCase();
   return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
+
+/**
+ * The evidence roles a rendered claim actually rests on.
+ *
+ * The completeness gate decides whether a claim may be rendered by looking at the roles
+ * its evidence carries. That reasoning was computed, verified, and then shown only inside
+ * a metadata list three panels away from the claim it produced - so a reader could not
+ * tell a claim resting on a current primary guideline from one resting on background.
+ *
+ * Roles are deduplicated across the claim's cited evidence and ordered by weight, so the
+ * strongest thing carrying the claim reads first. `EXCEPTION`-family roles are counted,
+ * because "an exception was found" is a different statement from "an exception exists".
+ */
+export interface ClaimRole {
+  code: string;
+  count: number;
+  label: string;
+  tone: "primary" | "exception" | "supporting";
+}
+
+const ROLE_WEIGHT: Record<ClaimRole["tone"], number> = {
+  primary: 0,
+  exception: 1,
+  supporting: 2,
+};
+
+function roleTone(code: string): ClaimRole["tone"] {
+  const normalized = code.toUpperCase();
+  if (normalized.includes("EXCEPTION") || normalized.includes("CONTRAINDICATION")) {
+    return "exception";
+  }
+  if (normalized.includes("PRIMARY") || normalized.includes("GUIDELINE")) return "primary";
+  return "supporting";
+}
+
+export function claimRoles(claim: RenderedClaim, result: QuestionResult): ClaimRole[] {
+  const cited = new Set(claim.evidence_ids);
+  const counts = new Map<string, number>();
+  for (const detail of result.evidence_details) {
+    if (!cited.has(detail.evidence_id)) continue;
+    for (const role of detail.evidence_roles) {
+      counts.set(role, (counts.get(role) ?? 0) + 1);
+    }
+  }
+  return [...counts.entries()]
+    .map(([code, count]) => ({ code, count, label: humanizeCode(code), tone: roleTone(code) }))
+    .sort(
+      (left, right) =>
+        ROLE_WEIGHT[left.tone] - ROLE_WEIGHT[right.tone] || left.label.localeCompare(right.label),
+    );
 }

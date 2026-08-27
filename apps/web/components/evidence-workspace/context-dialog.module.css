@@ -1,9 +1,17 @@
+/*
+ * Interpreted-context editor.
+ *
+ * A form the reader corrects facts in, so it is quiet everywhere except the one control
+ * that commits. Adding a term is a step within the form; running again is what the form is
+ * for, and only that carries the black fill.
+ */
+
 .backdrop {
   position: fixed;
   inset: 0;
   z-index: 40;
-  background: rgba(8, 19, 38, 0.58);
-  backdrop-filter: blur(2px);
+  background: var(--scrim);
+  backdrop-filter: blur(3px);
   animation: fadeIn 140ms ease-out;
 }
 
@@ -12,16 +20,16 @@
   top: 50%;
   left: 50%;
   z-index: 41;
-  width: min(860px, calc(100% - 32px));
-  max-height: calc(100dvh - 36px);
+  width: min(820px, calc(100% - var(--s-8)));
+  max-height: calc(100dvh - var(--s-10));
   overflow-y: auto;
   transform: translate(-50%, -50%);
-  color: var(--ink);
-  background: var(--paper);
-  border: 1px solid var(--line-strong);
-  border-radius: 12px;
-  box-shadow: 0 26px 80px rgba(7, 22, 48, 0.26);
-  animation: dialogIn 160ms ease-out;
+  color: var(--text-primary);
+  background: var(--bg-overlay);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-xl);
+  animation: dialogIn 160ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .dialog form {
@@ -32,39 +40,45 @@
   position: sticky;
   top: 0;
   z-index: 2;
-  padding: 20px 22px 16px;
+  padding: var(--s-5) var(--s-6) var(--s-4);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  background: rgba(255, 255, 255, 0.98);
-  border-bottom: 1px solid var(--line);
+  gap: var(--s-4);
+  background: var(--veil-surface-strong);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--border-subtle);
 }
 
 .heading h2 {
   margin: 0;
-  font-size: 20px;
+  color: var(--text-strong);
+  font-size: var(--t-lg);
+  font-weight: var(--w-semibold);
+  letter-spacing: var(--track-tight);
   line-height: 1.25;
-  letter-spacing: -0.02em;
 }
 
 .kicker {
   display: block;
-  margin-bottom: 4px;
-  color: #647086;
-  font-size: 11px;
-  font-weight: 750;
-  letter-spacing: 0.06em;
+  margin-bottom: 3px;
+  color: var(--text-muted);
+  font-size: var(--t-2xs);
+  font-weight: var(--w-medium);
+  letter-spacing: var(--track-label);
   text-transform: uppercase;
 }
 
 .description {
   margin: 0;
-  padding: 14px 22px 0;
-  color: var(--ink-soft);
-  font-size: 13px;
+  padding: var(--s-4) var(--s-6) 0;
+  max-width: 68ch;
+  color: var(--text-secondary);
+  font-size: var(--t-sm);
   line-height: 1.55;
 }
+
+/* ---------------- controls ---------------- */
 
 .iconButton,
 .addButton,
@@ -73,8 +87,8 @@
 .secondaryButton,
 .primaryButton,
 .chip button {
-  min-width: 40px;
-  min-height: 40px;
+  min-width: var(--control-min);
+  min-height: var(--control-min);
   font: inherit;
   cursor: pointer;
 }
@@ -83,56 +97,134 @@
   padding: 0;
   display: grid;
   place-items: center;
-  flex: 0 0 40px;
-  color: var(--ink);
-  background: white;
-  border: 1px solid var(--line-strong);
-  border-radius: 8px;
+  flex: 0 0 var(--control-min);
+  color: var(--text-secondary);
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+.addButton,
+.outlineButton,
+.removeMeasurement,
+.secondaryButton,
+.primaryButton {
+  padding: 0 var(--s-4);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border-radius: var(--radius-md);
+  font-size: var(--t-sm);
+  font-weight: var(--w-medium);
+  white-space: nowrap;
+}
+
+/*
+ * One solid action in this dialog, and it is the one that commits.
+ *
+ * The four "Add" buttons used to carry the same weight as "Run again", which put the
+ * loudest four controls on the surface against the entry fields they belong to and left
+ * the action that actually re-runs the review looking subordinate to them.
+ */
+.addButton,
+.outlineButton,
+.secondaryButton {
+  color: var(--text-primary);
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-xs);
 }
 
 .iconButton:hover,
-.secondaryButton:hover,
-.outlineButton:hover {
-  background: #f5f7fa;
+.addButton:hover:not(:disabled),
+.outlineButton:hover:not(:disabled),
+.secondaryButton:hover:not(:disabled) {
+  background: var(--bg-sunk);
+  border-color: var(--border-strong);
 }
+
+.primaryButton {
+  color: var(--ink-on);
+  background: var(--ink);
+  border: 1px solid var(--ink);
+  box-shadow: var(--shadow-ink);
+  font-weight: var(--w-semibold);
+}
+
+.primaryButton:hover:not(:disabled) {
+  background: var(--ink-hover);
+  border-color: var(--ink-hover);
+}
+
+.primaryButton:disabled,
+.addButton:disabled,
+.secondaryButton:disabled {
+  color: var(--text-faint);
+  background: var(--bg-sunk);
+  border-color: var(--border);
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+.removeMeasurement {
+  position: absolute;
+  top: var(--s-2);
+  right: var(--s-3);
+  padding: 0 var(--s-2);
+  color: var(--danger-text);
+  background: transparent;
+  border: 1px solid transparent;
+  font-size: var(--t-xs);
+}
+
+.removeMeasurement:hover {
+  background: var(--danger-wash);
+  border-color: var(--danger-border);
+}
+
+/* ---------------- sections ---------------- */
 
 .validationSummary,
 .submitMessage {
-  margin: 14px 22px 0;
-  padding: 10px 12px;
-  color: #8b2f36;
-  background: var(--red-soft);
-  border: 1px solid #efc6ca;
-  border-radius: 8px;
-  font-size: 13px;
-  line-height: 1.45;
+  margin: var(--s-4) var(--s-6) 0;
+  padding: var(--s-3) var(--s-4);
+  color: var(--danger-text);
+  background: var(--danger-wash);
+  border: 1px solid var(--danger-border);
+  border-radius: var(--radius-lg);
+  font-size: var(--t-sm);
+  line-height: 1.5;
 }
 
 .section {
-  margin: 18px 22px 0;
-  padding-top: 18px;
-  border-top: 1px solid var(--line);
+  margin: var(--s-5) var(--s-6) 0;
+  padding-top: var(--s-5);
+  border-top: 1px solid var(--border-subtle);
 }
 
 .sectionHeading {
-  margin-bottom: 12px;
+  margin-bottom: var(--s-4);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
+  gap: var(--s-4);
 }
 
 .sectionHeading h3,
 .changeSummary h3 {
   margin: 0;
-  font-size: 14px;
-  line-height: 1.35;
+  color: var(--text-strong);
+  font-size: var(--t-md);
+  font-weight: var(--w-semibold);
+  letter-spacing: var(--track-snug);
+  line-height: 1.3;
 }
 
 .sectionHeading p {
   margin: 3px 0 0;
-  color: var(--ink-soft);
-  font-size: 12px;
+  color: var(--text-muted);
+  font-size: var(--t-xs);
   line-height: 1.45;
 }
 
@@ -140,8 +232,10 @@
 .terminologyGrid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px;
+  gap: var(--s-4);
 }
+
+/* ---------------- fields ---------------- */
 
 .field {
   min-width: 0;
@@ -151,23 +245,23 @@
 .terminologyField legend {
   display: block;
   margin-bottom: 6px;
-  color: #344159;
-  font-size: 12px;
-  font-weight: 680;
+  color: var(--text-primary);
+  font-size: var(--t-xs);
+  font-weight: var(--w-semibold);
 }
 
 .field input,
 .field select,
 .termEntry input {
   width: 100%;
-  min-height: 42px;
-  padding: 8px 11px;
-  color: var(--ink);
-  background: #fbfcfe;
-  border: 1px solid var(--line-strong);
-  border-radius: 7px;
+  min-height: var(--control-min);
+  padding: 0 var(--s-3);
+  color: var(--text-primary);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
   outline: none;
-  font: inherit;
+  font-size: var(--t-sm);
 }
 
 .field select {
@@ -177,73 +271,39 @@
 .field input:focus,
 .field select:focus,
 .termEntry input:focus {
-  border-color: #6d9de8;
-  box-shadow: 0 0 0 3px rgba(20, 98, 213, 0.12);
+  border-color: var(--ink);
+  box-shadow: 0 0 0 3px var(--ink-ring);
 }
 
 .field input[aria-invalid="true"],
 .termEntry input[aria-invalid="true"] {
-  border-color: #cb6a71;
+  border-color: var(--danger-mark);
 }
 
 .terminologyField {
   min-width: 0;
   margin: 0;
-  padding: 12px;
-  border: 1px solid var(--line);
-  border-radius: 9px;
+  padding: var(--s-3);
+  background: var(--bg-sunk);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
 }
 
 .terminologyField legend {
-  padding: 0 4px;
+  padding: 0 var(--s-1);
 }
 
 .termEntry {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 8px;
-}
-
-.addButton,
-.outlineButton,
-.removeMeasurement,
-.secondaryButton,
-.primaryButton {
-  padding: 8px 12px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 7px;
-  border-radius: 7px;
-  font-size: 13px;
-  font-weight: 650;
-}
-
-.addButton,
-.primaryButton {
-  color: white;
-  background: var(--blue);
-  border: 1px solid var(--blue);
-}
-
-.addButton:hover,
-.primaryButton:hover:not(:disabled) {
-  background: var(--blue-dark);
-  border-color: var(--blue-dark);
-}
-
-.outlineButton,
-.secondaryButton {
-  color: var(--ink);
-  background: white;
-  border: 1px solid var(--line-strong);
+  gap: 6px;
 }
 
 .fieldHint,
 .emptyValue {
   margin: 5px 0 0;
-  color: #6a7587;
-  font-size: 11px;
+  color: var(--text-muted);
+  font-size: var(--t-2xs);
   line-height: 1.4;
 }
 
@@ -251,171 +311,145 @@
   padding: 7px 0 2px;
 }
 
-.chipList {
-  margin: 9px 0 0;
-  padding: 0;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  list-style: none;
-}
-
-.chip {
-  min-height: 40px;
-  padding-left: 10px;
-  display: inline-flex;
-  align-items: center;
-  color: #163f7a;
-  background: var(--blue-soft);
-  border: 1px solid #ccdaf2;
-  border-radius: 999px;
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.chip button {
-  padding: 0 7px;
-  display: grid;
-  place-items: center;
-  color: #335982;
-  background: transparent;
-  border: 0;
-  border-radius: 999px;
-}
-
-.chip button:hover {
-  color: #8b2f36;
-  background: rgba(177, 62, 68, 0.08);
-}
-
 .fieldError,
 .sectionError {
   display: block;
   margin: 6px 0 0;
-  color: #9a343b;
-  font-size: 12px;
+  color: var(--danger-text);
+  font-size: var(--t-2xs);
   line-height: 1.4;
 }
 
+/* ---------------- chips ---------------- */
+
+.chipList {
+  margin: var(--s-3) 0 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  list-style: none;
+}
+
+.chip {
+  min-height: var(--control-min);
+  padding-left: var(--s-3);
+  display: inline-flex;
+  align-items: center;
+  color: var(--text-primary);
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  font-size: var(--t-xs);
+  font-weight: var(--w-medium);
+}
+
+.chip button {
+  padding: 0 var(--s-2);
+  display: grid;
+  place-items: center;
+  color: var(--text-muted);
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-pill);
+}
+
+.chip button:hover {
+  color: var(--danger-text);
+  background: var(--danger-wash);
+}
+
+/* ---------------- measurements ---------------- */
+
 .measurementList {
   display: grid;
-  gap: 10px;
+  gap: var(--s-2);
 }
 
 .measurementCard {
   position: relative;
   min-width: 0;
   margin: 0;
-  padding: 14px;
-  border: 1px solid var(--line);
-  border-radius: 9px;
+  padding: var(--s-4);
+  background: var(--bg-sunk);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
 }
 
 .measurementCard legend {
-  padding: 0 5px;
-  color: #344159;
-  font-size: 12px;
-  font-weight: 700;
+  padding: 0 var(--s-1);
+  color: var(--text-primary);
+  font-size: var(--t-xs);
+  font-weight: var(--w-semibold);
 }
 
 .measurementGrid {
   display: grid;
-  grid-template-columns: minmax(170px, 1.3fr) minmax(110px, 0.7fr) minmax(150px, 1fr);
-  gap: 12px;
-  padding-right: 96px;
-}
-
-.removeMeasurement {
-  position: absolute;
-  top: 10px;
-  right: 12px;
-  color: #8b2f36;
-  background: transparent;
-  border: 0;
-}
-
-.removeMeasurement:hover {
-  background: var(--red-soft);
+  grid-template-columns: minmax(160px, 1.3fr) minmax(100px, 0.7fr) minmax(140px, 1fr);
+  gap: var(--s-3);
+  padding-right: 104px;
 }
 
 .emptyMeasurements {
-  padding: 18px;
-  color: var(--ink-soft);
-  background: #f8fafc;
-  border: 1px dashed var(--line-strong);
-  border-radius: 8px;
+  padding: var(--s-5);
+  color: var(--text-muted);
+  background: var(--bg-sunk);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-lg);
+  font-size: var(--t-sm);
   text-align: center;
-  font-size: 12px;
 }
+
+/* ---------------- change summary ---------------- */
 
 .changeSummary {
-  margin: 18px 22px 0;
-  padding: 14px;
-  background: #f8fafc;
-  border: 1px solid var(--line);
-  border-radius: 9px;
-}
-
-.changeSummary > p {
-  margin: 7px 0 0;
-  color: var(--ink-soft);
-  font-size: 12px;
+  margin: var(--s-5) var(--s-6) 0;
+  padding: var(--s-4);
+  background: var(--bg-sunk);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
 }
 
 .changeSummary ul {
-  margin: 10px 0 0;
-  padding: 0;
+  margin: var(--s-3) 0 0;
+  padding-left: var(--s-4);
   display: grid;
-  gap: 8px;
-  list-style: none;
+  gap: 5px;
+  color: var(--text-secondary);
+  font-size: var(--t-xs);
+  line-height: 1.5;
 }
 
-.changeSummary li {
-  display: grid;
-  grid-template-columns: minmax(120px, 0.7fr) minmax(0, 1fr) auto minmax(0, 1fr);
-  align-items: center;
-  gap: 8px;
-  color: #4f5b6e;
-  font-size: 12px;
-  line-height: 1.4;
+.changeSummary svg {
+  width: 13px;
+  height: 13px;
+  color: var(--text-faint);
+  vertical-align: -2px;
 }
 
-.changeSummary li strong {
-  color: var(--ink);
-}
-
-.changeSummary li span {
-  overflow-wrap: anywhere;
-}
+/* ---------------- footer ---------------- */
 
 .actions {
   position: sticky;
   bottom: 0;
-  z-index: 2;
-  margin-top: 18px;
-  padding: 14px 22px;
+  margin-top: var(--s-6);
+  padding: var(--s-4) var(--s-6);
   display: flex;
-  align-items: center;
   justify-content: flex-end;
-  gap: 9px;
-  background: rgba(255, 255, 255, 0.98);
-  border-top: 1px solid var(--line);
-}
-
-.primaryButton:disabled {
-  opacity: 0.66;
-  cursor: wait;
-}
-
-.dialog button:focus-visible,
-.dialog input:focus-visible,
-.dialog select:focus-visible {
-  outline: 3px solid rgba(20, 98, 213, 0.32);
-  outline-offset: 2px;
+  gap: var(--s-2);
+  background: var(--veil-surface-strong);
+  backdrop-filter: blur(8px);
+  border-top: 1px solid var(--border-subtle);
 }
 
 .spin {
   animation: spin 900ms linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 @keyframes fadeIn {
@@ -427,37 +461,35 @@
 @keyframes dialogIn {
   from {
     opacity: 0;
-    transform: translate(-50%, calc(-50% + 8px));
-  }
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
+    transform: translate(-50%, -48%) scale(0.98);
   }
 }
 
 @media (max-width: 720px) {
   .dialog {
-    width: calc(100% - 16px);
-    max-height: calc(100dvh - 16px);
-    border-radius: 10px;
+    width: calc(100% - var(--s-4));
+    max-height: calc(100dvh - var(--s-6));
   }
 
-  .heading {
-    padding: 16px;
-  }
-
-  .description {
-    padding: 12px 16px 0;
-  }
-
+  .heading,
+  .description,
+  .section,
+  .changeSummary,
   .validationSummary,
   .submitMessage,
+  .actions {
+    padding-inline: var(--s-4);
+    margin-inline: 0;
+  }
+
   .section,
   .changeSummary {
-    margin-right: 16px;
-    margin-left: 16px;
+    margin-inline: var(--s-4);
+    padding-inline: 0;
+  }
+
+  .changeSummary {
+    padding: var(--s-4);
   }
 
   .profileGrid,
@@ -466,46 +498,8 @@
     grid-template-columns: 1fr;
   }
 
-  .sectionHeading {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-
-  .outlineButton {
-    width: 100%;
-  }
-
   .measurementGrid {
-    padding: 0;
-  }
-
-  .removeMeasurement {
-    position: static;
-    width: 100%;
-    margin-top: 10px;
-  }
-
-  .changeSummary li {
-    grid-template-columns: 1fr auto 1fr;
-  }
-
-  .changeSummary li strong {
-    grid-column: 1 / -1;
-  }
-
-  .actions {
-    padding: 12px 16px;
-  }
-
-  .actions button {
-    flex: 1;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .backdrop,
-  .dialog,
-  .spin {
-    animation: none;
+    padding-right: 0;
+    padding-top: var(--s-5);
   }
 }

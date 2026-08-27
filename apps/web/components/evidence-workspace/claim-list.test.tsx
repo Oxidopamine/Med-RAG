@@ -18,6 +18,7 @@ function renderClaims(result = answerReadyResult()) {
       claims={result.claims}
       onSelectClaim={onSelectClaim}
       onSelectEvidence={onSelectEvidence}
+      result={result}
       selectedClaimId={result.claims[0]!.claim_id}
       selectedEvidenceId={null}
     />,
@@ -37,6 +38,13 @@ describe("ClaimList", () => {
       name: "Evidence cited by claim 1",
     });
     expect(within(firstClaimCitations).getAllByRole("button")).toHaveLength(2);
+
+    // The gate decided this claim could be rendered by reading the roles its evidence
+    // carries; the claim shows them, so "supported" is a statement rather than a badge.
+    const roles = within(claims[0]!).getByRole("list", {
+      name: "Evidence roles behind claim 1",
+    });
+    expect(within(roles).getByText(/Current primary guideline/)).toBeInTheDocument();
   });
 
   it("keeps one reference number per source across the whole answer", () => {

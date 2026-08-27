@@ -80,7 +80,10 @@ export interface EvidenceProgressEvent {
 }
 
 export interface EvidenceRunState {
+  adopt: (questionId: string) => Promise<QuestionResult | null>;
   canRetry: boolean;
+  /** True while a run exists that this browser has stopped or failed to monitor. */
+  canResumeMonitoring: boolean;
   clearError: () => void;
   completedStages: QuestionStatus[];
   error: string | null;
@@ -90,6 +93,7 @@ export interface EvidenceRunState {
   progressEvents: EvidenceProgressEvent[];
   questionId: string | null;
   result: QuestionResult | null;
+  resumeMonitoring: () => Promise<QuestionResult | null>;
   status: QuestionStatus | null;
   replaceContext: (context: ClinicalContext) => Promise<boolean>;
   retry: () => Promise<boolean>;
@@ -343,6 +347,77 @@ export function useEvidenceRun(): EvidenceRunState {
     ],
   );
 
+  /**
+   * Attach to a run this browser did not start - a shared link, a bookmark, a reload.
+   *
+   * A terminal run is simply shown. A live one resumes monitoring, so a link opened
+   * mid-review behaves the same as the tab that submitted it.
+   */
+  const adopt = useCallback(
+    async (id: string) => {
+      const generation = generationRef.current + 1;
+      generationRef.current = generation;
+      lastEventSequenceRef.current = 0;
+      closeProgressStream();
+      resultRef.current = null;
+      setResult(null);
+      setPreviousResult(null);
+      setCanRetry(false);
+      setQuestionId(id);
+      setStatus(null);
+      setCompletedStages([]);
+      setProgressEvents([]);
+      setError(null);
+      setLifecycle("running");
+
+      let payload: QuestionResult;
+      try {
+        payload = await getQuestion(id);
+      } catch (loadError) {
+        if (generation !== generationRef.current) return null;
+        setLifecycle("failed");
+        setError(errorMessage(loadError, "This review could not be loaded."));
+        return null;
+      }
+      if (generation !== generationRef.current) return null;
+
+      if (TERMINAL_STATUSES.has(payload.status)) {
+        applyTerminalResult(payload, generation);
+        return payload;
+      }
+
+      recordStatus(payload.status, payload.updated_at);
+      try {
+        listenForProgress(id, generation);
+      } catch {
+        closeProgressStream();
+        void pollUntilTerminal(id, generation).catch((runError: unknown) => {
+          failMonitoring(runError, "Connection to the API failed.", generation);
+        });
+      }
+      return payload;
+    },
+    [
+      applyTerminalResult,
+      closeProgressStream,
+      failMonitoring,
+      listenForProgress,
+      pollUntilTerminal,
+      recordStatus,
+    ],
+  );
+
+  /**
+   * Pick monitoring back up on a run the server may still be working on.
+   *
+   * The client gives up after five minutes, and used to leave the reader with a message
+   * and no route back to a run that was very likely still alive.
+   */
+  const resumeMonitoring = useCallback(async () => {
+    if (!questionId) return null;
+    return adopt(questionId);
+  }, [adopt, questionId]);
+
   const submit = useCallback(
     async (question: string, sourceFilters?: SourceFilters) =>
       beginRun({
@@ -388,7 +463,10 @@ export function useEvidenceRun(): EvidenceRunState {
   const clearError = useCallback(() => setError(null), []);
 
   return {
+    adopt,
     canRetry,
+    canResumeMonitoring:
+      questionId !== null && (lifecycle === "cancelled" || lifecycle === "failed"),
     clearError,
     completedStages,
     error,
@@ -399,6 +477,7 @@ export function useEvidenceRun(): EvidenceRunState {
     questionId,
     replaceContext,
     result,
+    resumeMonitoring,
     retry,
     status,
     stopWaiting,

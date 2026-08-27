@@ -5,27 +5,28 @@ import type { QuestionResult } from "../lib/types";
 
 const API_URL = "http://localhost:8000";
 const QUESTION =
-  "For an older adult with atrial fibrillation and renal impairment, what do current guidelines recommend about anticoagulation?";
+  "How often should viral load be monitored for an adult established on antiretroviral therapy?";
 
 const context = {
-  age: 74,
+  age: 34,
   sex: null,
-  conditions: ["ATRIAL_FIBRILLATION"],
+  conditions: ["HIV_INFECTION"],
   known_absent_conditions: [],
   measurements: [
     {
-      concept: "EGFR",
-      value: 28,
-      unit: "mL/min/1.73m2",
+      concept: "HIV_VIRAL_LOAD",
+      value: 1200,
+      unit: "copies/mL",
       provenance: "USER_TEXT_EXPLICIT",
     },
   ],
-  special_populations: ["RENAL_IMPAIRMENT"],
+  special_populations: ["ON_ANTIRETROVIRAL_THERAPY"],
   known_absent_special_populations: [],
   care_setting: null,
   jurisdiction: null,
   question_type: "treatment_guideline",
-  topic: "anticoagulation",
+  topic: "antiretroviral_therapy",
+  inferred_fields: [],
 };
 
 const abstainedResult = {
@@ -48,6 +49,7 @@ const abstainedResult = {
     message: "No approved guideline corpus is configured.",
     missing_evidence_roles: ["CURRENT_PRIMARY_GUIDELINE"],
     closest_evidence_ids: [],
+    closest_evidence: [],
   },
   created_at: "2026-08-25T10:00:00+00:00",
   updated_at: "2026-08-25T10:00:02+00:00",
@@ -67,14 +69,14 @@ const verifiedResult = {
   interpreted_context: context,
   claims: [
     {
-      claim_id: "claim-anticoagulation",
-      text: "Reduced renal function should be considered when selecting and dosing anticoagulant therapy.",
+      claim_id: "claim-viral-load",
+      text: "Viral load should be measured at six months and twelve months after starting antiretroviral therapy, then every twelve months once suppressed.",
       evidence_ids: ["evidence-renderable", "evidence-restricted"],
       verification_status: "SUPPORTED",
     },
     {
       claim_id: "claim-monitoring",
-      text: "Renal function should be reviewed as clinical status changes.",
+      text: "A confirmed viral load above 1000 copies/mL indicates treatment failure and requires a regimen review.",
       evidence_ids: ["evidence-restricted"],
       verification_status: "SUPPORTED",
     },
@@ -83,18 +85,18 @@ const verifiedResult = {
     {
       evidence_id: "evidence-renderable",
       exact_text:
-        "Reduced renal function should be considered when selecting and dosing anticoagulant therapy.",
+        "Viral load should be measured at six months and twelve months after starting antiretroviral therapy, and every twelve months thereafter once suppressed.",
       evidence_type: "GUIDELINE_RECOMMENDATION",
       evidence_roles: ["CURRENT_PRIMARY_GUIDELINE", "POPULATION_APPLICABILITY"],
-      section_path: ["Anticoagulation", "Renal impairment"],
-      source_id: "source-acc-aha",
-      source_version_id: "source-acc-aha-2026",
-      source_title: "Guideline for the Management of Atrial Fibrillation",
-      source_version_label: "2026 edition",
-      publisher_name: "ACC/AHA",
+      section_path: ["Antiretroviral therapy", "Monitoring"],
+      source_id: "source-who-hiv",
+      source_version_id: "source-who-hiv-2021",
+      source_title: "Consolidated guidelines on HIV prevention, testing, treatment and service delivery",
+      source_version_label: "2021 edition",
+      publisher_name: "World Health Organization",
       source_url: "https://example.test/guideline",
       source_class: "E1",
-      jurisdiction: "US",
+      jurisdiction: "WORLD",
       language: "en",
       lifecycle_status: "CURRENT",
       effective_from: "2026-01-01",
@@ -117,15 +119,15 @@ const verifiedResult = {
       exact_text: null,
       evidence_type: "GUIDELINE_EXCEPTION",
       evidence_roles: ["EXCEPTION", "DOSING_MODIFIER"],
-      section_path: ["Anticoagulation", "Renal dosing"],
-      source_id: "source-renal",
-      source_version_id: "source-renal-2026",
-      source_title: "Renal Dosing Addendum",
-      source_version_label: "August 2026",
-      publisher_name: "Guideline Committee",
-      source_url: "https://example.test/renal-addendum",
+      section_path: ["Antiretroviral therapy", "Treatment failure"],
+      source_id: "source-who-testing",
+      source_version_id: "source-who-testing-2019",
+      source_title: "Consolidated guidelines on HIV testing services",
+      source_version_label: "2019 edition",
+      publisher_name: "World Health Organization",
+      source_url: "https://example.test/who-testing-services",
       source_class: "E1",
-      jurisdiction: "UK",
+      jurisdiction: "WORLD",
       language: "en",
       lifecycle_status: "CURRENT",
       effective_from: "2026-08-01",
@@ -135,7 +137,7 @@ const verifiedResult = {
       locators: [
         {
           kind: "SECTION",
-          source_uri: "https://example.test/renal-addendum",
+          source_uri: "https://example.test/who-testing-services",
           pdf_page: 49,
           printed_page: "233",
           bbox: null,
@@ -146,18 +148,18 @@ const verifiedResult = {
     {
       evidence_id: "evidence-candidate",
       exact_text:
-        "Annual renal-function review is reasonable for patients on long-term anticoagulation.",
+        "Implementation of routine viral-load monitoring depends on laboratory capacity and sample transport.",
       evidence_type: "GUIDELINE_RECOMMENDATION",
       evidence_roles: ["CURRENT_PRIMARY_GUIDELINE"],
-      section_path: ["Anticoagulation", "Follow-up"],
-      source_id: "source-consensus",
-      source_version_id: "source-consensus-2026",
-      source_title: "Anticoagulation Consensus Statement",
+      section_path: ["Implementation considerations"],
+      source_id: "source-who-dak",
+      source_version_id: "source-who-dak-2022",
+      source_title: "WHO SMART Guidelines: HIV Digital Adaptation Kit",
       source_version_label: "2026",
-      publisher_name: "Consensus Panel",
+      publisher_name: "World Health Organization",
       source_url: "https://example.test/consensus",
       source_class: "E1",
-      jurisdiction: "US",
+      jurisdiction: "WORLD",
       language: "en",
       lifecycle_status: "CURRENT",
       effective_from: "2026-03-01",
@@ -194,15 +196,15 @@ const verifiedResult = {
     {
       conflict_type: "CONFLICTING_RECOMMENDATIONS",
       summary:
-        "The addendum states a dose reduction that the primary guideline does not recommend.",
-      evidence_ids: "evidence-renderable, evidence-restricted",
+        "The testing guideline states a confirmation interval the treatment guideline does not repeat.",
+      evidence_ids: ["evidence-renderable", "evidence-restricted"],
     },
     {
-      organization: "Regional formulary",
-      recommendation: "Use additional renal-function monitoring.",
-      rationale: "Local dosing policy is more conservative.",
+      organization: "National ART programme",
+      recommendation: "Confirm with a second sample before switching regimen.",
+      rationale: "Local programme policy is more conservative.",
     },
-  ] as Record<string, string>[],
+  ],
   verification_summary: {
     rendered_claims: 2,
     supported_claims: 2,
@@ -319,9 +321,32 @@ async function ask(page: Page, question = QUESTION) {
   await submit.click();
 }
 
+/**
+ * Rules whose `incomplete` results are accepted, each with the reason it cannot resolve.
+ *
+ * `color-contrast` is here because axe cannot read a background it did not compute: the
+ * header sits on a gradient and several surfaces are translucent tokens, so axe reports
+ * "undeterminable" rather than a ratio. Contrast for those nodes is measured directly
+ * against the resolved ancestor background instead - see `docs/frontend-audit.md`.
+ *
+ * Nothing else belongs here. An `incomplete` result axe rates "serious" is a real defect
+ * it merely could not confirm, and asserting only on `violations` is how four dropped
+ * ARIA labels stayed green through a stylesheet rewrite that renamed one of them.
+ */
+const AXE_INCOMPLETE_ALLOWLIST = new Set(["color-contrast"]);
+
 async function expectNoAxeViolations(page: Page) {
   const accessibility = await new AxeBuilder({ page }).analyze();
   expect(accessibility.violations).toEqual([]);
+
+  const unresolved = accessibility.incomplete
+    .filter((result) => !AXE_INCOMPLETE_ALLOWLIST.has(result.id))
+    .map((result) => ({
+      id: result.id,
+      impact: result.impact,
+      targets: result.nodes.map((node) => node.target.join(" ")),
+    }));
+  expect(unresolved).toEqual([]);
 }
 
 test("starts empty and progressively discloses guidance, examples, scope, and safety", async ({
@@ -359,16 +384,15 @@ test("starts empty and progressively discloses guidance, examples, scope, and sa
   await expect(question).toBeFocused();
   await expect(question).toHaveValue("");
 
+  // The scope disclosure states the release's coverage rather than offering a country
+  // filter: every record is scoped WORLD and the serving path widens any selection to
+  // include it, so a jurisdiction control could only claim to narrow.
   await page.locator("summary").filter({ hasText: "Sources" }).click();
-  await page.getByRole("checkbox", { name: "US, United States" }).uncheck();
-  await page.getByRole("checkbox", { name: "EU, European Union" }).uncheck();
-  await page.getByRole("checkbox", { name: "UK, United Kingdom" }).click();
-  await expect(page.getByRole("checkbox", { name: "UK, United Kingdom" })).toBeChecked();
-  await expect(
-    page.getByText("Keep at least one jurisdiction selected.", {
-      exact: true,
-    }),
-  ).toBeVisible();
+  const bodies = page.getByRole("list", { name: "Guideline bodies" });
+  await expect(bodies.getByText("World Health Organization")).toBeVisible();
+  await expect(bodies.getByText("Active")).toBeVisible();
+  await expect(bodies.getByText("Coming soon")).toHaveCount(4);
+  await expect(page.getByRole("checkbox")).toHaveCount(0);
 
   await expectNoAxeViolations(page);
 });
@@ -420,8 +444,6 @@ test("connects verified claims to exact and restricted source evidence", async (
   await page.goto("/");
 
   await page.locator("summary").filter({ hasText: "Sources" }).click();
-  await page.getByRole("checkbox", { name: "EU, European Union" }).uncheck();
-  await page.getByRole("checkbox", { name: "UK, United Kingdom" }).uncheck();
   await page.getByRole("textbox", { name: "Organizations" }).fill("ACC, AHA, ACC");
   await page.getByRole("textbox", { name: "Organizations" }).blur();
   await ask(page);
@@ -434,7 +456,7 @@ test("connects verified claims to exact and restricted source evidence", async (
     expect.objectContaining({
       question: QUESTION,
       source_filters: {
-        jurisdictions: ["US"],
+        jurisdictions: ["WORLD"],
         organizations: ["ACC", "AHA"],
       },
     }),
@@ -447,7 +469,7 @@ test("connects verified claims to exact and restricted source evidence", async (
   ).toBeVisible();
   await expect(page.getByRole("heading", { name: "Source inspector" })).toBeVisible();
   await expect(page.locator("mark")).toHaveText(
-    "Reduced renal function should be considered when selecting and dosing anticoagulant therapy.",
+    "Viral load should be measured at six months and twelve months after starting antiretroviral therapy, and every twelve months thereafter once suppressed.",
   );
   await expect(page.getByText("Evidence 1 of 2", { exact: true })).toBeVisible();
   // A licensed record states its anchor precision, which exact highlighting will use.
@@ -465,14 +487,14 @@ test("connects verified claims to exact and restricted source evidence", async (
   // Two editions of one guideline can carry the same page and near-identical text, so
   // the version identity is part of the location, not a footnote beside it.
   const anchorViewer = sourceInspector.getByRole("region", { name: "Location in source" });
-  await expect(anchorViewer.getByText("source-acc-aha-2026")).toBeVisible();
-  await expect(anchorViewer.getByText("Printed page 231, PDF page 47 of 2026 edition")).toBeVisible();
+  await expect(anchorViewer.getByText("source-who-hiv-2021")).toBeVisible();
+  await expect(anchorViewer.getByText("Printed page 231, PDF page 47 of 2021 edition")).toBeVisible();
   await expect(
     anchorViewer.getByText("10.0%, 20.0% to 90.0%, 35.0% of the page"),
   ).toBeVisible();
   await expect(
     anchorViewer.getByRole("img", {
-      name: /Printed page 231 \(PDF page 47\), exact region — Guideline for the Management of Atrial Fibrillation, 2026 edition \(source-acc-aha-2026\)/,
+      name: /Printed page 231 \(PDF page 47\), exact region — Consolidated guidelines on HIV prevention, testing, treatment and service delivery, 2021 edition \(source-who-hiv-2021\)/,
     }),
   ).toBeVisible();
 
@@ -486,11 +508,11 @@ test("connects verified claims to exact and restricted source evidence", async (
   await expect(
     sourceInspector.getByText("Not available", { exact: true }).first(),
   ).toBeVisible();
-  await expect(page.getByText("Renal Dosing Addendum", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText("Consolidated guidelines on HIV testing services", { exact: true }).first()).toBeVisible();
   // Restricted, and the release carried no region: the page is stated, nothing is drawn,
   // and the reason no publisher content appears is named.
   await expect(anchorViewer.getByText("No region recorded on this page")).toBeVisible();
-  await expect(anchorViewer.getByText("source-renal-2026")).toBeVisible();
+  await expect(anchorViewer.getByText("source-who-testing-2019")).toBeVisible();
   await expect(
     anchorViewer.getByText(/withheld under licence and is not reproduced here/),
   ).toBeVisible();
@@ -508,13 +530,19 @@ test("connects verified claims to exact and restricted source evidence", async (
     page.getByRole("heading", { name: "Retrieved passage, not cited" }),
   ).toBeVisible();
   await expect(page.getByRole("button", { name: "Next ranked result" })).toBeDisabled();
+  // Cited and uncited passages are one ranking now, split by a labelled boundary rather
+  // than by two separately-numbered panels - so where the gate stopped citing is visible.
   await expect(
-    page.getByRole("heading", { name: "Other ranked passages" }),
+    page.getByRole("heading", { name: "Retrieved for this question" }),
+  ).toBeVisible();
+  await expect(page.getByText("Citation stops here", { exact: true })).toBeVisible();
+  await expect(
+    page.getByText("1 retrieved, none carried a claim", { exact: true }),
   ).toBeVisible();
 
   const secondClaim = page
     .getByRole("listitem")
-    .filter({ hasText: "Renal function should be reviewed as clinical status changes." });
+    .filter({ hasText: "A confirmed viral load above 1000 copies/mL indicates treatment failure" });
   await secondClaim.getByRole("button", { name: /^Reference 2:/ }).click();
   await expect(secondClaim).toHaveClass(/selected-claim/);
 
@@ -528,11 +556,13 @@ test("connects verified claims to exact and restricted source evidence", async (
     ),
   ).toBeVisible();
   await expect(page.getByText("Unclassified disagreement")).toBeVisible();
-  await expect(page.getByText("Local dosing policy is more conservative.")).toBeVisible();
+  await expect(page.getByText("Local programme policy is more conservative.")).toBeVisible();
 
-  const auditDetails = page.locator("details").filter({ hasText: "View audit steps" });
-  await expect(auditDetails).not.toHaveAttribute("open", "");
-  await auditDetails.locator("summary").click();
+  // The audit is open on every state, answer-ready included: five named gates and what
+  // each concluded is the product's differentiator, and it was collapsed by default on
+  // precisely the result where all of them passed.
+  const auditDetails = page.locator("details").filter({ hasText: "Audit steps" });
+  await expect(auditDetails).toHaveAttribute("open", "");
   await expect(auditDetails.getByText("Answer gate passed", { exact: true })).toBeVisible();
 
   await page.getByRole("button", { name: "Dismiss success message" }).click();
@@ -641,7 +671,7 @@ test("keeps the verified workflow ordered, operable, and accessible on mobile", 
 
   await page.getByText("Source details", { exact: true }).click();
   const mobileMetadata = page.locator("details").filter({ hasText: "Source details" });
-  await expect(mobileMetadata.getByText("ACC/AHA", { exact: true })).toBeVisible();
+  await expect(mobileMetadata.getByText("World Health Organization", { exact: true }).first()).toBeVisible();
   const overflow = await page.evaluate(
     () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
   );

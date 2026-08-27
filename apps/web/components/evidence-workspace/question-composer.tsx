@@ -4,8 +4,11 @@ import {
   ArrowRight,
   Check,
   ChevronDown,
+  Clock,
   CircleDashed,
+  Globe,
   Search,
+  ShieldAlert,
   ShieldCheck,
   SlidersHorizontal,
   Square,
@@ -14,32 +17,95 @@ import {
 import {
   useEffect,
   useId,
+  useMemo,
   useRef,
   useState,
   type FormEvent,
   type KeyboardEvent as ReactKeyboardEvent,
 } from "react";
 
+import {
+  describeIdentifiers,
+  detectIdentifiers,
+  stripIdentifiers,
+} from "@/lib/identifiers";
 import type { SourceFilters } from "@/lib/types";
 
 import styles from "./workspace.module.css";
 
-export const EXAMPLE_QUESTIONS = [
-  "For an older adult with atrial fibrillation and renal impairment, what do current guidelines recommend about anticoagulation?",
-  "What do current guidelines recommend for first-line hypertension treatment in adults with diabetes?",
-  "When do current guidelines recommend colorectal cancer screening for an average-risk adult?",
+/*
+ * Examples the active corpus can actually answer.
+ *
+ * The MVP release is WHO SMART HIV. Offering questions about anticoagulation or
+ * colorectal screening taught readers to ask things this corpus is guaranteed to abstain
+ * on, and an abstention a person was invited into reads as a broken product rather than
+ * an out-of-scope one.
+ */
+export const EXAMPLES = [
+  {
+    label: "Viral load monitoring",
+    question:
+      "How often should viral load be monitored for an adult established on antiretroviral therapy?",
+  },
+  {
+    label: "Treatment failure",
+    question:
+      "What do current guidelines recommend when an adult on first-line ART has a confirmed high viral load?",
+  },
+  {
+    label: "PrEP eligibility",
+    question:
+      "Which adults do current guidelines recommend be offered pre-exposure prophylaxis, and what testing is required first?",
+  },
+  {
+    label: "Testing services",
+    question:
+      "What retesting do current guidelines recommend after a reactive HIV rapid diagnostic test?",
+  },
 ];
 
-const EXAMPLE_LABELS = [
-  "AF + renal impairment",
-  "Hypertension + diabetes",
-  "Colorectal screening",
-];
+export const EXAMPLE_QUESTIONS = EXAMPLES.map((example) => example.question);
 
-const JURISDICTIONS = [
-  { code: "US", label: "United States" },
-  { code: "EU", label: "European Union" },
-  { code: "UK", label: "United Kingdom" },
+/*
+ * The guideline bodies this product intends to cover, and where each one stands.
+ *
+ * Only WHO is validated and served today. The rest are listed rather than hidden because
+ * the first question a clinician asks of an evidence tool is what it has read - and an
+ * empty answer from a corpus whose boundary was never stated reads as a defect. Listing
+ * them is a roadmap, not a capability: nothing here can be selected until its release is
+ * approved, and the interface says so on each row.
+ */
+const SOURCE_BODIES = [
+  {
+    id: "WHO",
+    name: "World Health Organization",
+    detail: "Consolidated HIV guidelines, testing services, SMART adaptation kit",
+    available: true,
+  },
+  {
+    id: "CDC",
+    name: "US Centers for Disease Control",
+    detail: "HIV treatment, prevention and PrEP clinical guidance",
+    available: false,
+  },
+  {
+    id: "DHHS",
+    name: "US DHHS / NIH",
+    detail: "Antiretroviral guidelines for adults, adolescents and pregnancy",
+    available: false,
+  },
+  {
+    id: "EACS",
+    name: "European AIDS Clinical Society",
+    detail: "European HIV treatment and comorbidity guidelines",
+    available: false,
+  },
+  {
+    id: "BHIVA",
+    name: "British HIV Association",
+    detail: "UK treatment, monitoring and PrEP guidelines",
+    available: false,
+  },
 ];
 
 interface QuestionComposerProps {
@@ -64,20 +130,18 @@ export function QuestionComposer({
   sourceFilters,
 }: QuestionComposerProps) {
   const [questionError, setQuestionError] = useState("");
-  const [scopeError, setScopeError] = useState("");
   const [organizationInput, setOrganizationInput] = useState("");
+  const [identifiersDismissed, setIdentifiersDismissed] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const scopeDetailsRef = useRef<HTMLDetailsElement>(null);
   const scopeSummaryRef = useRef<HTMLElement>(null);
-  const firstJurisdictionRef = useRef<HTMLInputElement>(null);
   const submittingRef = useRef(false);
   const focusAfterQuestionChangeRef = useRef(false);
   const questionId = useId();
   const questionHelpId = useId();
   const questionErrorId = useId();
   const scopeHelpId = useId();
-  const scopeErrorId = useId();
   const organizationId = useId();
   const organizationHelpId = useId();
   const isBusy = isRunning || isSubmitting;
@@ -136,17 +200,9 @@ export function QuestionComposer({
     }
     setQuestionError("");
 
-    if (sourceFilters.jurisdictions.length === 0) {
-      setScopeError("Select at least one source jurisdiction before starting the review.");
-      if (scopeDetailsRef.current) scopeDetailsRef.current.open = true;
-      firstJurisdictionRef.current?.focus();
-      return;
-    }
-
     const submittedFilters = filtersWithOrganizationDraft();
     submittingRef.current = true;
     setIsSubmitting(true);
-    setScopeError("");
     try {
       const accepted = await onSubmit(trimmedQuestion, submittedFilters);
       if (accepted && scopeDetailsRef.current) scopeDetailsRef.current.open = false;
@@ -161,20 +217,6 @@ export function QuestionComposer({
       event.preventDefault();
       event.currentTarget.form?.requestSubmit();
     }
-  }
-
-  function toggleJurisdiction(jurisdiction: string) {
-    if (isBusy) return;
-    const isSelected = sourceFilters.jurisdictions.includes(jurisdiction);
-    if (isSelected && sourceFilters.jurisdictions.length === 1) {
-      setScopeError("Keep at least one jurisdiction selected.");
-      return;
-    }
-    const jurisdictions = isSelected
-      ? sourceFilters.jurisdictions.filter((item) => item !== jurisdiction)
-      : [...sourceFilters.jurisdictions, jurisdiction];
-    setScopeError("");
-    onSourceFiltersChange({ ...sourceFilters, jurisdictions });
   }
 
   function filtersWithOrganizationDraft(): SourceFilters {
@@ -215,11 +257,7 @@ export function QuestionComposer({
   function resetScope() {
     if (isBusy) return;
     setOrganizationInput("");
-    setScopeError("");
-    onSourceFiltersChange({
-      jurisdictions: JURISDICTIONS.map((jurisdiction) => jurisdiction.code),
-      organizations: [],
-    });
+    onSourceFiltersChange({ ...sourceFilters, organizations: [] });
   }
 
   function finishScopeEditing() {
@@ -235,12 +273,25 @@ export function QuestionComposer({
     onChange(example);
   }
 
-  const describedBy = questionError
-    ? `${questionHelpId} ${questionErrorId}`
-    : questionHelpId;
-  const scopeDescribedBy = scopeError
-    ? `${scopeHelpId} ${scopeErrorId}`
-    : scopeHelpId;
+  /*
+   * The identifier guard.
+   *
+   * Runs on the current draft, in the browser, and nothing it finds leaves the page. It
+   * never blocks submission: this is a research prototype whose reader may legitimately be
+   * testing with synthetic text, and a guard that cannot be overruled becomes a guard
+   * people route around.
+   */
+  const identifiers = useMemo(() => detectIdentifiers(question), [question]);
+  const identifierWarningId = useId();
+  const showIdentifierWarning = identifiers.length > 0 && !identifiersDismissed;
+
+  const describedBy = [
+    questionHelpId,
+    questionError ? questionErrorId : null,
+    showIdentifierWarning ? identifierWarningId : null,
+  ]
+    .filter(Boolean)
+    .join(" ");
 
   return (
     <section
@@ -251,10 +302,10 @@ export function QuestionComposer({
       <form className={styles["question-form"]} id="ask" onSubmit={handleSubmit} noValidate>
         <div className={styles["composer-heading-row"]}>
           <h1 id="composer-heading">What guideline decision are you reviewing?</h1>
-          <div
-            className={styles["question-anatomy"]}
-            aria-label="A focused question includes population, condition, and decision"
-          >
+          {/* Visual cues only. The same guidance reaches assistive technology as prose in
+              the field description below, so announcing three bare nouns here would
+              repeat it worse. `aria-label` on a plain div is dropped anyway. */}
+          <div className={styles["question-anatomy"]} aria-hidden="true">
             <span>Population</span>
             <span>Condition</span>
             <span>Decision</span>
@@ -279,12 +330,13 @@ export function QuestionComposer({
               value={question}
               onChange={(event) => {
                 setQuestionError("");
+                setIdentifiersDismissed(false);
                 onChange(event.target.value);
               }}
               onKeyDown={handleQuestionKeyDown}
               maxLength={4000}
               rows={1}
-              placeholder="e.g., In adults with atrial fibrillation and eGFR 28, what do guidelines recommend for anticoagulation?"
+              placeholder="e.g., For an adult on first-line ART with a viral load of 1200 copies/mL, what do guidelines recommend?"
               aria-describedby={describedBy}
               aria-invalid={Boolean(questionError)}
               aria-keyshortcuts="Control+Enter Meta+Enter"
@@ -306,10 +358,16 @@ export function QuestionComposer({
             ) : null}
           </div>
 
+          {/* `aria-disabled` rather than `disabled`, for the same reason the textarea
+              beside it uses `readOnly`: a disabled control loses focus, and this one is
+              disabled at the exact moment it is holding it - the click that starts the
+              run. The browser would drop focus to <body> for the length of the review.
+              `handleSubmit` already rejects an empty or in-flight submission, so the
+              button stays focusable and does nothing. */}
           <button
             className={styles["ask-button"]}
             type="submit"
-            disabled={!question.trim() || isBusy}
+            aria-disabled={!question.trim() || isBusy}
           >
             {isBusy ? (
               <CircleDashed className={styles.spin} size={18} aria-hidden="true" />
@@ -324,6 +382,46 @@ export function QuestionComposer({
           <p className={styles["field-error"]} id={questionErrorId} role="alert">
             {questionError}
           </p>
+        ) : null}
+
+        {showIdentifierWarning ? (
+          <div className={styles["identifier-warning"]} id={identifierWarningId} role="status">
+            <ShieldAlert size={16} aria-hidden="true" />
+            <div>
+              <strong>
+                This looks like it contains {describeIdentifiers(identifiers)}
+              </strong>
+              <p>
+                Remove{" "}
+                {identifiers.map((item, index) => (
+                  <span key={`${item.start}-${item.text}`}>
+                    {index > 0 ? ", " : ""}
+                    <mark>{item.text}</mark>
+                  </span>
+                ))}{" "}
+                before running. This is a research prototype and nothing you enter should
+                identify a person.
+              </p>
+              <div className={styles["identifier-actions"]}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    focusAfterQuestionChangeRef.current = true;
+                    onChange(stripIdentifiers(question, identifiers));
+                  }}
+                >
+                  Remove {identifiers.length === 1 ? "it" : "them"}
+                </button>
+                <button
+                  className={styles["identifier-dismiss"]}
+                  type="button"
+                  onClick={() => setIdentifiersDismissed(true)}
+                >
+                  Keep, it is not real
+                </button>
+              </div>
+            </div>
+          </div>
         ) : null}
 
         <div className={styles["composer-options"]}>
@@ -341,59 +439,58 @@ export function QuestionComposer({
             <div className={styles["scope-panel"]}>
               <div className={styles["scope-panel-heading"]}>
                 <strong>Source coverage</strong>
-                <p id={scopeHelpId}>
-                  These filters narrow retrieval; source approval rules still apply.
+                <p>
+                  What this release has read, and what is still to come. Availability
+                  follows an approved corpus release, not a preference.
                 </p>
               </div>
-              <fieldset
-                aria-describedby={scopeDescribedBy}
-                aria-invalid={Boolean(scopeError)}
-              >
-                <legend>Jurisdictions</legend>
-                <div className={styles["scope-checkboxes"]}>
-                  {JURISDICTIONS.map((jurisdiction) => {
-                    const selected = sourceFilters.jurisdictions.includes(jurisdiction.code);
-                    return (
-                      <label
-                        className={selected ? styles["scope-option-selected"] : undefined}
-                        key={jurisdiction.code}
-                      >
-                        <input
-                          ref={
-                            jurisdiction.code === JURISDICTIONS[0]!.code
-                              ? firstJurisdictionRef
-                              : undefined
-                          }
-                          type="checkbox"
-                          aria-label={`${jurisdiction.code}, ${jurisdiction.label}`}
-                          checked={selected}
-                          disabled={isBusy}
-                          onChange={() => toggleJurisdiction(jurisdiction.code)}
-                        />
-                        <span>
-                          <strong>{jurisdiction.code}</strong>
-                          <small>{jurisdiction.label}</small>
-                        </span>
-                        {selected ? <Check size={15} aria-hidden="true" /> : null}
-                      </label>
-                    );
-                  })}
-                </div>
-              </fieldset>
+              {/* No jurisdiction control. Every record in the active release is scoped
+                  WORLD, and the serving path widens any selection to include it, so the
+                  filter could narrow nothing - it only claimed to. What the corpus does
+                  and does not carry is stated instead. */}
+              <ul className={styles["source-bodies"]} aria-label="Guideline bodies">
+                {SOURCE_BODIES.map((body) => (
+                  <li
+                    className={body.available ? undefined : styles["source-planned"]}
+                    key={body.id}
+                  >
+                    <span className={styles["source-mark"]} aria-hidden="true">
+                      {body.available ? <Check size={13} /> : <Clock size={13} />}
+                    </span>
+                    <span className={styles["source-copy"]}>
+                      <strong>{body.name}</strong>
+                      <small>{body.detail}</small>
+                    </span>
+                    <span
+                      className={
+                        body.available ? styles["source-live"] : styles["source-soon"]
+                      }
+                    >
+                      {body.available ? "Active" : "Coming soon"}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              <p className={styles["scope-scope-note"]} id={scopeHelpId}>
+                <Globe size={13} aria-hidden="true" />
+                <span>
+                  WHO records are globally scoped, so retrieval is not narrowed by country.
+                </span>
+              </p>
 
               <div className={styles["organization-filter"]}>
                 <label htmlFor={organizationId}>
                   Organizations <span aria-hidden="true">Optional</span>
                 </label>
                 <p id={organizationHelpId}>
-                  Add a publisher or society, then press Enter or comma.
+                  Narrow to a publisher, then press Enter or comma.
                 </p>
                 <div className={styles["organization-entry"]}>
                   <input
                     id={organizationId}
                     type="text"
                     value={organizationInput}
-                    placeholder="e.g., ACC/AHA"
+                    placeholder="e.g., WHO"
                     maxLength={500}
                     disabled={isBusy}
                     aria-describedby={organizationHelpId}
@@ -427,12 +524,6 @@ export function QuestionComposer({
                   </ul>
                 ) : null}
               </div>
-
-              {scopeError ? (
-                <p className={styles["field-error"]} id={scopeErrorId} role="alert">
-                  {scopeError}
-                </p>
-              ) : null}
 
               <div className={styles["scope-actions"]}>
                 <button type="button" disabled={isBusy} onClick={resetScope}>
@@ -481,19 +572,23 @@ export function QuestionComposer({
       </form>
 
       {showExamples ? (
-        <div className={styles["example-questions"]} aria-labelledby="example-heading">
+        <div className={styles["example-questions"]} role="group" aria-labelledby="example-heading">
           <span id="example-heading">Try a focused example</span>
           <div>
-            {EXAMPLE_QUESTIONS.map((example, index) => (
+            {EXAMPLES.map(({ label, question: example }) => (
               <button
-                aria-label={example}
+                // The visible topic leads the accessible name, then the question it
+                // fills in. WCAG 2.5.3 requires the visible label to be part of the
+                // accessible name, so speech input can activate the button by what it
+                // reads; the full question stays available to a screen reader.
+                aria-label={`${label}: ${example}`}
                 disabled={isBusy}
-                key={example}
+                key={label}
                 title={example}
                 type="button"
                 onClick={() => chooseExample(example)}
               >
-                <span>{EXAMPLE_LABELS[index]}</span>
+                <span>{label}</span>
                 <ArrowRight size={15} aria-hidden="true" />
               </button>
             ))}
@@ -518,11 +613,7 @@ function mergeOrganizations(existing: string[], draft: string): string[] {
 }
 
 function sourceSummary(filters: SourceFilters): string {
-  const jurisdictions = filters.jurisdictions.length
-    ? filters.jurisdictions.join(" · ")
-    : "Choose coverage";
-  const organizations = filters.organizations.length
-    ? ` + ${filters.organizations.length} org${filters.organizations.length === 1 ? "" : "s"}`
-    : "";
-  return `${jurisdictions}${organizations}`;
+  if (!filters.organizations.length) return "WHO, global";
+  const count = filters.organizations.length;
+  return `${count} publisher${count === 1 ? "" : "s"}`;
 }

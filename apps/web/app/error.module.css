@@ -1,0 +1,145 @@
+/*
+ * Shared by the route boundary and the global one. The global boundary replaces the
+ * document, so this file cannot assume the token layer loaded with it - every value below
+ * falls back to a literal that is legible on either theme's ground.
+ */
+
+.shell {
+  min-height: 100dvh;
+  padding: 48px 24px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  background: var(--bg-canvas, #f7f9fc);
+  color: var(--text-primary, #29384f);
+}
+
+.card {
+  width: min(46rem, 100%);
+  margin-top: 6vh;
+  padding: 28px;
+  background: var(--bg-surface, #ffffff);
+  border: 1px solid var(--border, #dce2eb);
+  border-radius: var(--radius-lg, 12px);
+  box-shadow: var(--shadow-md, 0 4px 12px -4px rgba(13, 31, 61, 0.12));
+}
+
+.notice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 18px;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm, 4px);
+  background: var(--warn-wash, #fffaf0);
+  border: 1px solid var(--warn-border, #f0d6a7);
+  color: var(--warn-text, #8a5600);
+  font-size: var(--t-xs, 0.8125rem);
+}
+
+.title {
+  margin: 0 0 10px;
+  font-size: var(--t-xl, 1.375rem);
+  font-weight: var(--w-semibold, 600);
+  color: var(--text-strong, #1d2a44);
+  line-height: 1.25;
+}
+
+.body {
+  margin: 0 0 8px;
+  max-width: 62ch;
+  font-size: var(--t-base, 0.9375rem);
+  line-height: 1.6;
+  color: var(--text-secondary, #5a667a);
+}
+
+.runId {
+  margin: 18px 0 0;
+  padding: 12px 14px;
+  background: var(--bg-sunk, #f2f5fa);
+  border: 1px solid var(--border-subtle, #e9edf4);
+  border-radius: var(--radius-sm, 4px);
+  font-size: var(--t-xs, 0.8125rem);
+  color: var(--text-secondary, #5a667a);
+}
+
+.runId code {
+  font-family: ui-monospace, "SFMono-Regular", Menlo, monospace;
+  color: var(--text-primary, #29384f);
+  overflow-wrap: anywhere;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 22px;
+}
+
+.primary,
+.secondary {
+  min-height: 44px;
+  padding: 0 18px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: var(--radius-md, 8px);
+  font-size: var(--t-base, 0.9375rem);
+  font-weight: var(--w-semibold, 600);
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.primary {
+  color: var(--accent-on, #ffffff);
+  background: var(--accent, #075dce);
+  border: 1px solid var(--accent, #075dce);
+}
+
+.primary:hover {
+  background: var(--accent-hover, #0750ae);
+  border-color: var(--accent-hover, #0750ae);
+}
+
+.secondary {
+  color: var(--text-primary, #29384f);
+  background: var(--bg-surface, #ffffff);
+  border: 1px solid var(--border-strong, #c8d1df);
+}
+
+.secondary:hover {
+  background: var(--bg-sunk, #f2f5fa);
+}
+
+.primary:focus-visible,
+.secondary:focus-visible,
+.details summary:focus-visible {
+  outline: 2px solid var(--focus-ring, #1762c5);
+  outline-offset: 2px;
+}
+
+.details {
+  margin-top: 20px;
+  font-size: var(--t-xs, 0.8125rem);
+  color: var(--text-muted, #5f6b7e);
+}
+
+.details summary {
+  cursor: pointer;
+  padding: 6px 0;
+}
+
+.details pre {
+  margin: 8px 0 0;
+  padding: 12px;
+  overflow-x: auto;
+  background: var(--bg-sunk, #f2f5fa);
+  border: 1px solid var(--border-subtle, #e9edf4);
+  border-radius: var(--radius-sm, 4px);
+  font-family: ui-monospace, "SFMono-Regular", Menlo, monospace;
+  font-size: var(--t-2xs, 0.75rem);
+  line-height: 1.55;
+  color: var(--text-primary, #29384f);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}

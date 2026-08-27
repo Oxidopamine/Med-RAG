@@ -1,5 +1,6 @@
 import type {
   AbstentionDetail,
+  GuidelineConflict,
   EvidenceDetail,
   QuestionResult,
   QuestionStatus,
@@ -278,7 +279,8 @@ function uncitedCandidateEvidence(): EvidenceDetail {
 interface AnswerFixtureOptions {
   /** Swap the cited records for licence-permitting ones. */
   licensed?: boolean;
-  conflicts?: Array<Record<string, string>>;
+  /** Partial by design: an unclassified record is a shape the interface must survive. */
+  conflicts?: Array<Partial<GuidelineConflict>>;
 }
 
 /**
@@ -292,7 +294,7 @@ export function answerReadyResult(options: AnswerFixtureOptions = {}): QuestionR
       conflict_type: "OUTDATED_INFORMATION",
       summary:
         "The 2013 edition states a higher treatment threshold than the 2021 edition for the same population.",
-      evidence_ids: "EV_WHO_HTN_001, EV_WHO_HTN_003",
+      evidence_ids: ["EV_WHO_HTN_001", "EV_WHO_HTN_003"],
     },
   ];
 

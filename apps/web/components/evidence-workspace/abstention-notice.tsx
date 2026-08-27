@@ -1,6 +1,6 @@
-import { RotateCw, ShieldAlert } from "lucide-react";
+import { ExternalLink, RotateCw, ShieldAlert } from "lucide-react";
 
-import { humanizeCode, presentAbstention } from "@/lib/evidence-presentation";
+import { humanizeCode, locationSummary, presentAbstention } from "@/lib/evidence-presentation";
 import type { QuestionResult } from "@/lib/types";
 
 import styles from "./workspace.module.css";
@@ -45,18 +45,48 @@ export function AbstentionNotice({ onRetry, result }: AbstentionNoticeProps) {
       ) : null}
 
       {abstention.closestEvidenceIds.length ? (
-        <details className={styles["withheld-details"]}>
+        <details className={styles["withheld-details"]} open>
           <summary>What came closest?</summary>
           <p>
-            These passages ranked highest for the question and still did not support a
-            claim. They are named, not shown: nothing here passed a claim gate.
+            These ranked highest for the question and still carried no claim. Reading them
+            is how a reader tells a thin corpus from a question this release cannot answer -
+            but nothing here passed a gate, and none of it supports anything.
           </p>
-          <ul>
-            {abstention.closestEvidenceIds.map((evidenceId) => (
-              <li key={evidenceId}>
-                <code>{evidenceId}</code>
-              </li>
-            ))}
+          <ul className={styles["near-miss-list"]}>
+            {abstention.closestEvidenceIds.map((evidenceId, index) => {
+              const detail = abstention.closestEvidence.find(
+                (candidate) => candidate.evidence_id === evidenceId,
+              );
+              return (
+                <li key={evidenceId}>
+                  <span className={styles["near-miss-rank"]} aria-hidden="true">
+                    #{index + 1}
+                  </span>
+                  {detail ? (
+                    <span className={styles["near-miss-copy"]}>
+                      <strong>{detail.source_title}</strong>
+                      <small>
+                        {detail.source_version_label} · {locationSummary(detail)} ·{" "}
+                        {detail.evidence_roles.map(humanizeCode).join(", ") || "no role"}
+                      </small>
+                      <a href={detail.source_url} target="_blank" rel="noreferrer">
+                        Open publisher source
+                        <ExternalLink size={13} aria-hidden="true" />
+                      </a>
+                    </span>
+                  ) : (
+                    // Detail resolution is best effort; the identifier is still an answer
+                    // to "what came closest", and saying so beats showing nothing.
+                    <span className={styles["near-miss-copy"]}>
+                      <strong>
+                        <code>{evidenceId}</code>
+                      </strong>
+                      <small>Canonical record could not be resolved for this passage.</small>
+                    </span>
+                  )}
+                </li>
+              );
+            })}
           </ul>
         </details>
       ) : null}
@@ -66,7 +96,11 @@ export function AbstentionNotice({ onRetry, result }: AbstentionNoticeProps) {
             pipeline may have been fixed since the run, and removing the only action
             would leave the reader with nowhere to go. What changes is whether the
             interface pretends a retry is the fix. */}
-        <button type="button" onClick={onRetry}>
+        <button
+          className={abstention.retryable ? undefined : styles["retry-blocked"]}
+          type="button"
+          onClick={onRetry}
+        >
           <RotateCw size={16} aria-hidden="true" />
           Try again
         </button>
