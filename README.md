@@ -8,8 +8,10 @@ Research-only clinical guideline evidence engine. The system is being built arou
 
 The MVP is **WHO SMART HIV only** — one validated release of 5,145 approved records,
 answered end to end. Corpus breadth is deferred until the product vertical works. See
-[docs/roadmap.md](docs/roadmap.md) for the reasoning, the priority order, and the
-first-contact findings that reframe the development-suite scores.
+[docs/roadmap.md](docs/roadmap.md) for the reasoning and the first-contact findings that
+reframe the development-suite scores, and [docs/mvp-definition.md](docs/mvp-definition.md)
+for what "done" means, the corrected priority order, and the pre-registered coverage
+measurement that decides whether this corpus can carry a product at all.
 
 ## Current slice
 

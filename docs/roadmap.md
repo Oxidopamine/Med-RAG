@@ -13,15 +13,22 @@ and nothing has ever answered a question. Every additional benchmark refinement 
 marginal return than reading real outputs. Breadth first would still leave nothing
 answerable end to end; depth first yields a working product on a narrow corpus.
 
-Priority order:
+Priority order, superseded by [mvp-definition.md](mvp-definition.md):
 
-1. one live generation call against Vertex — the largest remaining unknown
-2. read 50 real outputs by hand; expect this to change chunking (see the first-contact
-   findings below, which it already has)
-3. write 30–40 questions phrased as a clinician would ask them
-4. evidence cards and exact PDF highlighting, once the render licence is decided
-5. harden abstention against plausible negatives, then re-derive that gate
-6. corpus breadth, unblocked by narrative-only materialization
+1. one live generation call against Vertex — narrowed there to de-risking the plumbing
+2. build the question set from the parent consolidated guidelines — moved ahead of the
+   reading, because extraction is cheap and gives the reading a real sampling frame
+3. run the two-stage coverage measurement; the decision point for everything below it
+4. harden abstention against plausible negatives, sourced from step 3's correct abstentions
+5. evidence cards and exact PDF highlighting, once the render licence is decided
+6. corpus breadth via narrative-only materialization — or promoted to blocking by step 3
+
+[mvp-definition.md](mvp-definition.md) states what "done" means, why the question set may
+not come from the corpus, and the pre-registered rule the coverage measurement decides
+under. The original list read "read 50 real outputs" before "write 30–40 questions" and
+fixed no threshold for either; n = 50 cannot resolve a coverage threshold near the middle
+of the range, so the measurement is now staged and the decision rule is written down
+before the reading rather than after it.
 
 Explicitly **not** now: spending the sealed holdout, adding publishers, adding benchmark
 machinery. Frame the product as a WHO HIV guidelines assistant, not a clinical guidelines
@@ -487,10 +494,17 @@ than pending.
   Bedrock or Vertex call has been made, and no generation candidate has been benchmarked.
   Vertex is the selected platform. `scripts/ask.py --generate` is the path to the first
   live call and needs only `MEDRAG_VERTEX_PROJECT_ID` plus application-default credentials
-- known limit: `QuestionService._run` is still a stub. It emits progress events and then
-  abstains with `RETRIEVAL_PIPELINE_NOT_CONFIGURED` without calling retrieval or the
-  answer lane, so the HTTP surface does not yet reach either. Abstaining with an honest
-  reason code is correct fail-closed behaviour; it is simply not wired
+- superseded by `a0cb8f2`: `QuestionService._run` is no longer a stub. It runs real
+  retrieval, the real role gate, real grounded composition, and canonical detail
+  resolution, and `ReleaseServingPipeline` binds collection, vector names, and evidence
+  map to one release together
+- known limit: the *application* is still not wired. `main.py` constructs
+  `QuestionService` with an `active_release_provider` and no `pipeline`, so a deployed API
+  still abstains with `RETRIEVAL_PIPELINE_NOT_CONFIGURED` and `scripts/ask.py` remains the
+  only path that answers. The seam exists and nothing constructs it at lifespan; that
+  needs a settings surface for collection, vector names, and model roots, none of which
+  `core/config.py` carries yet. Deliberately not near-term - see
+  [mvp-definition.md](mvp-definition.md)
 - complete: sample mass rebalanced away from the strata that cannot separate systems. The five
   verbatim-fragment topics carry 15 cases each; `TERMINOLOGY`, `CONFLICTING_EVIDENCE`, and
   `PARAPHRASED_INTENT` carry 60. On the rebalanced 430-case suite the deterministic control
