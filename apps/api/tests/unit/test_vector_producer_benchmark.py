@@ -9,8 +9,12 @@ import pytest
 from app.corpus_steward.benchmark import (
     BenchmarkExecutionError,
     RetrievalBenchmarkRunner,
-    _Candidate,
     derive_development_suite_for_candidate,
+)
+from app.retrieval.pipeline import Candidate as _Candidate
+from app.retrieval.pipeline import (
+    conflict_aware_selection,
+    preserve_retrieval_floor,
 )
 from app.corpus_steward.benchmark_schemas import (
     BENCHMARK_CONTRACT_VERSION,
@@ -546,7 +550,7 @@ def test_retrieval_floor_replacement_never_expands_sealed_candidate_pool() -> No
     applicability = "EV_FIXTURE_APPLICABILITY_001"
     exception = "EV_FIXTURE_EXCEPTION_001"
 
-    preserved = RetrievalBenchmarkRunner._preserve_retrieval_floor(
+    preserved = preserve_retrieval_floor(
         [_Candidate(applicability, 0.9), _Candidate(exception, 0.8)],
         [_Candidate(primary, 1.0), _Candidate(applicability, 0.9)],
         evidence,
@@ -570,7 +574,7 @@ def test_conflict_selection_pairs_sides_and_preserves_required_roles() -> None:
         _Candidate(exception, 0.7),
     ]
 
-    selected, rules = RetrievalBenchmarkRunner._conflict_aware_selection(
+    selected, rules = conflict_aware_selection(
         fused,
         {
             "safety-query-1": [_Candidate(primary, 1.0)],

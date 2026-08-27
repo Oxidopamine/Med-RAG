@@ -3,9 +3,7 @@
 from __future__ import annotations
 
 import math
-import re
 from collections.abc import Mapping
-from dataclasses import dataclass
 from statistics import fmean
 from time import perf_counter
 from typing import Any, Protocol
@@ -36,51 +34,34 @@ from app.corpus_steward.candidate_schemas import (
     RetrievalCandidateManifest,
 )
 from app.corpus_steward.index_schemas import IndexVectorBatch, SparseVector
-from app.corpus_steward.qdrant_index import (
-    candidate_qdrant_collection,
-    stable_qdrant_point_id,
-)
+from app.corpus_steward.qdrant_index import candidate_qdrant_collection
 from app.corpus_steward.query_expansion import (
     CONFLICT_AWARE_QUERY_REVISION,
     DeterministicQueryExpander,
     ExpandedQuery,
     QueryExpansionError,
-    QueryExpansionKind,
-    QueryExpansionOrigin,
     is_conflict_query,
 )
 from app.corpus_steward.reranking import RerankerBackend
 from app.corpus_steward.vector_producer import EmbeddedText, EmbeddingBackend
-from app.schemas.corpus import CorpusEvidenceRecord, CorpusReleaseBundle, EvidenceRole
+from app.retrieval.pipeline import (
+    Candidate as _Candidate,
+)
+from app.retrieval.pipeline import (
+    HybridRetrieval,
+    LaneSearcher,
+    LaneWeights,
+    RetrievalError,
+    RetrievalFilter,
+    hybrid_retrieve,
+)
+from app.schemas.corpus import CorpusEvidenceRecord, CorpusReleaseBundle
 from app.schemas.domain import utc_now
 
 BENCHMARK_RUNNER_VERSION = "1.6.0"
-_QUERY_EXPANSION_RRF_WEIGHTS = {
-    QueryExpansionKind.EXACT_TERMINOLOGY: 0.5,
-    QueryExpansionKind.SAFETY_QUERY: 1.0,
-}
-_PAYLOAD_FIELDS = [
-    "approval_status",
-    "corpus_release_id",
-    "evidence_id",
-    "evidence_roles",
-    "evidence_sha256",
-    "jurisdiction",
-    "language",
-    "publisher_id",
-    "source_class",
-    "source_version_id",
-    "lifecycle_status",
-]
-_SAFETY_PRESERVATION_ROLES = (
-    EvidenceRole.EXCEPTION_OR_CONTRAINDICATION,
-    EvidenceRole.APPLICABILITY,
-    EvidenceRole.DOSE_OR_THRESHOLD,
-    EvidenceRole.MONITORING,
-)
 
 
-class BenchmarkExecutionError(RuntimeError):
+class BenchmarkExecutionError(RetrievalError):
     """Raised when inputs or Qdrant results violate the benchmark boundary."""
 
 
@@ -88,47 +69,6 @@ class BenchmarkQdrant(Protocol):
     async def query_points(
         self, collection: str, request: dict[str, Any]
     ) -> list[dict[str, Any]]: ...
-
-
-@dataclass(frozen=True)
-class _Candidate:
-    evidence_id: str
-    score: float
-
-
-def weighted_rrf(
-    rankings: Mapping[str, list[_Candidate]],
-    *,
-    weights: Mapping[str, float],
-    rrf_k: int,
-    limit: int,
-) -> list[_Candidate]:
-    """Fuse independent rankings with sealed weights and evidence-ID tie breaking."""
-
-    if rrf_k <= 0 or limit <= 0:
-        raise ValueError("RRF k and limit must be positive")
-    if set(rankings) != set(weights):
-        raise ValueError("every RRF ranking must have exactly one weight")
-    if any(not math.isfinite(weight) or weight < 0 for weight in weights.values()):
-        raise ValueError("RRF weights must be finite and non-negative")
-    if not any(weights.values()):
-        raise ValueError("at least one RRF weight must be positive")
-    scores: dict[str, float] = {}
-    for lane, ranking in rankings.items():
-        seen: set[str] = set()
-        for rank, item in enumerate(ranking, start=1):
-            if item.evidence_id in seen:
-                raise ValueError(f"RRF lane repeats evidence: {lane}")
-            seen.add(item.evidence_id)
-            scores[item.evidence_id] = scores.get(item.evidence_id, 0.0) + (
-                weights[lane] / (rrf_k + rank)
-            )
-    return [
-        _Candidate(evidence_id=evidence_id, score=score)
-        for evidence_id, score in sorted(
-            scores.items(), key=lambda item: (-item[1], item[0])
-        )[:limit]
-    ]
 
 
 def derive_development_suite_for_candidate(
@@ -554,280 +494,99 @@ class RetrievalBenchmarkRunner:
         conflict_aware: bool = False,
         trace: bool = False,
     ) -> tuple[list[_Candidate], tuple[str, ...]]:
+        """Run one benchmark case through the shared serving retrieval pipeline."""
+
+        searcher = LaneSearcher(
+            self._qdrant,
+            evidence,
+            collection=collection,
+            corpus_release_id=vectors.content.corpus_release_id,
+            retrieval_filter=self._retrieval_filter(case),
+        )
         dense_query = list(embedded.dense)
         sparse_query: dict[str, list[int] | list[float]] = {
             "indices": list(embedded.sparse.indices),
             "values": list(embedded.sparse.values),
         }
         if mode is RetrievalMode.DENSE:
-            return await self._safe_search(
-                "dense",
-                collection,
-                vectors.content.corpus_release_id,
-                vectors.content.dense.name,
-                dense_query,
-                case,
-                evidence,
-                limit=candidate_limit,
+            return await searcher.safe_search(
+                "dense", vectors.content.dense.name, dense_query, limit=candidate_limit
             )
         if mode is RetrievalMode.SPARSE:
-            return await self._safe_search(
-                "sparse",
-                collection,
-                vectors.content.corpus_release_id,
-                vectors.content.sparse.name,
-                sparse_query,
-                case,
-                evidence,
-                limit=candidate_limit,
+            return await searcher.safe_search(
+                "sparse", vectors.content.sparse.name, sparse_query, limit=candidate_limit
             )
-        search_limit = (
-            max(candidate_limit, self._development_trace_depth)
-            if trace
-            else candidate_limit
-        )
-        dense_full, dense_failures = await self._safe_search(
-            "dense",
-            collection,
-            vectors.content.corpus_release_id,
-            vectors.content.dense.name,
-            dense_query,
-            case,
+        retrieval = await hybrid_retrieve(
+            searcher,
             evidence,
-            limit=search_limit,
-        )
-        sparse_full, sparse_failures = await self._safe_search(
-            "sparse",
-            collection,
-            vectors.content.corpus_release_id,
-            vectors.content.sparse.name,
-            sparse_query,
-            case,
-            evidence,
-            limit=search_limit,
-        )
-        dense = dense_full[:candidate_limit]
-        sparse = sparse_full[:candidate_limit]
-        expansion_rankings: dict[str, list[_Candidate]] = {}
-        expansion_rankings_full: dict[str, list[_Candidate]] = {}
-        lexical_failures = sparse_failures
-        for expansion, vector in expanded_sparse:
-            expanded, failures = await self._safe_search(
-                expansion.lane_id,
-                collection,
-                vectors.content.corpus_release_id,
-                vectors.content.sparse.name,
-                {
-                    "indices": list(vector.indices),
-                    "values": list(vector.values),
-                },
-                case,
-                evidence,
-                limit=search_limit,
-            )
-            expansion_rankings_full[expansion.lane_id] = expanded
-            expansion_rankings[expansion.lane_id] = expanded[:candidate_limit]
-            lexical_failures += failures
-        base_fused = weighted_rrf(
-            {"dense": dense, "sparse": sparse},
-            weights={"dense": rrf_weights.dense, "sparse": rrf_weights.sparse},
-            rrf_k=rrf_k,
-            limit=candidate_limit,
-        )
-        fusion_rankings = {"dense": dense, "sparse": sparse}
-        fusion_weights = {
-            "dense": rrf_weights.dense,
-            "sparse": rrf_weights.sparse,
-        }
-        for kind, expansion_weight in _QUERY_EXPANSION_RRF_WEIGHTS.items():
-            kind_rankings = {
-                expansion.lane_id: expansion_rankings[expansion.lane_id]
-                for expansion, _ in expanded_sparse
-                if expansion.kind is kind and expansion.lane_id in expansion_rankings
-            }
-            if not kind_rankings:
-                continue
-            expanded = weighted_rrf(
-                kind_rankings,
-                weights={lane: 1.0 for lane in kind_rankings},
-                rrf_k=rrf_k,
-                limit=candidate_limit,
-            )
-            lane = f"query-expansion-{kind.value.lower()}"
-            fusion_rankings[lane] = expanded
-            fusion_weights[lane] = rrf_weights.sparse * expansion_weight
-        fused = weighted_rrf(
-            fusion_rankings,
-            weights=fusion_weights,
-            rrf_k=rrf_k,
-            limit=candidate_limit,
-        )
-        applied_rules: tuple[str, ...] = ()
-        if expansion_rankings:
-            fused = self._preserve_retrieval_floor(
-                fused,
-                base_fused,
-                evidence,
-                output_depth=output_depth,
-                limit=candidate_limit,
-            )
-            applied_rules = ("BASE_RETRIEVAL_FLOOR_AND_SAFETY_ROLES",)
-        preselection = list(fused)
-        conflict_side_lanes = tuple(
-            expansion.lane_id
-            for expansion, _ in expanded_sparse
-            if expansion.origin is QueryExpansionOrigin.CONFLICT_SIDE
-        )
-        if (
-            conflict_aware
-            and is_conflict_query(case.question)
-            and candidate_limit
-            and reranker_config is None
-            and conflict_side_lanes
-        ):
-            fused, conflict_rules = self._conflict_aware_selection(
-                fused,
-                expansion_rankings,
-                evidence,
-                conflict_side_lanes=conflict_side_lanes,
-                output_depth=output_depth,
-                limit=candidate_limit,
-            )
-            applied_rules += conflict_rules
-        if reranker_config is not None:
-            assert self._reranker is not None
-            try:
-                fused = await self._rerank(
-                    case.question,
-                    fused,
-                    evidence,
-                    output_depth=reranker_config.output_depth,
-                    preserve_safety_roles=reranker_config.safety_role_preservation,
+            question=case.question,
+            dense_vector_name=vectors.content.dense.name,
+            sparse_vector_name=vectors.content.sparse.name,
+            dense_query=dense_query,
+            sparse_query=sparse_query,
+            expanded_sparse=tuple(
+                (
+                    expansion,
+                    {"indices": list(vector.indices), "values": list(vector.values)},
                 )
-            except Exception as error:
-                return fused, (
-                    dense_failures
-                    + lexical_failures
-                    + (f"RERANKER_STAGE_FAILURE:{error.__class__.__name__}",)
-                )
-        if trace:
+                for expansion, vector in expanded_sparse
+            ),
+            candidate_limit=candidate_limit,
+            output_depth=output_depth,
+            rrf_k=rrf_k,
+            lane_weights=LaneWeights(dense=rrf_weights.dense, sparse=rrf_weights.sparse),
+            reranker=self._reranker,
+            reranker_config=reranker_config,
+            conflict_aware=conflict_aware,
+            is_conflict_question=is_conflict_query(case.question),
+            search_limit=self._development_trace_depth if trace else None,
+        )
+        reranker_failed = any(
+            failure.startswith("RERANKER_STAGE_FAILURE") for failure in retrieval.failures
+        )
+        if trace and not reranker_failed:
             self.development_traces.append(
                 self._development_trace(
                     case,
-                    dense_full,
-                    sparse_full,
-                    expansion_rankings_full,
-                    fusion_rankings,
-                    preselection,
-                    fused,
-                    fusion_weights,
+                    retrieval,
                     rrf_k=rrf_k,
                     candidate_limit=candidate_limit,
                     output_depth=output_depth,
-                    applied_rules=applied_rules,
                 )
             )
-        return fused, dense_failures + lexical_failures
+        return retrieval.candidates, retrieval.failures
 
     @staticmethod
-    def _conflict_aware_selection(
-        fused: list[_Candidate],
-        expansion_rankings: Mapping[str, list[_Candidate]],
-        evidence: Mapping[str, CorpusEvidenceRecord],
-        *,
-        conflict_side_lanes: tuple[str, ...],
-        output_depth: int,
-        limit: int,
-    ) -> tuple[list[_Candidate], tuple[str, ...]]:
-        """Select a deterministic conflict-complete, diverse, non-redundant head."""
-
-        selected: list[_Candidate] = []
-        selected_ids: set[str] = set()
-        rules: list[str] = []
-
-        def add(item: _Candidate, rule: str) -> None:
-            if len(selected) < output_depth and item.evidence_id not in selected_ids:
-                selected.append(item)
-                selected_ids.add(item.evidence_id)
-                rules.append(f"{rule}:{item.evidence_id}")
-
-        # Each side of an explicit conflict query needs its own representatives, so both
-        # halves of the disagreement survive selection. Lanes are identified by the
-        # expander's declared origin rather than by position or lane-name parsing.
-        for lane in conflict_side_lanes:
-            if ranking := expansion_rankings.get(lane):
-                for item in ranking[:2]:
-                    add(item, f"CONFLICT_SIDE[{lane}]")
-
-        for role in (EvidenceRole.PRIMARY_SUPPORT, *_SAFETY_PRESERVATION_ROLES):
-            representative = next(
-                (
-                    item
-                    for item in fused[:output_depth]
-                    if role in evidence[item.evidence_id].evidence_roles
-                ),
-                None,
-            )
-            if representative is not None:
-                add(representative, f"ROLE[{role.value}]")
-
-        # Prefer source/version diversity before filling from the fused order.
-        seen_versions = {
-            evidence[item.evidence_id].source_version_id for item in selected
-        }
-        for item in fused:
-            if len(seen_versions) >= min(3, output_depth):
-                break
-            version = evidence[item.evidence_id].source_version_id
-            if version not in seen_versions:
-                add(item, f"SOURCE_VERSION[{version}]")
-                seen_versions.add(version)
-
-        deferred: list[_Candidate] = []
-        for item in fused:
-            if item.evidence_id in selected_ids:
-                continue
-            if any(
-                RetrievalBenchmarkRunner._lexically_redundant(
-                    evidence[item.evidence_id].content_search,
-                    evidence[kept.evidence_id].content_search,
-                )
-                for kept in selected
-            ):
-                deferred.append(item)
-                continue
-            add(item, "NON_REDUNDANT_FUSED")
-        for item in deferred:
-            add(item, "REDUNDANT_BACKFILL")
-
-        tail = [item for item in fused if item.evidence_id not in selected_ids]
-        return (selected + tail)[:limit], tuple(rules)
-
-    @staticmethod
-    def _lexically_redundant(left: str, right: str) -> bool:
-        tokens_left = set(re.findall(r"[\w.-]+", left.casefold()))
-        tokens_right = set(re.findall(r"[\w.-]+", right.casefold()))
-        if not tokens_left or not tokens_right:
-            return False
-        return len(tokens_left & tokens_right) / min(len(tokens_left), len(tokens_right)) >= 0.85
+    def _retrieval_filter(case: BenchmarkCase) -> RetrievalFilter:
+        filters = case.retrieval_filter
+        return RetrievalFilter(
+            jurisdictions=filters.jurisdictions,
+            languages=filters.languages,
+            publisher_ids=filters.publisher_ids,
+            source_classes=filters.source_classes,
+            source_version_ids=filters.source_version_ids,
+            lifecycle_statuses=filters.lifecycle_statuses,
+        )
 
     @staticmethod
     def _development_trace(
         case: BenchmarkCase,
-        dense: list[_Candidate],
-        sparse: list[_Candidate],
-        expansions: Mapping[str, list[_Candidate]],
-        fusion_rankings: Mapping[str, list[_Candidate]],
-        preselection: list[_Candidate],
-        selected: list[_Candidate],
-        weights: Mapping[str, float],
+        retrieval: HybridRetrieval,
         *,
         rrf_k: int,
         candidate_limit: int,
         output_depth: int,
-        applied_rules: tuple[str, ...],
     ) -> dict[str, Any]:
-        lanes = {"dense": dense, "sparse": sparse, **expansions}
+        fusion_rankings = retrieval.fusion_rankings
+        preselection = retrieval.preselection
+        selected = retrieval.candidates
+        weights = retrieval.fusion_weights
+        applied_rules = retrieval.applied_rules
+        lanes = {
+            "dense": retrieval.dense,
+            "sparse": retrieval.sparse,
+            **retrieval.expansion_rankings,
+        }
         gold_ids = tuple(item.evidence_id for item in case.gold_evidence)
         selected_ranks = {
             item.evidence_id: rank for rank, item in enumerate(selected, start=1)
@@ -899,238 +658,6 @@ class RetrievalBenchmarkRunner:
                 for lane, ranking in fusion_rankings.items()
             },
         }
-
-    @staticmethod
-    def _preserve_retrieval_floor(
-        expanded: list[_Candidate],
-        baseline: list[_Candidate],
-        evidence: Mapping[str, CorpusEvidenceRecord],
-        *,
-        output_depth: int,
-        limit: int,
-    ) -> list[_Candidate]:
-        """Keep a bounded baseline floor while allowing expansion candidates to enter."""
-
-        mandatory: list[str] = []
-        retrieval_floor = min(output_depth, max(2, output_depth // 2))
-        mandatory.extend(item.evidence_id for item in baseline[:retrieval_floor])
-        baseline_output = baseline[:output_depth]
-        for role in _SAFETY_PRESERVATION_ROLES:
-            representative = next(
-                (
-                    item.evidence_id
-                    for item in baseline_output
-                    if role in evidence[item.evidence_id].evidence_roles
-                ),
-                None,
-            )
-            if representative is not None and representative not in mandatory:
-                mandatory.append(representative)
-        mandatory = mandatory[:output_depth]
-        selected = set(mandatory)
-        for item in expanded:
-            if len(selected) >= output_depth:
-                break
-            selected.add(item.evidence_id)
-        head = [item for item in expanded if item.evidence_id in selected]
-        head_ids = {item.evidence_id for item in head}
-        score_by_id = {item.evidence_id: item.score for item in baseline}
-        for evidence_id in mandatory:
-            if evidence_id not in head_ids:
-                head.append(
-                    _Candidate(
-                        evidence_id=evidence_id,
-                        score=score_by_id[evidence_id],
-                    )
-                )
-        return (
-            head + [item for item in expanded if item.evidence_id not in selected]
-        )[:limit]
-
-    async def _rerank(
-        self,
-        question: str,
-        candidates: list[_Candidate],
-        evidence: Mapping[str, CorpusEvidenceRecord],
-        *,
-        output_depth: int,
-        preserve_safety_roles: bool,
-    ) -> list[_Candidate]:
-        assert self._reranker is not None
-        scores = tuple(
-            await self._reranker.score(
-                question,
-                tuple(evidence[item.evidence_id].content_search for item in candidates),
-            )
-        )
-        if len(scores) != len(candidates):
-            raise BenchmarkExecutionError(
-                "reranker returned a different number of scores than candidates"
-            )
-        reranked: list[_Candidate] = []
-        for item, score in zip(candidates, scores, strict=True):
-            converted = float(score)
-            if not math.isfinite(converted):
-                raise BenchmarkExecutionError("reranker returned a non-finite score")
-            reranked.append(_Candidate(evidence_id=item.evidence_id, score=converted))
-        reranked.sort(key=lambda item: (-item.score, item.evidence_id))
-        if not preserve_safety_roles:
-            return reranked[:output_depth]
-
-        reserved: list[str] = []
-        retrieval_floor = min(output_depth, max(2, output_depth // 2))
-        for item in candidates[:retrieval_floor]:
-            if item.evidence_id not in reserved:
-                reserved.append(item.evidence_id)
-        for role in _SAFETY_PRESERVATION_ROLES:
-            representative = next(
-                (
-                    item.evidence_id
-                    for item in candidates
-                    if role in evidence[item.evidence_id].evidence_roles
-                ),
-                None,
-            )
-            if representative is not None and representative not in reserved:
-                reserved.append(representative)
-        selected = set(reserved[:output_depth])
-        for item in reranked:
-            if len(selected) >= output_depth:
-                break
-            selected.add(item.evidence_id)
-        return [item for item in reranked if item.evidence_id in selected]
-
-    async def _safe_search(
-        self,
-        lane: str,
-        collection: str,
-        corpus_release_id: str,
-        vector_name: str,
-        query: list[float] | dict[str, list[int] | list[float]],
-        case: BenchmarkCase,
-        evidence: Mapping[str, CorpusEvidenceRecord],
-        *,
-        limit: int,
-    ) -> tuple[list[_Candidate], tuple[str, ...]]:
-        try:
-            candidates = await self._search(
-                collection,
-                corpus_release_id,
-                vector_name,
-                query,
-                case,
-                evidence,
-                limit=limit,
-            )
-        except Exception as error:
-            return [], (f"{lane.upper()}_LANE_FAILURE:{error.__class__.__name__}",)
-        return candidates, ()
-
-    async def _search(
-        self,
-        collection: str,
-        corpus_release_id: str,
-        vector_name: str,
-        query: list[float] | dict[str, list[int] | list[float]],
-        case: BenchmarkCase,
-        evidence: Mapping[str, CorpusEvidenceRecord],
-        *,
-        limit: int,
-    ) -> list[_Candidate]:
-        request = {
-            "query": query,
-            "using": vector_name,
-            "filter": self._filter_for_release(case, corpus_release_id),
-            "limit": limit,
-            "with_payload": _PAYLOAD_FIELDS,
-            "with_vector": False,
-        }
-        raw = await self._qdrant.query_points(collection, request)
-        if not isinstance(raw, list):
-            raise BenchmarkExecutionError("Qdrant query result is not a list")
-        candidates: list[_Candidate] = []
-        seen: set[str] = set()
-        for result in raw:
-            payload = result.get("payload")
-            evidence_id = payload.get("evidence_id") if isinstance(payload, dict) else None
-            if not isinstance(evidence_id, str) or evidence_id not in evidence:
-                raise BenchmarkExecutionError("Qdrant returned unknown or malformed evidence")
-            if evidence_id in seen:
-                raise BenchmarkExecutionError(
-                    f"Qdrant repeated evidence in one ranking: {evidence_id}"
-                )
-            seen.add(evidence_id)
-            record = evidence[evidence_id]
-            if result.get("id") != stable_qdrant_point_id(evidence_id):
-                raise BenchmarkExecutionError(
-                    f"Qdrant point ID does not match evidence: {evidence_id}"
-                )
-            if (
-                payload.get("corpus_release_id") != record.corpus_release_id
-                or payload.get("approval_status") != "APPROVED"
-                or payload.get("evidence_sha256") != record.sha256
-                or payload.get("jurisdiction") != record.jurisdiction
-                or payload.get("language") != record.language
-                or payload.get("publisher_id") != record.publisher_id
-                or payload.get("source_version_id") != record.source_version_id
-                or payload.get("lifecycle_status") != record.lifecycle_status.value
-                or payload.get("evidence_roles")
-                != [role.value for role in record.evidence_roles]
-            ):
-                raise BenchmarkExecutionError(
-                    f"Qdrant benchmark payload does not match evidence: {evidence_id}"
-                )
-            self._require_result_matches_filter(payload, case, evidence_id)
-            score = result.get("score")
-            if (
-                isinstance(score, bool)
-                or not isinstance(score, (int, float))
-                or not math.isfinite(score)
-            ):
-                raise BenchmarkExecutionError(
-                    f"Qdrant score is missing or invalid: {evidence_id}"
-                )
-            candidates.append(_Candidate(evidence_id=evidence_id, score=float(score)))
-        return candidates
-
-    @staticmethod
-    def _filter_for_release(
-        case: BenchmarkCase, corpus_release_id: str
-    ) -> dict[str, list[dict[str, Any]]]:
-        must: list[dict[str, Any]] = [
-            {"key": "corpus_release_id", "match": {"value": corpus_release_id}},
-            {"key": "approval_status", "match": {"value": "APPROVED"}},
-        ]
-        filters = case.retrieval_filter
-        for field_name, values in (
-            ("jurisdiction", filters.jurisdictions),
-            ("language", filters.languages),
-            ("publisher_id", filters.publisher_ids),
-            ("source_class", filters.source_classes),
-            ("source_version_id", filters.source_version_ids),
-            ("lifecycle_status", filters.lifecycle_statuses),
-        ):
-            if values:
-                must.append({"key": field_name, "match": {"any": list(values)}})
-        return {"must": must}
-
-    @staticmethod
-    def _require_result_matches_filter(
-        payload: dict[str, Any], case: BenchmarkCase, evidence_id: str
-    ) -> None:
-        filters = case.retrieval_filter
-        for field_name, allowed in (
-            ("jurisdiction", filters.jurisdictions),
-            ("language", filters.languages),
-            ("publisher_id", filters.publisher_ids),
-            ("source_class", filters.source_classes),
-            ("source_version_id", filters.source_version_ids),
-            ("lifecycle_status", filters.lifecycle_statuses),
-        ):
-            if allowed and payload.get(field_name) not in allowed:
-                raise BenchmarkExecutionError(
-                    f"Qdrant result escaped {field_name} filter: {evidence_id}"
-                )
 
     @staticmethod
     def _metrics(
