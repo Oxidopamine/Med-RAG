@@ -12,6 +12,7 @@ export type EvidenceLocator = Required<ApiSchemas["EvidenceLocator"]>;
 export type EvidenceDetail = Omit<Required<ApiSchemas["EvidenceDetail"]>, "locators"> & {
   locators: EvidenceLocator[];
 };
+export type RetrievalCandidate = ApiSchemas["RetrievalCandidate"];
 export type AbstentionDetail = Required<ApiSchemas["AbstentionDetail"]>;
 export type VerificationSummary = ApiSchemas["VerificationSummary"];
 export type ActiveCorpusRelease = Required<ApiSchemas["ActiveCorpusRelease"]>;

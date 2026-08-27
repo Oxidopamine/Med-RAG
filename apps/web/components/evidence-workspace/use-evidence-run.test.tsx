@@ -57,6 +57,7 @@ const terminalResult: QuestionResult = {
   claims: [],
   conflicts: [],
   evidence_details: [],
+  retrieval_candidates: [],
   verification_summary: {
     rendered_claims: 0,
     supported_claims: 0,

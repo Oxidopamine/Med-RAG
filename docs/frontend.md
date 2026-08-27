@@ -125,14 +125,31 @@ authoritative if readiness changes between page load and submission.
 
 An answer-ready payload must include an active `corpus_release`, at least one rendered
 claim, and `evidence_details` that exactly cover every evidence ID referenced by those
-claims. The strict runtime contract rejects duplicate, unrelated, incomplete, malformed,
-or internally contradictory evidence details before they reach component state.
+claims or listed in `retrieval_candidates`. The strict runtime contract rejects
+duplicate, unrelated, incomplete, malformed, or internally contradictory evidence
+details before they reach component state.
 
 Each `EvidenceDetail` carries canonical source/version identity, source title,
 publisher, jurisdiction, lifecycle and effective dates, evidence roles, optional
 evidence type/section path, and one or more source locators. Selecting a claim limits
-the evidence list and source inspector to that claim's evidence IDs; selecting a source
-updates the quotation, metadata, location, and highlight status together.
+the supporting-evidence list to that claim's evidence IDs; selecting a source updates
+the quotation, metadata, location, and highlight status together. A selected candidate
+survives a claim change so that reading down the ranking is not interrupted.
+
+`retrieval_candidates` is the only route by which a retrieved passage no claim cited
+reaches the interface. Each entry names an evidence ID and the rank it held in
+retrieval, so ranks are sparse - the cited passages are the gaps. The contract keeps
+this door narrow: a candidate may not repeat a cited evidence ID, candidates must be
+listed in ascending unique rank order, every candidate needs canonical evidence detail,
+and only an `ANSWER_READY` result may carry them. An abstained or failed result exposes
+nothing, candidates included.
+
+The UI never lets a candidate read as support. The source inspector appends candidates
+after the selected claim's cited evidence, so the next/previous controls walk the whole
+ranking, but a candidate is marked "Retrieved, not cited" in the title bar, carries its
+rank and a notice on the page itself, and is listed separately under "Other ranked
+passages" rather than among supporting evidence. Copying an answer and the claim-linked
+citation trail stay limited to cited evidence.
 
 Licensing is part of the render contract:
 

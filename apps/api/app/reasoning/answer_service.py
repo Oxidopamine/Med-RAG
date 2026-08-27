@@ -20,7 +20,12 @@ from dataclasses import dataclass
 
 from app.reasoning.generation_adapters import GenerationBackend, GenerationUnavailableError
 from app.reasoning.generation_schemas import AbstentionReason, ModelAnswer
-from app.schemas.questions import AbstentionDetail, RenderedClaim, VerificationSummary
+from app.schemas.questions import (
+    AbstentionDetail,
+    RenderedClaim,
+    RetrievalCandidate,
+    VerificationSummary,
+)
 
 SYSTEM_PROMPT = """You answer clinical questions strictly from numbered guideline \
 passages supplied with each question.
@@ -73,6 +78,10 @@ class ComposedAnswer:
     conflicts: tuple[dict[str, str], ...]
     verification: VerificationSummary
     abstention: AbstentionDetail | None
+    # Retrieved passages no surviving claim cited, in retrieval order. Carried so a
+    # reader can see what the ranking offered below the cited support; never carried on
+    # an abstention, where nothing retrieved has earned display.
+    candidates: tuple[RetrievalCandidate, ...] = ()
 
     @property
     def answered(self) -> bool:
@@ -210,6 +219,12 @@ class GroundedAnswerComposer:
             for conflict in answer.conflicts
             if set(conflict.evidence_ids) & retrieved_ids
         )
+        cited = {evidence_id for claim in supported for evidence_id in claim.evidence_ids}
+        candidates = tuple(
+            RetrievalCandidate(evidence_id=passage.evidence_id, retrieval_rank=rank)
+            for rank, passage in enumerate(passages, start=1)
+            if passage.evidence_id not in cited
+        )
         return ComposedAnswer(
             claims=tuple(supported),
             conflicts=conflicts,
@@ -219,4 +234,5 @@ class GroundedAnswerComposer:
                 withheld_claims=withheld,
             ),
             abstention=None,
+            candidates=candidates,
         )

@@ -7,7 +7,6 @@ import {
   Check,
   CircleDashed,
   ExternalLink,
-  FileLock2,
   FileSearch,
   FileText,
   Minus,
@@ -19,8 +18,11 @@ import type {
   EvidenceProgressEvent,
   EvidenceRunLifecycle,
 } from "@/components/evidence-workspace/use-evidence-run";
+import { primaryAnchor, renderPolicy } from "@/lib/evidence-presentation";
+import type { RankedEvidence } from "@/lib/presentation";
 import type { EvidenceDetail, QuestionResult, QuestionStatus } from "@/lib/types";
 
+import { PassageBody, SourceAnchorList } from "./source-anchor";
 import styles from "./workspace.module.css";
 
 const VERIFICATION_STEPS: Array<{
@@ -62,22 +64,33 @@ const VERIFICATION_STEPS: Array<{
 ];
 
 interface SourceViewerProps {
+  candidates: RankedEvidence[];
   evidence: EvidenceDetail[];
   onSelectEvidence: (evidenceId: string) => void;
   selectedEvidenceId: string | null;
 }
 
 export function SourceViewer({
+  candidates,
   evidence,
   onSelectEvidence,
   selectedEvidenceId,
 }: SourceViewerProps) {
   const [zoom, setZoom] = useState(100);
+  // Cited evidence first, then the ranked passages nothing cited. Reading order is the
+  // retrieval ranking, so stepping past the last citation is what the next ranked result
+  // means here - but the two halves stay labelled apart everywhere they are shown.
+  const items: Array<{ detail: EvidenceDetail; retrievalRank: number | null }> = [
+    ...evidence.map((detail) => ({ detail, retrievalRank: null })),
+    ...candidates.map(({ detail, retrievalRank }) => ({ detail, retrievalRank })),
+  ];
   const selectedIndex = Math.max(
     0,
-    evidence.findIndex((detail) => detail.evidence_id === selectedEvidenceId),
+    items.findIndex((item) => item.detail.evidence_id === selectedEvidenceId),
   );
-  const selected = evidence[selectedIndex] ?? null;
+  const selectedItem = items[selectedIndex] ?? null;
+  const selected = selectedItem?.detail ?? null;
+  const candidateRank = selectedItem?.retrievalRank ?? null;
 
   if (!selected) {
     return (
@@ -91,9 +104,12 @@ export function SourceViewer({
     );
   }
 
-  const locator = selected.locators[0];
   const canGoBack = selectedIndex > 0;
-  const canGoForward = selectedIndex < evidence.length - 1;
+  const canGoForward = selectedIndex < items.length - 1;
+  const positionLabel =
+    candidateRank === null
+      ? `Evidence ${selectedIndex + 1} of ${evidence.length}`
+      : `Ranked passage ${selectedIndex - evidence.length + 1} of ${candidates.length}, uncited`;
 
   return (
     <section className={`${styles.panel} ${styles["source-viewer"]}`} aria-labelledby="source-heading">
@@ -102,33 +118,38 @@ export function SourceViewer({
           <span className={styles["section-kicker"]}>Claim-linked provenance</span>
           <h2 id="source-heading">Source inspector</h2>
         </div>
-        <span className={styles["verified-source-label"]}>
-          <Check size={14} strokeWidth={3} aria-hidden="true" />
-          Canonical evidence
-        </span>
+        {candidateRank === null ? (
+          <span className={styles["verified-source-label"]}>
+            <Check size={14} strokeWidth={3} aria-hidden="true" />
+            Canonical evidence
+          </span>
+        ) : (
+          <span className={styles["uncited-source-label"]}>
+            <AlertTriangle size={14} aria-hidden="true" />
+            Retrieved, not cited
+          </span>
+        )}
       </div>
 
       <div className={styles["pdf-toolbar"]} aria-label="Source inspector controls">
         <div className={styles["toolbar-group"]}>
           <button
             type="button"
-            onClick={() => onSelectEvidence(evidence[selectedIndex - 1]!.evidence_id)}
+            onClick={() => onSelectEvidence(items[selectedIndex - 1]!.detail.evidence_id)}
             disabled={!canGoBack}
-            aria-label="Previous evidence reference"
+            aria-label="Previous ranked result"
           >
             <ArrowUp size={19} aria-hidden="true" />
           </button>
           <button
             type="button"
-            onClick={() => onSelectEvidence(evidence[selectedIndex + 1]!.evidence_id)}
+            onClick={() => onSelectEvidence(items[selectedIndex + 1]!.detail.evidence_id)}
             disabled={!canGoForward}
-            aria-label="Next evidence reference"
+            aria-label="Next ranked result"
           >
             <ArrowDown size={19} aria-hidden="true" />
           </button>
-          <span className={styles["evidence-position"]}>
-            Evidence {selectedIndex + 1} of {evidence.length}
-          </span>
+          <span className={styles["evidence-position"]}>{positionLabel}</span>
         </div>
         <div className={styles["toolbar-center"]}>
           <button
@@ -158,18 +179,24 @@ export function SourceViewer({
       </div>
 
       <div className={styles["viewer-layout"]}>
-        <div className={styles.thumbnails} aria-label="Evidence references">
-          {evidence.map((detail, index) => (
+        <div className={styles.thumbnails} aria-label="Ranked results">
+          {items.map(({ detail, retrievalRank }, index) => (
             <button
-              className={`${styles.thumbnail} ${detail.evidence_id === selected.evidence_id ? styles.selected : ""}`}
+              className={`${styles.thumbnail} ${retrievalRank === null ? "" : styles.candidate} ${detail.evidence_id === selected.evidence_id ? styles.selected : ""}`}
               type="button"
               key={detail.evidence_id}
               onClick={() => onSelectEvidence(detail.evidence_id)}
-              aria-label={`View evidence ${index + 1}: ${detail.source_title}`}
+              aria-label={
+                retrievalRank === null
+                  ? `View evidence ${index + 1}: ${detail.source_title}`
+                  : `View uncited ranked passage ${retrievalRank}: ${detail.source_title}`
+              }
               aria-current={detail.evidence_id === selected.evidence_id ? "true" : undefined}
             >
               <FileText size={22} aria-hidden="true" />
-              <span>{locatorPage(detail) ?? index + 1}</span>
+              <span>
+                {locatorPage(detail) ?? (retrievalRank === null ? index + 1 : `#${retrievalRank}`)}
+              </span>
             </button>
           ))}
         </div>
@@ -185,21 +212,20 @@ export function SourceViewer({
               <p className={styles["paper-section"]}>{selected.section_path.join(" / ")}</p>
             ) : null}
 
-            {selected.exact_text ? (
-              <div className={styles["source-passage"]}>
-                <span>Verified source passage</span>
-                <mark>{selected.exact_text}</mark>
-              </div>
-            ) : (
-              <div className={styles["restricted-passage"]}>
-                <FileLock2 size={28} aria-hidden="true" />
-                <strong>Source text cannot be displayed</strong>
-                <span>
-                  The publisher metadata was verified, but this license does not permit rendering
-                  the exact passage.
-                </span>
+            {candidateRank === null ? null : (
+              <div className={styles["uncited-notice"]} role="note">
+                <AlertTriangle size={19} aria-hidden="true" />
+                <div>
+                  <strong>Retrieved at rank {candidateRank}. No claim cites it.</strong>
+                  <span>
+                    This passage passed no claim gate and supports nothing rendered above.
+                    Read it as background on what retrieval returned.
+                  </span>
+                </div>
               </div>
             )}
+
+            <PassageBody detail={selected} variant="document" />
 
             <footer className={styles["paper-footer"]}>
               <span>{selected.evidence_id}</span>
@@ -208,12 +234,12 @@ export function SourceViewer({
           </article>
         </div>
 
-        <SourceMetadata evidence={selected} locator={locator} />
+        <SourceMetadata evidence={selected} />
       </div>
 
       <details className={styles["mobile-source-metadata"]}>
         <summary>Source details</summary>
-        <SourceMetadata evidence={selected} locator={locator} mobile />
+        <SourceMetadata evidence={selected} mobile />
       </details>
     </section>
   );
@@ -221,13 +247,12 @@ export function SourceViewer({
 
 function SourceMetadata({
   evidence,
-  locator,
   mobile = false,
 }: {
   evidence: EvidenceDetail;
-  locator: EvidenceDetail["locators"][number] | undefined;
   mobile?: boolean;
 }) {
+  const policy = renderPolicy(evidence);
   return (
     <aside className={`${styles["document-metadata"]} ${mobile ? styles["metadata-mobile"] : ""}`}>
       <h3>Document</h3>
@@ -251,19 +276,37 @@ function SourceMetadata({
         </div>
         <div>
           <dt>Highlight</dt>
-          <dd>{locator?.exact_highlight_available ? "Exact location verified" : "Not available"}</dd>
+          <dd>{highlightSummary(evidence, policy.canHighlightExactly)}</dd>
         </div>
         <div>
           <dt>Lifecycle</dt>
           <dd>{humanize(evidence.lifecycle_status)}</dd>
         </div>
       </dl>
+      <div className={styles["anchor-block"]}>
+        <h4>Source anchors</h4>
+        <SourceAnchorList detail={evidence} />
+      </div>
       <a href={evidence.source_url} target="_blank" rel="noreferrer">
         View publisher source
         <ExternalLink size={15} aria-hidden="true" />
       </a>
     </aside>
   );
+}
+
+/**
+ * What the interface can do with this record's exact location.
+ *
+ * A region the release recorded but the licence withholds is reported as withheld, not
+ * as absent: the provenance exists, and saying "not available" would understate what
+ * was verified while overstating what changes if the licence review lands.
+ */
+function highlightSummary(evidence: EvidenceDetail, canHighlight: boolean): string {
+  if (canHighlight) return "Exact location verified";
+  const anchor = primaryAnchor(evidence);
+  if (anchor?.highlightSuppressedByLicence) return "Recorded, withheld by licence";
+  return "Not available";
 }
 
 interface VerificationPanelProps {
@@ -449,16 +492,17 @@ function verificationBadge(
   };
 }
 
+/** The compact page label used on thumbnails, from the most precise anchor available. */
 function locatorPage(evidence: EvidenceDetail): string | null {
-  const locator = evidence.locators[0];
-  if (!locator) return null;
-  if (locator.printed_page) return `p. ${locator.printed_page}`;
-  if (locator.pdf_page) return `PDF p. ${locator.pdf_page}`;
+  const anchor = primaryAnchor(evidence);
+  if (!anchor) return null;
+  if (anchor.printedPage !== null) return `p. ${anchor.printedPage}`;
+  if (anchor.pdfPage !== null) return `PDF p. ${anchor.pdfPage}`;
   return null;
 }
 
 function sourceLocation(evidence: EvidenceDetail): string {
-  return locatorPage(evidence) ?? humanize(evidence.locators[0]?.kind ?? "source location");
+  return locatorPage(evidence) ?? humanize(primaryAnchor(evidence)?.kind ?? "source location");
 }
 
 function humanize(value: string): string {

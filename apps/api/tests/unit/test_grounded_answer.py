@@ -294,3 +294,36 @@ def test_answer_schema_closes_additional_properties() -> None:
         if block.get("type") == "object"
     )
     assert GENERATION_ADAPTER_ID and GENERATION_ADAPTER_REVISION
+
+
+async def test_uncited_passages_are_reported_as_ranked_candidates() -> None:
+    # PASSAGES arrives in retrieval order; only EV_aaa (rank 1) is cited.
+    backend = StubBackend(answer())
+    composed = await GroundedAnswerComposer(backend).compose("Q?", PASSAGES)
+
+    assert composed.answered is True
+    assert [(item.evidence_id, item.retrieval_rank) for item in composed.candidates] == [
+        ("EV_bbb", 2)
+    ]
+
+
+async def test_a_passage_cited_by_a_surviving_claim_is_not_a_candidate() -> None:
+    backend = StubBackend(
+        answer(
+            claims=[
+                {"text": "Adjust the dose.", "evidence_ids": ["EV_aaa"]},
+                {"text": "Recheck at six months.", "evidence_ids": ["EV_bbb"]},
+            ]
+        )
+    )
+    composed = await GroundedAnswerComposer(backend).compose("Q?", PASSAGES)
+
+    assert composed.candidates == ()
+
+
+async def test_an_abstention_reports_no_ranked_candidates() -> None:
+    backend = StubBackend(answer(sufficient_evidence=False, insufficiency_note="Not covered."))
+    composed = await GroundedAnswerComposer(backend).compose("Q?", PASSAGES)
+
+    assert composed.answered is False
+    assert composed.candidates == ()

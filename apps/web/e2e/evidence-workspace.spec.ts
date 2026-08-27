@@ -36,6 +36,7 @@ const abstainedResult = {
   interpreted_context: context,
   claims: [],
   evidence_details: [],
+  retrieval_candidates: [],
   conflicts: [],
   verification_summary: {
     rendered_claims: 0,
@@ -141,14 +142,53 @@ const verifiedResult = {
         },
       ],
     },
+    {
+      evidence_id: "evidence-candidate",
+      exact_text:
+        "Annual renal-function review is reasonable for patients on long-term anticoagulation.",
+      evidence_type: "GUIDELINE_RECOMMENDATION",
+      evidence_roles: ["CURRENT_PRIMARY_GUIDELINE"],
+      section_path: ["Anticoagulation", "Follow-up"],
+      source_id: "source-consensus",
+      source_version_id: "source-consensus-2026",
+      source_title: "Anticoagulation Consensus Statement",
+      source_version_label: "2026",
+      publisher_name: "Consensus Panel",
+      source_url: "https://example.test/consensus",
+      source_class: "E1",
+      jurisdiction: "US",
+      language: "en",
+      lifecycle_status: "CURRENT",
+      effective_from: "2026-03-01",
+      effective_to: null,
+      approval_status: "APPROVED",
+      render_allowed: true,
+      locators: [
+        {
+          kind: "SECTION",
+          source_uri: "https://example.test/consensus",
+          pdf_page: null,
+          printed_page: null,
+          bbox: null,
+          exact_highlight_available: false,
+        },
+      ],
+    },
   ],
+  retrieval_candidates: [{ evidence_id: "evidence-candidate", retrieval_rank: 4 }],
   conflicts: [
+    {
+      conflict_type: "CONFLICTING_RECOMMENDATIONS",
+      summary:
+        "The addendum states a dose reduction that the primary guideline does not recommend.",
+      evidence_ids: "evidence-renderable, evidence-restricted",
+    },
     {
       organization: "Regional formulary",
       recommendation: "Use additional renal-function monitoring.",
       rationale: "Local dosing policy is more conservative.",
     },
-  ],
+  ] as Record<string, string>[],
   verification_summary: {
     rendered_claims: 2,
     supported_claims: 2,
@@ -344,7 +384,10 @@ test("renders an actionable fail-closed abstention without an empty source viewe
   );
   await expect(page.getByText("Answer gate blocked", { exact: true })).toBeVisible();
 
-  await page.getByText("Why was this withheld?", { exact: true }).click();
+  await expect(page.getByText("NO_APPROVED_CORPUS", { exact: true })).toBeVisible();
+  await expect(page.getByText("Retrying alone will not change this.")).toBeVisible();
+
+  await page.getByText("Which evidence was missing?", { exact: true }).click();
   await expect(page.getByText("Current primary guideline", { exact: true })).toBeVisible();
 
   await page.getByRole("button", { name: "Edit context" }).click();
@@ -383,6 +426,8 @@ test("connects verified claims to exact and restricted source evidence", async (
     }),
   ]);
 
+  const sourceInspector = page.getByRole("region", { name: "Source inspector" });
+
   await expect(
     page.getByRole("heading", { name: "Exact guideline quotation" }),
   ).toBeVisible();
@@ -391,23 +436,57 @@ test("connects verified claims to exact and restricted source evidence", async (
     "Reduced renal function should be considered when selecting and dosing anticoagulant therapy.",
   );
   await expect(page.getByText("Evidence 1 of 2", { exact: true })).toBeVisible();
+  // A licensed record states its anchor precision, which exact highlighting will use.
+  await expect(page.getByText("Exact region").first()).toBeVisible();
+  await expect(
+    page.getByText("Printed page 231 (PDF page 47), exact region").first(),
+  ).toBeVisible();
+  await expect(sourceInspector.getByText("Exact location verified").first()).toBeVisible();
   await expect(page.getByRole("link", { name: "Open publisher source" })).toHaveAttribute(
     "href",
     "https://example.test/guideline",
   );
 
-  await page.getByRole("button", { name: "Next evidence reference" }).click();
+  await page.getByRole("button", { name: "Next ranked result" }).click();
   await expect(page.getByText("Evidence 2 of 2", { exact: true })).toBeVisible();
-  await expect(page.getByText("Exact text is not licensed for display")).toBeVisible();
-  await expect(page.getByText("Source text cannot be displayed")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Evidence provenance" })).toBeVisible();
+  // The same licence decision governs the claim-linked panel and the source inspector.
+  await expect(
+    page.getByText("Licence does not permit showing this passage"),
+  ).toHaveCount(2);
+  await expect(
+    sourceInspector.getByText("Not available", { exact: true }).first(),
+  ).toBeVisible();
   await expect(page.getByText("Renal Dosing Addendum", { exact: true }).first()).toBeVisible();
+
+  await page.getByRole("button", { name: "Next ranked result" }).click();
+  await expect(page.getByText("Ranked passage 1 of 1, uncited", { exact: true })).toBeVisible();
+  await expect(page.getByText("Retrieved, not cited", { exact: true })).toBeVisible();
+  await expect(page.getByText("Retrieved at rank 4. No claim cites it.")).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Retrieved passage, not cited" }),
+  ).toBeVisible();
+  await expect(page.getByRole("button", { name: "Next ranked result" })).toBeDisabled();
+  await expect(
+    page.getByRole("heading", { name: "Other ranked passages" }),
+  ).toBeVisible();
 
   const secondClaim = page
     .getByRole("listitem")
     .filter({ hasText: "Renal function should be reviewed as clinical status changes." });
-  await secondClaim.getByRole("button", { name: "1 source" }).click();
+  await secondClaim.getByRole("button", { name: /^Reference 2:/ }).click();
   await expect(secondClaim).toHaveClass(/selected-claim/);
-  await expect(page.getByText("1 for review", { exact: true })).toBeVisible();
+
+  // A typed conflict is named and left unresolved; an untyped record is shown as
+  // unclassified with its fields intact rather than presented as a classified finding.
+  await expect(page.getByText("2 for review", { exact: true })).toBeVisible();
+  await expect(page.getByText("Conflicting recommendations")).toBeVisible();
+  await expect(
+    page.getByText(
+      "Both recommendations are shown as published. Choosing between them is a clinical judgement, not a system output.",
+    ),
+  ).toBeVisible();
+  await expect(page.getByText("Unclassified disagreement")).toBeVisible();
   await expect(page.getByText("Local dosing policy is more conservative.")).toBeVisible();
 
   const auditDetails = page.locator("details").filter({ hasText: "View audit steps" });

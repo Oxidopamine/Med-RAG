@@ -185,6 +185,11 @@ const evidenceDetailSchema = z
     }
   });
 
+const retrievalCandidateSchema = z.strictObject({
+  evidence_id: z.string().trim().min(1),
+  retrieval_rank: z.number().int().min(1),
+});
+
 const verificationSummarySchema = z.strictObject({
   rendered_claims: z.number().int().nonnegative(),
   supported_claims: z.number().int().nonnegative(),
@@ -214,6 +219,7 @@ export const questionResultSchema: z.ZodType<QuestionResult> = z
     interpreted_context: clinicalContextSchema.nullable(),
     claims: z.array(renderedClaimSchema).max(100),
     evidence_details: z.array(evidenceDetailSchema).max(100),
+    retrieval_candidates: z.array(retrievalCandidateSchema).max(100),
     conflicts: z.array(z.record(z.string(), z.string())),
     verification_summary: verificationSummarySchema,
     abstention: abstentionSchema.nullable(),
@@ -221,6 +227,41 @@ export const questionResultSchema: z.ZodType<QuestionResult> = z
     updated_at: z.string().datetime({ offset: true }),
   })
   .superRefine((result, issue) => {
+    const claimEvidenceIds = new Set(result.claims.flatMap((claim) => claim.evidence_ids));
+    const candidateIds = result.retrieval_candidates.map((candidate) => candidate.evidence_id);
+    const candidateRanks = result.retrieval_candidates.map(
+      (candidate) => candidate.retrieval_rank,
+    );
+
+    if (candidateIds.length !== new Set(candidateIds).size) {
+      issue.addIssue({
+        code: "custom",
+        message: "Retrieval candidate evidence IDs must be unique",
+        path: ["retrieval_candidates"],
+      });
+    }
+    if (candidateIds.some((evidenceId) => claimEvidenceIds.has(evidenceId))) {
+      issue.addIssue({
+        code: "custom",
+        message: "A cited evidence ID cannot also be an uncited retrieval candidate",
+        path: ["retrieval_candidates"],
+      });
+    }
+    if (candidateRanks.some((rank, index) => index > 0 && rank <= candidateRanks[index - 1]!)) {
+      issue.addIssue({
+        code: "custom",
+        message: "Retrieval candidates must be listed in ascending, unique rank order",
+        path: ["retrieval_candidates"],
+      });
+    }
+    if (result.retrieval_candidates.length > 0 && result.status !== "ANSWER_READY") {
+      issue.addIssue({
+        code: "custom",
+        message: "Only an answer-ready result can expose retrieval candidates",
+        path: ["retrieval_candidates"],
+      });
+    }
+
     if (result.status === "ANSWER_READY" && result.abstention !== null) {
       issue.addIssue({
         code: "custom",
@@ -243,16 +284,16 @@ export const questionResultSchema: z.ZodType<QuestionResult> = z
           path: ["claims"],
         });
       }
-      const claimEvidenceIds = new Set(result.claims.flatMap((claim) => claim.evidence_ids));
+      const referencedIds = new Set([...claimEvidenceIds, ...candidateIds]);
       const detailIds = result.evidence_details.map((detail) => detail.evidence_id);
       if (
         detailIds.length !== new Set(detailIds).size ||
-        detailIds.length !== claimEvidenceIds.size ||
-        detailIds.some((evidenceId) => !claimEvidenceIds.has(evidenceId))
+        detailIds.length !== referencedIds.size ||
+        detailIds.some((evidenceId) => !referencedIds.has(evidenceId))
       ) {
         issue.addIssue({
           code: "custom",
-          message: "Evidence details must exactly cover rendered claim evidence IDs",
+          message: "Evidence details must exactly cover cited and candidate evidence IDs",
           path: ["evidence_details"],
         });
       }

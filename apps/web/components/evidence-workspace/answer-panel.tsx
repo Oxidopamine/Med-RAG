@@ -4,13 +4,14 @@ import {
   CheckCircle2,
   Clipboard,
   Download,
-  FileSearch,
-  RotateCw,
-  ShieldAlert,
+  FileLock2,
 } from "lucide-react";
 
+import { buildCitations, isFullyLicenceRestricted } from "@/lib/evidence-presentation";
 import type { QuestionResult } from "@/lib/types";
 
+import { AbstentionNotice } from "./abstention-notice";
+import { ClaimList } from "./claim-list";
 import styles from "./workspace.module.css";
 
 interface AnswerPanelProps {
@@ -19,8 +20,10 @@ interface AnswerPanelProps {
   onExportAudit: () => void;
   onRetry: () => void;
   onSelectClaim: (claimId: string) => void;
+  onSelectEvidence: (evidenceId: string) => void;
   result: QuestionResult;
   selectedClaimId: string | null;
+  selectedEvidenceId: string | null;
 }
 
 export function AnswerPanel({
@@ -29,10 +32,14 @@ export function AnswerPanel({
   onExportAudit,
   onRetry,
   onSelectClaim,
+  onSelectEvidence,
   result,
   selectedClaimId,
+  selectedEvidenceId,
 }: AnswerPanelProps) {
   const isReady = result.status === "ANSWER_READY";
+  const citations = buildCitations(result);
+  const licenceRestricted = isFullyLicenceRestricted(citations);
 
   return (
     <section
@@ -51,30 +58,20 @@ export function AnswerPanel({
         <>
           <div className={styles["answer-intro"]}>
             Automated evidence checks passed for {result.verification_summary.supported_claims}{" "}
-            supported claim{result.verification_summary.supported_claims === 1 ? "" : "s"}. Review
-            the cited source before use.
+            supported claim{result.verification_summary.supported_claims === 1 ? "" : "s"}, drawn
+            from {citations.ordered.length} cited source
+            {citations.ordered.length === 1 ? "" : "s"}. Review the cited source before use.
           </div>
-          <ol className={styles["claim-list"]}>
-            {result.claims.map((claim, index) => (
-              <li
-                className={claim.claim_id === selectedClaimId ? styles["selected-claim"] : ""}
-                key={claim.claim_id}
-              >
-                <p>{claim.text}</p>
-                <div className={styles["claim-footer"]}>
-                  <button type="button" onClick={() => onSelectClaim(claim.claim_id)}>
-                    <FileSearch size={16} aria-hidden="true" />
-                    {claim.evidence_ids.length
-                      ? `${claim.evidence_ids.length} source${claim.evidence_ids.length === 1 ? "" : "s"}`
-                      : "Inspect evidence"}
-                  </button>
-                  <span>
-                    Claim {index + 1} · {humanize(claim.verification_status)}
-                  </span>
-                </div>
-              </li>
-            ))}
-          </ol>
+
+          <ClaimList
+            citations={citations}
+            claims={result.claims}
+            onSelectClaim={onSelectClaim}
+            onSelectEvidence={onSelectEvidence}
+            selectedClaimId={selectedClaimId}
+            selectedEvidenceId={selectedEvidenceId}
+          />
+
           <div className={styles["answer-signals"]} aria-label="Answer checks">
             <Signal label="Evidence gate passed" />
             <Signal
@@ -85,7 +82,15 @@ export function AnswerPanel({
               }
               warning={Boolean(result.verification_summary.withheld_claims)}
             />
+            {licenceRestricted ? (
+              <Signal
+                icon={FileLock2}
+                label="Passage text withheld by licence"
+                warning
+              />
+            ) : null}
           </div>
+
           <div className={styles["answer-actions"]}>
             <button type="button" onClick={onCopyAnswer}>
               <Clipboard size={16} aria-hidden="true" />
@@ -98,44 +103,9 @@ export function AnswerPanel({
           </div>
         </>
       ) : (
-        <AbstainedAnswer result={result} onRetry={onRetry} />
+        <AbstentionNotice onRetry={onRetry} result={result} />
       )}
     </section>
-  );
-}
-
-function AbstainedAnswer({ result, onRetry }: { result: QuestionResult; onRetry: () => void }) {
-  const guidance = abstentionGuidance(result.abstention?.reason_code, result.status);
-  return (
-    <div className={styles["abstention-content"]}>
-      <div className={styles["abstention-summary"]}>
-        <ShieldAlert size={24} aria-hidden="true" />
-        <div>
-          <strong>{guidance.title}</strong>
-          <p>{result.abstention?.message ?? guidance.message}</p>
-        </div>
-      </div>
-
-      {result.abstention?.missing_evidence_roles.length ? (
-        <details className={styles["withheld-details"]}>
-          <summary>Why was this withheld?</summary>
-          <p>The review did not verify these required evidence roles:</p>
-          <ul>
-            {result.abstention.missing_evidence_roles.map((role) => (
-              <li key={role}>{humanize(role)}</li>
-            ))}
-          </ul>
-        </details>
-      ) : null}
-
-      <div className={styles["abstention-actions"]}>
-        <button type="button" onClick={onRetry}>
-          <RotateCw size={16} aria-hidden="true" />
-          Try again
-        </button>
-        <span>{guidance.nextStep}</span>
-      </div>
-    </div>
   );
 }
 
@@ -164,52 +134,20 @@ function AnswerBadge({ result }: { result: QuestionResult }) {
   );
 }
 
-function Signal({ label, warning = false }: { label: string; warning?: boolean }) {
+function Signal({
+  icon: Icon,
+  label,
+  warning = false,
+}: {
+  icon?: typeof CheckCircle2;
+  label: string;
+  warning?: boolean;
+}) {
+  const Resolved = Icon ?? (warning ? AlertTriangle : CheckCircle2);
   return (
     <span className={`${styles.signal} ${warning ? styles.warning : styles.success}`}>
-      {warning ? (
-        <AlertTriangle size={16} aria-hidden="true" />
-      ) : (
-        <CheckCircle2 size={16} aria-hidden="true" />
-      )}
+      <Resolved size={16} aria-hidden="true" />
       {label}
     </span>
   );
-}
-
-function abstentionGuidance(
-  reasonCode: string | undefined,
-  status: QuestionResult["status"],
-): { message: string; nextStep: string; title: string } {
-  if (reasonCode === "NO_APPROVED_CORPUS") {
-    return {
-      title: "No approved guideline corpus is active",
-      message: "The evidence gate did not have an approved source collection to search.",
-      nextStep: "Activate an approved corpus release, then retry this question.",
-    };
-  }
-  if (reasonCode === "RETRIEVAL_PIPELINE_NOT_CONFIGURED") {
-    return {
-      title: "Guideline retrieval is not available",
-      message: "An approved corpus exists, but the retrieval pipeline is not ready.",
-      nextStep: "Check retrieval configuration or try again after service restoration.",
-    };
-  }
-  if (reasonCode === "PIPELINE_FAILURE" || status === "FAILED") {
-    return {
-      title: "The review could not be completed",
-      message: "The system failed closed and did not display a clinical claim.",
-      nextStep: "Retry once. If the problem continues, share the run ID with support.",
-    };
-  }
-  return {
-    title: "The evidence gate withheld the answer",
-    message: "The available evidence was not complete enough to support a clinical claim.",
-    nextStep: "Refine the population or decision in the question, then try again.",
-  };
-}
-
-function humanize(value: string): string {
-  const words = value.replaceAll("_", " ").toLowerCase();
-  return words.charAt(0).toUpperCase() + words.slice(1);
 }

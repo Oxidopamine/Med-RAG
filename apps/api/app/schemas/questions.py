@@ -129,6 +129,20 @@ class EvidenceDetail(ApiContractModel):
         return self
 
 
+class RetrievalCandidate(ApiContractModel):
+    """A retrieved passage that no rendered claim cites.
+
+    Uncited evidence reaches a client through this field and nowhere else. Keeping it
+    out of ``claims`` is the point: a candidate carries the rank it held in retrieval,
+    so a reader can see how far past the cited support they have gone, and it can never
+    be mistaken for the evidence a claim was verified against. Ranks are sparse by
+    construction - the cited passages are the gaps.
+    """
+
+    evidence_id: str = Field(min_length=1)
+    retrieval_rank: int = Field(ge=1)
+
+
 class VerificationSummary(ApiContractModel):
     rendered_claims: int = 0
     supported_claims: int = 0
@@ -150,6 +164,7 @@ class QuestionResult(ApiContractModel):
     interpreted_context: ClinicalContext | None = None
     claims: list[RenderedClaim] = Field(default_factory=list, max_length=100)
     evidence_details: list[EvidenceDetail] = Field(default_factory=list, max_length=100)
+    retrieval_candidates: list[RetrievalCandidate] = Field(default_factory=list, max_length=100)
     conflicts: list[dict[str, str]] = Field(default_factory=list)
     verification_summary: VerificationSummary = Field(default_factory=VerificationSummary)
     abstention: AbstentionDetail | None = None
@@ -161,14 +176,27 @@ class QuestionResult(ApiContractModel):
         claim_ids = [claim.claim_id for claim in self.claims]
         if len(claim_ids) != len(set(claim_ids)):
             raise ValueError("rendered claim IDs must be unique")
-        referenced_evidence_ids = {
+        cited_evidence_ids = {
             evidence_id for claim in self.claims for evidence_id in claim.evidence_ids
         }
+        candidate_ids = [candidate.evidence_id for candidate in self.retrieval_candidates]
+        if len(candidate_ids) != len(set(candidate_ids)):
+            raise ValueError("retrieval candidate evidence IDs must be unique")
+        if cited_evidence_ids & set(candidate_ids):
+            raise ValueError("a cited evidence ID cannot also be an uncited retrieval candidate")
+        candidate_ranks = [candidate.retrieval_rank for candidate in self.retrieval_candidates]
+        if candidate_ranks != sorted(set(candidate_ranks)):
+            raise ValueError("retrieval candidates must be listed in ascending, unique rank order")
+        if self.retrieval_candidates and self.status is not QuestionStatus.ANSWER_READY:
+            raise ValueError("only an answer-ready result can expose retrieval candidates")
+        referenced_evidence_ids = cited_evidence_ids | set(candidate_ids)
         detail_ids = [detail.evidence_id for detail in self.evidence_details]
         if len(detail_ids) != len(set(detail_ids)):
             raise ValueError("evidence detail IDs must be unique")
         if not set(detail_ids).issubset(referenced_evidence_ids):
-            raise ValueError("evidence details must be referenced by a rendered claim")
+            raise ValueError(
+                "evidence details must be referenced by a rendered claim or retrieval candidate"
+            )
         if self.status is QuestionStatus.ANSWER_READY and self.abstention is not None:
             raise ValueError("an answer-ready result cannot include an abstention")
         if self.status is QuestionStatus.ANSWER_READY:

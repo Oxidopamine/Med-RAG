@@ -1,18 +1,22 @@
 import {
   AlertTriangle,
   ArrowRight,
-  CheckCircle2,
   ExternalLink,
-  FileLock2,
   FileSearch,
   FileText,
   Info,
   MapPin,
   Pencil,
-  Quote,
 } from "lucide-react";
 
-import { contextRows, humanizeConcept } from "@/lib/presentation";
+import type { CitationIndex } from "@/lib/evidence-presentation";
+import {
+  humanizeCode,
+  locationSummary,
+  renderPolicy,
+} from "@/lib/evidence-presentation";
+import { contextRows } from "@/lib/presentation";
+import type { RankedEvidence } from "@/lib/presentation";
 import type {
   ClinicalContext,
   EvidenceDetail,
@@ -20,10 +24,14 @@ import type {
   RenderedClaim,
 } from "@/lib/types";
 
+import { ConflictPanel } from "./conflict-panel";
+import { PassageBody, SourceAnchorList } from "./source-anchor";
 import styles from "./workspace.module.css";
 
 interface EvidenceDetailsProps {
   allowContextEditing?: boolean;
+  candidates: RankedEvidence[];
+  citations: CitationIndex;
   context: ClinicalContext | null;
   onEditContext: () => void;
   onSelectEvidence: (evidenceId: string) => void;
@@ -34,6 +42,8 @@ interface EvidenceDetailsProps {
 
 export function EvidenceDetails({
   allowContextEditing = true,
+  candidates,
+  citations,
   context,
   onEditContext,
   onSelectEvidence,
@@ -45,14 +55,22 @@ export function EvidenceDetails({
   const claimEvidence = claim
     ? result.evidence_details.filter((detail) => claim.evidence_ids.includes(detail.evidence_id))
     : [];
+  const selectedCandidate =
+    candidates.find(({ detail }) => detail.evidence_id === selectedEvidenceId) ?? null;
   const selected =
+    selectedCandidate?.detail ??
     claimEvidence.find((detail) => detail.evidence_id === selectedEvidenceId) ??
     claimEvidence[0] ??
     null;
 
   return (
     <>
-      <ExactEvidencePanel claim={claim} evidence={selected} />
+      <ExactEvidencePanel
+        candidateRank={selectedCandidate?.retrievalRank ?? null}
+        citations={citations}
+        claim={claim}
+        evidence={selected}
+      />
       <div className={styles["support-grid"]}>
         <InterpretedContextPanel
           allowEditing={allowContextEditing}
@@ -60,30 +78,61 @@ export function EvidenceDetails({
           onEdit={onEditContext}
         />
         <RelevantEvidencePanel
+          citations={citations}
           evidence={claimEvidence}
           onSelectEvidence={onSelectEvidence}
-          selectedEvidenceId={selected?.evidence_id ?? null}
+          selectedEvidenceId={selectedCandidate ? null : selected?.evidence_id ?? null}
         />
       </div>
-      <ConflictPanel result={result} />
+      <RankedCandidatePanel
+        candidates={candidates}
+        onSelectEvidence={onSelectEvidence}
+        selectedEvidenceId={selectedCandidate?.detail.evidence_id ?? null}
+      />
+      <ConflictPanel
+        citations={citations}
+        onSelectEvidence={onSelectEvidence}
+        result={result}
+        selectedEvidenceId={selectedEvidenceId}
+      />
     </>
   );
 }
 
 function ExactEvidencePanel({
+  candidateRank,
+  citations,
   claim,
   evidence,
 }: {
+  candidateRank: number | null;
+  citations: CitationIndex;
   claim: RenderedClaim | null;
   evidence: EvidenceDetail | null;
 }) {
+  const isCandidate = candidateRank !== null;
+  const policy = evidence ? renderPolicy(evidence) : null;
+  const citationNumber = evidence
+    ? citations.byEvidenceId.get(evidence.evidence_id)?.number ?? null
+    : null;
+
   return (
     <section className={`${styles.panel} ${styles["evidence-panel"]}`} aria-labelledby="evidence-heading">
       <div className={styles["evidence-heading-row"]}>
         <div>
-          <span className={styles["section-kicker"]}>Selected claim evidence</span>
+          <span className={styles["section-kicker"]}>
+            {isCandidate
+              ? `Uncited passage, retrieval rank ${candidateRank}`
+              : citationNumber === null
+                ? "Selected claim evidence"
+                : `Reference ${citationNumber}`}
+          </span>
           <h2 id="evidence-heading">
-            {evidence?.exact_text ? "Exact guideline quotation" : "Evidence provenance"}
+            {isCandidate
+              ? "Retrieved passage, not cited"
+              : policy?.canQuote
+                ? "Exact guideline quotation"
+                : "Evidence provenance"}
           </h2>
         </div>
         {evidence ? (
@@ -91,26 +140,16 @@ function ExactEvidencePanel({
         ) : null}
       </div>
 
-      {evidence?.exact_text ? (
-        <blockquote className={styles["evidence-quote"]}>
-          <Quote size={25} aria-hidden="true" />
-          <div>
-            <p>{evidence.exact_text}</p>
-            <cite>
-              {evidence.publisher_name} · {evidence.source_title}
-            </cite>
-          </div>
-        </blockquote>
-      ) : evidence ? (
-        <div className={styles["licensed-evidence"]}>
-          <FileLock2 size={24} aria-hidden="true" />
-          <div>
-            <strong>Exact text is not licensed for display</strong>
-            <span>
-              Verified metadata remains available. Open the publisher source to review the passage.
-            </span>
-          </div>
-        </div>
+      {isCandidate ? (
+        <p className={styles["uncited-inline-note"]} role="note">
+          <AlertTriangle size={16} aria-hidden="true" />
+          No rendered claim rests on this passage. It appears because retrieval ranked it,
+          not because it was verified as support for anything above.
+        </p>
+      ) : null}
+
+      {evidence ? (
+        <PassageBody detail={evidence} policy={policy ?? undefined} />
       ) : (
         <div className={styles["evidence-empty"]}>
           <FileSearch size={25} aria-hidden="true" />
@@ -150,7 +189,7 @@ function ExactEvidencePanel({
             </div>
             <div>
               <dt>Location</dt>
-              <dd>{locatorLabel(evidence)}</dd>
+              <dd>{locationSummary(evidence)}</dd>
             </div>
             <div>
               <dt>Effective</dt>
@@ -158,21 +197,25 @@ function ExactEvidencePanel({
             </div>
             <div>
               <dt>Evidence roles</dt>
-              <dd>{evidence.evidence_roles.map(humanizeLabel).join(", ")}</dd>
+              <dd>{evidence.evidence_roles.map(humanizeCode).join(", ")}</dd>
             </div>
             <div>
               <dt>Evidence type</dt>
               <dd>
-                {evidence.evidence_type
-                  ? humanizeLabel(evidence.evidence_type)
-                  : "Not supplied"}
+                {evidence.evidence_type ? humanizeCode(evidence.evidence_type) : "Not supplied"}
               </dd>
             </div>
             <div>
               <dt>Lifecycle</dt>
-              <dd>{humanizeLabel(evidence.lifecycle_status)}</dd>
+              <dd>{humanizeCode(evidence.lifecycle_status)}</dd>
             </div>
           </dl>
+
+          <div className={styles["anchor-block"]}>
+            <h3>Source anchors</h3>
+            <SourceAnchorList detail={evidence} />
+          </div>
+
           <div className={styles["evidence-actions"]}>
             <a href={evidence.source_url} target="_blank" rel="noreferrer">
               <ExternalLink size={16} aria-hidden="true" />
@@ -233,10 +276,12 @@ export function InterpretedContextPanel({
 }
 
 function RelevantEvidencePanel({
+  citations,
   evidence,
   onSelectEvidence,
   selectedEvidenceId,
 }: {
+  citations: CitationIndex;
   evidence: EvidenceDetail[];
   onSelectEvidence: (evidenceId: string) => void;
   selectedEvidenceId: string | null;
@@ -246,24 +291,33 @@ function RelevantEvidencePanel({
       <h2 id="related-heading">Supporting evidence</h2>
       {evidence.length ? (
         <div className={styles["related-list"]}>
-          {evidence.map((detail) => (
-            <button
-              className={detail.evidence_id === selectedEvidenceId ? styles.selected : ""}
-              type="button"
-              key={detail.evidence_id}
-              onClick={() => onSelectEvidence(detail.evidence_id)}
-              aria-pressed={detail.evidence_id === selectedEvidenceId}
-            >
-              <FileText size={22} aria-hidden="true" />
-              <span>
-                <strong>{detail.source_title}</strong>
-                <small>
-                  {detail.source_version_label} · {locatorLabel(detail)}
-                </small>
-              </span>
-              <ArrowRight size={18} aria-hidden="true" />
-            </button>
-          ))}
+          {evidence.map((detail) => {
+            const number = citations.byEvidenceId.get(detail.evidence_id)?.number ?? null;
+            return (
+              <button
+                className={detail.evidence_id === selectedEvidenceId ? styles.selected : ""}
+                type="button"
+                key={detail.evidence_id}
+                onClick={() => onSelectEvidence(detail.evidence_id)}
+                aria-pressed={detail.evidence_id === selectedEvidenceId}
+              >
+                {number === null ? (
+                  <FileText size={22} aria-hidden="true" />
+                ) : (
+                  <span className={styles["citation-number"]} aria-hidden="true">
+                    {number}
+                  </span>
+                )}
+                <span>
+                  <strong>{detail.source_title}</strong>
+                  <small>
+                    {detail.source_version_label} · {locationSummary(detail)}
+                  </small>
+                </span>
+                <ArrowRight size={18} aria-hidden="true" />
+              </button>
+            );
+          })}
         </div>
       ) : (
         <div className={styles["compact-empty"]}>
@@ -275,55 +329,60 @@ function RelevantEvidencePanel({
   );
 }
 
-export function ConflictPanel({ result }: { result: QuestionResult }) {
-  const hasConflicts = result.conflicts.length > 0;
+function RankedCandidatePanel({
+  candidates,
+  onSelectEvidence,
+  selectedEvidenceId,
+}: {
+  candidates: RankedEvidence[];
+  onSelectEvidence: (evidenceId: string) => void;
+  selectedEvidenceId: string | null;
+}) {
+  if (!candidates.length) return null;
   return (
-    <section className={`${styles.panel} ${styles["conflict-panel"]}`} aria-labelledby="conflict-heading">
-      <div className={styles["conflict-heading-row"]}>
-        <h2 id="conflict-heading">Guideline conflict review</h2>
-        <span className={hasConflicts ? styles["conflict-count"] : styles["no-conflict"]}>
-          {hasConflicts ? `${result.conflicts.length} for review` : "None returned"}
+    <section
+      className={`${styles.panel} ${styles["mini-panel"]}`}
+      aria-labelledby="ranked-candidates-heading"
+    >
+      <div className={styles["mini-panel-heading"]}>
+        <div>
+          <h2 id="ranked-candidates-heading">Other ranked passages</h2>
+          <span className={styles["neutral-label"]}>
+            Retrieved for this question, cited by no claim, and verified as support for nothing
+          </span>
+        </div>
+        <span className={styles["candidate-count"]}>
+          {candidates.length} uncited
         </span>
       </div>
-      {hasConflicts ? (
-        <div className={styles["conflict-list"]}>
-          {result.conflicts.map((conflict, index) => (
-            <article key={index}>
-              <AlertTriangle size={18} aria-hidden="true" />
-              <div>
-                <strong>Potential conflict {index + 1}</strong>
-                <dl>
-                  {Object.entries(conflict).map(([label, value]) => (
-                    <div key={label}>
-                      <dt>{humanizeLabel(label)}</dt>
-                      <dd>{value}</dd>
-                    </div>
-                  ))}
-                </dl>
-              </div>
-            </article>
-          ))}
-        </div>
-      ) : (
-        <div className={styles["conflict-info"]}>
-          <CheckCircle2 size={19} aria-hidden="true" />
-          <span>No direct conflict was returned for the rendered claims.</span>
-        </div>
-      )}
+      <div className={styles["related-list"]}>
+        {candidates.map(({ detail, retrievalRank }) => (
+          <button
+            className={detail.evidence_id === selectedEvidenceId ? styles.selected : ""}
+            type="button"
+            key={detail.evidence_id}
+            onClick={() => onSelectEvidence(detail.evidence_id)}
+            aria-pressed={detail.evidence_id === selectedEvidenceId}
+          >
+            <span className={styles["candidate-rank"]} aria-hidden="true">
+              #{retrievalRank}
+            </span>
+            <span>
+              <strong>{detail.source_title}</strong>
+              <small>
+                Rank {retrievalRank} · {detail.source_version_label} · {locationSummary(detail)}
+              </small>
+            </span>
+            <ArrowRight size={18} aria-hidden="true" />
+          </button>
+        ))}
+      </div>
     </section>
   );
 }
 
 function selectedClaim(result: QuestionResult, claimId: string | null): RenderedClaim | null {
   return result.claims.find((claim) => claim.claim_id === claimId) ?? result.claims[0] ?? null;
-}
-
-function locatorLabel(evidence: EvidenceDetail): string {
-  const locator = evidence.locators[0];
-  if (!locator) return "Location not supplied";
-  if (locator.printed_page) return `Printed page ${locator.printed_page}`;
-  if (locator.pdf_page) return `PDF page ${locator.pdf_page}`;
-  return humanizeLabel(locator.kind);
 }
 
 function dateRange(start: string | null, end: string | null): string {
@@ -337,8 +396,4 @@ function formatDate(value: string): string {
   return new Intl.DateTimeFormat("en", { dateStyle: "medium", timeZone: "UTC" }).format(
     new Date(`${value}T00:00:00Z`),
   );
-}
-
-function humanizeLabel(value: string): string {
-  return humanizeConcept(value).replace(/^./, (character) => character.toUpperCase());
 }

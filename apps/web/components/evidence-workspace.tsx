@@ -26,6 +26,10 @@ import {
 } from "@/components/evidence-workspace/source-verification-column";
 import { useEvidenceRun } from "@/components/evidence-workspace/use-evidence-run";
 import { getCorpusReadiness } from "@/lib/api";
+import { buildCitations } from "@/lib/evidence-presentation";
+import type { CitationIndex } from "@/lib/evidence-presentation";
+import { rankedCandidates } from "@/lib/presentation";
+import type { RankedEvidence } from "@/lib/presentation";
 import type { ClinicalContext, QuestionResult, SourceFilters } from "@/lib/types";
 
 import styles from "./evidence-workspace/workspace.module.css";
@@ -83,9 +87,23 @@ export function EvidenceWorkspace() {
         : [],
     [selectedClaim, workspaceResult],
   );
+  const candidates = useMemo(() => rankedCandidates(workspaceResult), [workspaceResult]);
+  // One citation numbering for the whole answer, so a reference keeps its number across
+  // the claim list, the conflict review, and the supporting-evidence list.
+  const citations = useMemo(() => buildCitations(workspaceResult), [workspaceResult]);
   const effectiveSelectedClaimId = selectedClaim?.claim_id ?? null;
+  // An uncited candidate stays selectable while the claim selection moves under it, so
+  // reading down the ranking is not interrupted by a claim change.
+  const selectableEvidenceIds = useMemo(
+    () =>
+      new Set([
+        ...(selectedClaim?.evidence_ids ?? []),
+        ...candidates.map(({ detail }) => detail.evidence_id),
+      ]),
+    [candidates, selectedClaim],
+  );
   const effectiveSelectedEvidenceId =
-    selectedClaim?.evidence_ids.includes(selectedEvidenceId ?? "")
+    selectedEvidenceId && selectableEvidenceIds.has(selectedEvidenceId)
       ? selectedEvidenceId
       : selectedClaim?.evidence_ids[0] ?? null;
 
@@ -325,6 +343,8 @@ export function EvidenceWorkspace() {
         {workspaceResult ? (
           <ResultWorkspace
             allowContextEditing={Boolean(run.result) && !run.isRunning}
+            candidates={candidates}
+            citations={citations}
             isPrevious={isPreviousResult}
             onCopyAnswer={copyAnswer}
             onCopyRunId={copyRunId}
@@ -360,6 +380,8 @@ export function EvidenceWorkspace() {
 
 function ResultWorkspace({
   allowContextEditing,
+  candidates,
+  citations,
   isPrevious,
   onCopyAnswer,
   onCopyRunId,
@@ -377,6 +399,8 @@ function ResultWorkspace({
   selectedEvidenceId,
 }: {
   allowContextEditing: boolean;
+  candidates: RankedEvidence[];
+  citations: CitationIndex;
   isPrevious: boolean;
   onCopyAnswer: () => void;
   onCopyRunId: () => void;
@@ -405,12 +429,16 @@ function ResultWorkspace({
             onExportAudit={onExportAudit}
             onRetry={onRetry}
             onSelectClaim={onSelectClaim}
+            onSelectEvidence={onSelectEvidence}
             result={result}
             selectedClaimId={selectedClaimId}
+            selectedEvidenceId={selectedEvidenceId}
           />
           {ready ? (
             <EvidenceDetails
               allowContextEditing={allowContextEditing}
+              candidates={candidates}
+              citations={citations}
               context={result.interpreted_context}
               onEditContext={onEditContext}
               onSelectEvidence={onSelectEvidence}
@@ -430,6 +458,7 @@ function ResultWorkspace({
         <div className={styles["source-column"]}>
           {ready ? (
             <SourceViewer
+              candidates={candidates}
               evidence={selectedClaimEvidence}
               onSelectEvidence={onSelectEvidence}
               selectedEvidenceId={selectedEvidenceId}

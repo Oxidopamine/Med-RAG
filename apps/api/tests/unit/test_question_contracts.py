@@ -4,11 +4,13 @@ from pydantic import ValidationError
 from app.schemas.corpus import ActiveCorpusRelease
 from app.schemas.domain import utc_now
 from app.schemas.questions import (
+    AbstentionDetail,
     EvidenceDetail,
     EvidenceLocator,
     QuestionResult,
     QuestionStatus,
     RenderedClaim,
+    RetrievalCandidate,
 )
 
 
@@ -94,4 +96,60 @@ def test_restricted_evidence_cannot_expose_text_or_highlights() -> None:
                 **evidence_detail().model_dump(),
                 "render_allowed": False,
             }
+        )
+
+
+def test_answer_ready_may_expose_uncited_ranked_candidates() -> None:
+    result = answer_result(
+        evidence_details=[evidence_detail(), evidence_detail("EV_004")],
+        retrieval_candidates=[RetrievalCandidate(evidence_id="EV_004", retrieval_rank=4)],
+    )
+
+    assert [candidate.evidence_id for candidate in result.retrieval_candidates] == ["EV_004"]
+    # The rank is the position the passage held in retrieval, not its position in this
+    # list, so a reader can tell how far below the cited support it sat.
+    assert result.retrieval_candidates[0].retrieval_rank == 4
+
+
+def test_a_ranked_candidate_needs_canonical_evidence_details() -> None:
+    with pytest.raises(ValidationError, match="canonical details for every evidence ID"):
+        answer_result(
+            retrieval_candidates=[RetrievalCandidate(evidence_id="EV_004", retrieval_rank=4)]
+        )
+
+
+def test_a_cited_evidence_id_cannot_be_replayed_as_an_uncited_candidate() -> None:
+    with pytest.raises(ValidationError, match="cannot also be an uncited retrieval candidate"):
+        answer_result(
+            retrieval_candidates=[RetrievalCandidate(evidence_id="EV_001", retrieval_rank=2)]
+        )
+
+
+def test_ranked_candidates_must_be_listed_in_ascending_unique_rank_order() -> None:
+    with pytest.raises(ValidationError, match="ascending, unique rank order"):
+        answer_result(
+            evidence_details=[
+                evidence_detail(),
+                evidence_detail("EV_004"),
+                evidence_detail("EV_005"),
+            ],
+            retrieval_candidates=[
+                RetrievalCandidate(evidence_id="EV_005", retrieval_rank=5),
+                RetrievalCandidate(evidence_id="EV_004", retrieval_rank=4),
+            ],
+        )
+
+
+def test_an_abstained_result_cannot_expose_ranked_candidates() -> None:
+    # Abstention means nothing retrieved earned display, so the candidate door stays shut.
+    with pytest.raises(ValidationError, match="only an answer-ready result"):
+        answer_result(
+            status=QuestionStatus.ABSTAINED,
+            claims=[],
+            evidence_details=[],
+            abstention=AbstentionDetail(
+                reason_code="NO_CLAIM_SURVIVED_GROUNDING",
+                message="No proposed claim was supported.",
+            ),
+            retrieval_candidates=[RetrievalCandidate(evidence_id="EV_004", retrieval_rank=4)],
         )

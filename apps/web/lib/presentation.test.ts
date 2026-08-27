@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { contextRows, humanizeConcept, STATUS_LABELS } from "./presentation";
+import { contextRows, humanizeConcept, rankedCandidates, STATUS_LABELS } from "./presentation";
+import type { EvidenceDetail, QuestionResult } from "./types";
 
 describe("presentation helpers", () => {
   it("uses evidence-safe status language", () => {
@@ -75,5 +76,22 @@ describe("presentation helpers", () => {
     });
 
     expect(rows).toEqual([["Sex", "female"]]);
+  });
+
+  it("pairs uncited candidates with their detail and drops any it cannot attribute", () => {
+    const result = {
+      evidence_details: [
+        { evidence_id: "evidence-2", source_title: "Ranked third" } as EvidenceDetail,
+      ],
+      retrieval_candidates: [
+        { evidence_id: "evidence-2", retrieval_rank: 3 },
+        { evidence_id: "evidence-9", retrieval_rank: 9 },
+      ],
+    } as QuestionResult;
+
+    expect(rankedCandidates(result)).toEqual([
+      { detail: result.evidence_details[0], retrievalRank: 3 },
+    ]);
+    expect(rankedCandidates(null)).toEqual([]);
   });
 });

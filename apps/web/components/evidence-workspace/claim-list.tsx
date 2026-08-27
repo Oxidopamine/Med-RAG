@@ -1,0 +1,126 @@
+import { FileLock2, FileSearch } from "lucide-react";
+
+import type { Citation, CitationIndex } from "@/lib/evidence-presentation";
+import { claimCitations, humanizeCode } from "@/lib/evidence-presentation";
+import type { RenderedClaim } from "@/lib/types";
+
+import styles from "./workspace.module.css";
+
+interface ClaimListProps {
+  citations: CitationIndex;
+  claims: RenderedClaim[];
+  onSelectClaim: (claimId: string) => void;
+  onSelectEvidence: (evidenceId: string) => void;
+  selectedClaimId: string | null;
+  selectedEvidenceId: string | null;
+}
+
+/**
+ * The rendered claims and the evidence each one rests on.
+ *
+ * A claim is never shown without its citations attached. Numbering comes from one index
+ * built for the whole answer, so reference 2 is the same source in the claim list, the
+ * conflict review, and the source inspector, and a reader can carry a number between
+ * them without re-reading the titles.
+ */
+export function ClaimList({
+  citations,
+  claims,
+  onSelectClaim,
+  onSelectEvidence,
+  selectedClaimId,
+  selectedEvidenceId,
+}: ClaimListProps) {
+  return (
+    <ol className={styles["claim-list"]}>
+      {claims.map((claim, index) => {
+        const cited = claimCitations(claim, citations);
+        const isSelected = claim.claim_id === selectedClaimId;
+        return (
+          <li className={isSelected ? styles["selected-claim"] : ""} key={claim.claim_id}>
+            <p>{claim.text}</p>
+
+            {cited.length ? (
+              <ul
+                className={styles["citation-row"]}
+                aria-label={`Evidence cited by claim ${index + 1}`}
+              >
+                {cited.map((citation) => (
+                  <li key={citation.detail.evidence_id}>
+                    <CitationChip
+                      citation={citation}
+                      isSelected={
+                        isSelected && citation.detail.evidence_id === selectedEvidenceId
+                      }
+                      onSelect={() => {
+                        onSelectClaim(claim.claim_id);
+                        onSelectEvidence(citation.detail.evidence_id);
+                      }}
+                    />
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              // An answer-ready payload cannot reach this branch: the runtime contract
+              // requires canonical detail for every cited evidence ID. It stays as a
+              // visible statement of absence rather than a claim rendered bare.
+              <p className={styles["citation-missing"]} role="note">
+                Cited evidence for this claim is unavailable in this result.
+              </p>
+            )}
+
+            <div className={styles["claim-footer"]}>
+              <button type="button" onClick={() => onSelectClaim(claim.claim_id)}>
+                <FileSearch size={16} aria-hidden="true" />
+                Inspect evidence
+              </button>
+              <span>
+                Claim {index + 1} of {claims.length} &middot;{" "}
+                {humanizeCode(claim.verification_status)}
+              </span>
+            </div>
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
+interface CitationChipProps {
+  citation: Citation;
+  isSelected: boolean;
+  onSelect: () => void;
+}
+
+/**
+ * One inline reference to a cited source.
+ *
+ * The licence state is part of the reference, not a detail found later: a chip whose
+ * source cannot be quoted says so before the reader opens it, so nobody selects it
+ * expecting a passage this deployment is not permitted to show.
+ */
+export function CitationChip({ citation, isSelected, onSelect }: CitationChipProps) {
+  const restricted = citation.policy.licenceRestricted;
+  return (
+    <button
+      aria-label={`Reference ${citation.number}: ${citation.shortLabel}, ${citation.locationLabel}${
+        restricted ? ". Licence does not permit showing the passage text" : ""
+      }`}
+      aria-pressed={isSelected}
+      className={`${styles["citation-chip"]} ${isSelected ? styles.selected : ""} ${
+        restricted ? styles["citation-restricted"] : ""
+      }`}
+      onClick={onSelect}
+      type="button"
+    >
+      <span className={styles["citation-number"]} aria-hidden="true">
+        {citation.number}
+      </span>
+      <span className={styles["citation-copy"]}>
+        <strong>{citation.shortLabel}</strong>
+        <small>{citation.locationLabel}</small>
+      </span>
+      {restricted ? <FileLock2 size={14} aria-hidden="true" /> : null}
+    </button>
+  );
+}

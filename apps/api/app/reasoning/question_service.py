@@ -17,6 +17,7 @@ from app.schemas.questions import (
     QuestionResult,
     QuestionStatus,
     RenderedClaim,
+    RetrievalCandidate,
     SourceFilters,
     VerificationSummary,
 )
@@ -39,6 +40,7 @@ class QuestionRecord:
     interpreted_context: ClinicalContext | None = None
     claims: list[RenderedClaim] = field(default_factory=list)
     evidence_details: list[EvidenceDetail] = field(default_factory=list)
+    retrieval_candidates: list[RetrievalCandidate] = field(default_factory=list)
     conflicts: list[dict[str, str]] = field(default_factory=list)
     verification_summary: VerificationSummary = field(default_factory=VerificationSummary)
     abstention: AbstentionDetail | None = None
@@ -111,6 +113,7 @@ class QuestionService:
             interpreted_context=record.interpreted_context,
             claims=record.claims,
             evidence_details=record.evidence_details,
+            retrieval_candidates=record.retrieval_candidates,
             conflicts=record.conflicts,
             verification_summary=record.verification_summary,
             abstention=record.abstention,

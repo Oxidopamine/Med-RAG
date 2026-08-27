@@ -964,6 +964,14 @@
             "title": "Question Id",
             "type": "string"
           },
+          "retrieval_candidates": {
+            "items": {
+              "$ref": "#/components/schemas/RetrievalCandidate"
+            },
+            "maxItems": 100,
+            "title": "Retrieval Candidates",
+            "type": "array"
+          },
           "status": {
             "$ref": "#/components/schemas/QuestionStatus"
           },
@@ -1037,6 +1045,28 @@
           "verification_status"
         ],
         "title": "RenderedClaim",
+        "type": "object"
+      },
+      "RetrievalCandidate": {
+        "additionalProperties": false,
+        "description": "A retrieved passage that no rendered claim cites.\n\nUncited evidence reaches a client through this field and nowhere else. Keeping it\nout of ``claims`` is the point: a candidate carries the rank it held in retrieval,\nso a reader can see how far past the cited support they have gone, and it can never\nbe mistaken for the evidence a claim was verified against. Ranks are sparse by\nconstruction - the cited passages are the gaps.",
+        "properties": {
+          "evidence_id": {
+            "minLength": 1,
+            "title": "Evidence Id",
+            "type": "string"
+          },
+          "retrieval_rank": {
+            "minimum": 1.0,
+            "title": "Retrieval Rank",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "evidence_id",
+          "retrieval_rank"
+        ],
+        "title": "RetrievalCandidate",
         "type": "object"
       },
       "SourceClass": {

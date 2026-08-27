@@ -526,6 +526,8 @@ export interface components {
             question: string;
             /** Question Id */
             question_id: string;
+            /** Retrieval Candidates */
+            retrieval_candidates?: components["schemas"]["RetrievalCandidate"][];
             status: components["schemas"]["QuestionStatus"];
             /**
              * Updated At
@@ -549,6 +551,22 @@ export interface components {
             text: string;
             /** Verification Status */
             verification_status: string;
+        };
+        /**
+         * RetrievalCandidate
+         * @description A retrieved passage that no rendered claim cites.
+         *
+         *     Uncited evidence reaches a client through this field and nowhere else. Keeping it
+         *     out of ``claims`` is the point: a candidate carries the rank it held in retrieval,
+         *     so a reader can see how far past the cited support they have gone, and it can never
+         *     be mistaken for the evidence a claim was verified against. Ranks are sparse by
+         *     construction - the cited passages are the gaps.
+         */
+        RetrievalCandidate: {
+            /** Evidence Id */
+            evidence_id: string;
+            /** Retrieval Rank */
+            retrieval_rank: number;
         };
         /**
          * SourceClass

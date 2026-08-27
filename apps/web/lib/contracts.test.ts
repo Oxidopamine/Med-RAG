@@ -32,6 +32,7 @@ const validResult: QuestionResult = {
   interpreted_context: validContext,
   claims: [],
   evidence_details: [],
+  retrieval_candidates: [],
   conflicts: [],
   verification_summary: {
     rendered_claims: 0,
@@ -118,7 +119,41 @@ describe("runtime API contracts", () => {
     const incomplete = structuredClone(validAnswerReadyResult);
     incomplete.evidence_details = [];
     expect(() => questionResultSchema.parse(incomplete)).toThrow(
-      "Evidence details must exactly cover rendered claim evidence IDs",
+      "Evidence details must exactly cover cited and candidate evidence IDs",
+    );
+  });
+
+  it("accepts uncited ranked candidates that carry canonical source detail", () => {
+    const withCandidate = structuredClone(validAnswerReadyResult);
+    const candidateDetail = structuredClone(withCandidate.evidence_details[0]!);
+    candidateDetail.evidence_id = "evidence-2";
+    withCandidate.evidence_details.push(candidateDetail);
+    withCandidate.retrieval_candidates = [{ evidence_id: "evidence-2", retrieval_rank: 3 }];
+
+    expect(questionResultSchema.parse(withCandidate)).toEqual(withCandidate);
+
+    const orphaned = structuredClone(validAnswerReadyResult);
+    orphaned.retrieval_candidates = [{ evidence_id: "evidence-2", retrieval_rank: 3 }];
+    expect(() => questionResultSchema.parse(orphaned)).toThrow(
+      "Evidence details must exactly cover cited and candidate evidence IDs",
+    );
+  });
+
+  it("rejects a cited evidence ID replayed as an uncited candidate", () => {
+    const replayed = structuredClone(validAnswerReadyResult);
+    replayed.retrieval_candidates = [{ evidence_id: "evidence-1", retrieval_rank: 2 }];
+
+    expect(() => questionResultSchema.parse(replayed)).toThrow(
+      "A cited evidence ID cannot also be an uncited retrieval candidate",
+    );
+  });
+
+  it("rejects ranked candidates on a result that withheld its answer", () => {
+    const abstained = structuredClone(validResult);
+    abstained.retrieval_candidates = [{ evidence_id: "evidence-2", retrieval_rank: 3 }];
+
+    expect(() => questionResultSchema.parse(abstained)).toThrow(
+      "Only an answer-ready result can expose retrieval candidates",
     );
   });
 
