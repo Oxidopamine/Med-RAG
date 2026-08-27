@@ -47,7 +47,9 @@ native extraction records exact text and coordinates but only advances a source 
   are unknown rather than implicitly absent
 - `verification`: deterministic required-check policy, duplicate-check rejection,
   per-evidence check coverage, and a fail-closed gate
-- `reasoning`: orchestration only; it cannot override failed verification
+- `reasoning`: orchestration, serving retrieval, and grounded answer composition; it
+  cannot override failed verification, and model output is a proposal that may be lowered
+  to abstention but never raised to an answer
 - `api`: transport and dependency wiring
 
 PostgreSQL is the canonical source-ingestion registry. Qdrant is a rebuildable,
@@ -116,6 +118,83 @@ not create an index or move the active-release pointer. The separate Qdrant buil
 reconciles the bundle with PostgreSQL and the QA ledger, writes only approved release
 members, exhaustively validates the collection, and signs the result. It still cannot move
 the active-release pointer.
+
+## Serving retrieval boundary
+
+```text
+question
+  -> deterministic bounded expansion (no generative query drift)
+  -> release + approval + lifecycle filtered dense/sparse search over one collection
+  -> weighted RRF with deterministic tie-breaking and isolated lane failures
+  -> payload-integrity check against canonical evidence
+  -> presentation view: render, fingerprint, classify form
+  -> duplicate suppression, then top-k selection
+  -> evidence-role completeness gate, qualified by passage form
+  -> grounded answer composition, or abstention before any model call
+```
+
+`ServingRetrievalService` is deliberately **not** `RetrievalBenchmarkRunner`. The runner
+is the measured system: the accepted development report and the frozen comparator floor
+were produced by that exact code path, so reshaping it to serve free-text questions would
+silently invalidate comparability with every prior report. The two also have different
+jobs — serving has no gold set, needs a latency budget, and treats role completeness as a
+decision that gates abstention rather than a number reported afterwards.
+
+Lifecycle is a filter, never a ranking signal. `SERVABLE_LIFECYCLE_STATES` is an
+allowlist containing only `EFFECTIVE`, so a state added later is excluded until someone
+decides it is safe to answer from. `PARTIALLY_SUPERSEDED` is excluded because serving
+cannot tell which part of a record was superseded. This matters because a superseded
+edition can be near-identical in text to the current one — neither fusion nor duplicate
+suppression can be trusted to prefer the right member, and returning a withdrawn
+recommendation carrying valid provenance is the worst failure this system can emit. The
+constraint is inert on a single-version release and load-bearing the moment a
+multi-edition publisher is materialized.
+
+What they must share is safety behaviour, so the payload-integrity checks are reproduced
+rather than skipped. A point whose payload disagrees with the canonical evidence record
+is a corrupted index, and both paths fail closed on it. Passage text never comes from
+Qdrant: the index carries only filterable metadata, and `content_exact` is read from the
+canonical evidence records, because Qdrant is a rebuildable projection and never source
+of truth.
+
+## Presentation is a view, never a re-materialization
+
+`app/reasoning/presentation.py` sits between canonical evidence and everything that
+displays it. It never produces a new record: `content_exact`, anchors, and evidence
+digests are what the QA ledger decided on and what the signed release binds, so a record
+re-materialized to read better would invalidate both. Citation stays bound to
+`evidence_id`, and the immutable content is carried alongside the view rather than
+replaced by it.
+
+XLSX evidence is anchored per cell, so `content_exact` for a spreadsheet row is the
+cell-addressed form `A145=HIV.D8 …`. That is the correct anchor — replaying it against
+the workbook is what the QA gate does — and it is unusable as passage text. Parsing it
+back into cells yields three things the serving path consumes, all of them determinations
+about existing content rather than new facts about it:
+
+- a rendering under the publisher's own column labels, read from the release's own
+  approved header rows where they survived QA and declared where they did not;
+- a fingerprint over the substantive cells, which is what lets a verbatim copy collapse
+  onto the row it copies;
+- a classification of *form* — data-dictionary entry, decision rule, schedule entry,
+  indicator, header, caption, section title, narrative — decided from structure and never
+  from a role label.
+
+The role gate consumes the third. Roles in this corpus are assigned by source asset
+rather than by content, so `PRIMARY_SUPPORT` is only counted from a passage whose form can
+carry a recommendation at all; an unrecognised table cannot, because the view cannot tell
+what it is and the gate exists to fail closed. This does not repair the labels — that is
+a QA-time fix with a release-wide cost, recorded in `docs/roadmap.md` — it stops the
+abstention gate resting on a claim it never verified, on the same argument as reproducing
+the payload-integrity checks rather than trusting the index. Disqualified role claims are
+reported, so an answer withheld because of the corpus's labelling says so.
+
+This does not touch `render_allowed`, which gates display of the *source document* —
+evidence cards and exact PDF highlighting — and remains unresolved for every WHO asset.
+
+One limit is current rather than architectural: `QuestionService` does not yet call this
+path — it emits progress events and abstains with `RETRIEVAL_PIPELINE_NOT_CONFIGURED` —
+so the boundary is reachable only through `scripts/ask.py`.
 
 ## Safety behavior
 
