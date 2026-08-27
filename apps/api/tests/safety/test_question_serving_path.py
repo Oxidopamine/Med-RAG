@@ -420,9 +420,17 @@ async def test_incomplete_evidence_role_set_abstains_before_any_model_call() -> 
     assert result.abstention.reason_code == "INCOMPLETE_EVIDENCE_ROLE_SET"
     assert result.abstention.missing_evidence_roles == ["PRIMARY_SUPPORT"]
     assert result.abstention.closest_evidence_ids == ["EV_CODE"]
-    # The point of the gate: no model call, and no canonical record fetched for one.
+    # The point of the gate: no model call. That is the invariant - nothing is generated,
+    # so nothing unsupported can be rendered.
     assert backend.calls == 0
-    assert details.requested == set()
+
+    # Canonical detail IS fetched, for the near misses only, so the reader can open what
+    # came closest and judge whether the corpus is thin or the question was wrong. It is a
+    # read of records retrieval already returned; it renders no claim and cites nothing.
+    assert details.requested == {"EV_CODE"}
+    assert [detail.evidence_id for detail in result.abstention.closest_evidence] == [
+        "EV_CODE"
+    ]
     await service.close()
 
 

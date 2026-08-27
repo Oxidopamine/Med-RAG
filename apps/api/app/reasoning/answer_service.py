@@ -22,6 +22,7 @@ from app.reasoning.generation_adapters import GenerationBackend, GenerationUnava
 from app.reasoning.generation_schemas import AbstentionReason, ModelAnswer
 from app.schemas.questions import (
     AbstentionDetail,
+    GuidelineConflict,
     RenderedClaim,
     RetrievalCandidate,
     VerificationSummary,
@@ -75,7 +76,7 @@ class RetrievedPassage:
 @dataclass(frozen=True)
 class ComposedAnswer:
     claims: tuple[RenderedClaim, ...]
-    conflicts: tuple[dict[str, str], ...]
+    conflicts: tuple[GuidelineConflict, ...]
     verification: VerificationSummary
     abstention: AbstentionDetail | None
     # Retrieved passages no surviving claim cited, in retrieval order. Carried so a
@@ -209,13 +210,21 @@ class GroundedAnswerComposer:
             )
 
         conflicts = tuple(
-            {
-                "conflict_type": conflict.conflict_type.value,
-                "summary": conflict.summary,
-                "evidence_ids": ", ".join(
-                    item for item in conflict.evidence_ids if item in retrieved_ids
+            GuidelineConflict(
+                conflict_type=conflict.conflict_type.value,
+                summary=conflict.summary,
+                # Only passages this run actually retrieved. A conflict that points at a
+                # record the reader cannot open is a claim about evidence they cannot check.
+                #
+                # Deduplicated for the same reason the claim path above is: the model can
+                # repeat an identifier, the contract forbids it, and a validation error
+                # here would discard a fully grounded answer as a pipeline failure.
+                evidence_ids=list(
+                    dict.fromkeys(
+                        item for item in conflict.evidence_ids if item in retrieved_ids
+                    )
                 ),
-            }
+            )
             for conflict in answer.conflicts
             if set(conflict.evidence_ids) & retrieved_ids
         )

@@ -256,6 +256,24 @@ const abstentionSchema = z
     }
   });
 
+/*
+ * A typed disagreement.
+ *
+ * `evidence_ids` used to arrive comma-joined inside an untyped record, which every client
+ * re-parsed and none could rely on. Typed, the passages a conflict is *about* are
+ * addressable - which is what lets the panel show them side by side instead of describing
+ * them. Everything else stays optional so a record with an unrecognised type still renders
+ * as unclassified rather than being rejected.
+ */
+const guidelineConflictSchema = z.strictObject({
+  conflict_type: z.string().nullish(),
+  summary: z.string().nullish(),
+  evidence_ids: uniqueStrings.default([]),
+  organization: z.string().nullish(),
+  recommendation: z.string().nullish(),
+  rationale: z.string().nullish(),
+});
+
 const activeCorpusReleaseSchema = z
   .strictObject({
     corpus_release_id: z.string().trim().min(1),
@@ -289,7 +307,7 @@ export const questionResultSchema: z.ZodType<QuestionResult> = z
     claims: z.array(renderedClaimSchema).max(100),
     evidence_details: z.array(evidenceDetailSchema).max(100),
     retrieval_candidates: z.array(retrievalCandidateSchema).max(100),
-    conflicts: z.array(z.record(z.string(), z.string())),
+    conflicts: z.array(guidelineConflictSchema).max(50),
     verification_summary: verificationSummarySchema,
     abstention: abstentionSchema.nullable(),
     created_at: z.string().datetime({ offset: true }),

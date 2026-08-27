@@ -163,10 +163,64 @@ class VerificationSummary(ApiContractModel):
 
 
 class AbstentionDetail(ApiContractModel):
+    """Why no claim was rendered, in terms a reader can act on.
+
+    ``closest_evidence_ids`` names what came closest; ``closest_evidence`` carries the
+    canonical record for each one where it could be resolved. The two are separate because
+    they can legitimately diverge: an abstention raised *because* detail was unavailable
+    knows the identifiers and by definition cannot resolve them, and a reader is still
+    better served by the identifiers than by silence.
+
+    Nothing here passed a claim gate. The detail exists so a reader can open a near miss
+    and judge whether the corpus is thin or the question was wrong - not so it can be read
+    as support.
+    """
+
     reason_code: str
     message: str
     missing_evidence_roles: list[str] = Field(default_factory=list)
     closest_evidence_ids: list[str] = Field(default_factory=list)
+    closest_evidence: list["EvidenceDetail"] = Field(default_factory=list, max_length=20)
+
+    @model_validator(mode="after")
+    def require_named_closest_evidence(self) -> "AbstentionDetail":
+        named = set(self.closest_evidence_ids)
+        for detail in self.closest_evidence:
+            if detail.evidence_id not in named:
+                raise ValueError(
+                    "closest evidence detail must be named in closest_evidence_ids"
+                )
+        resolved = [detail.evidence_id for detail in self.closest_evidence]
+        if len(resolved) != len(set(resolved)):
+            raise ValueError("closest evidence detail must not repeat an evidence ID")
+        return self
+
+
+class GuidelineConflict(ApiContractModel):
+    """A disagreement between passages, typed rather than stringly.
+
+    ``evidence_ids`` was previously flattened to a comma-joined string inside an untyped
+    dict, which every client had to re-parse and none could rely on. Typed, the two
+    passages a conflict is *about* are addressable, which is what lets an interface show
+    them side by side instead of describing them.
+
+    Every field except the identifiers is optional: a record that arrives without a
+    recognised type is still shown, as unclassified, with whatever it does carry. The
+    system does not resolve the disagreement - it reports it.
+    """
+
+    conflict_type: str | None = None
+    summary: str | None = None
+    evidence_ids: list[str] = Field(default_factory=list, max_length=20)
+    organization: str | None = None
+    recommendation: str | None = None
+    rationale: str | None = None
+
+    @model_validator(mode="after")
+    def require_unique_evidence_ids(self) -> "GuidelineConflict":
+        if len(self.evidence_ids) != len(set(self.evidence_ids)):
+            raise ValueError("conflict evidence IDs must be unique")
+        return self
 
 
 class QuestionResult(ApiContractModel):
@@ -178,7 +232,7 @@ class QuestionResult(ApiContractModel):
     claims: list[RenderedClaim] = Field(default_factory=list, max_length=100)
     evidence_details: list[EvidenceDetail] = Field(default_factory=list, max_length=100)
     retrieval_candidates: list[RetrievalCandidate] = Field(default_factory=list, max_length=100)
-    conflicts: list[dict[str, str]] = Field(default_factory=list)
+    conflicts: list[GuidelineConflict] = Field(default_factory=list, max_length=50)
     verification_summary: VerificationSummary = Field(default_factory=VerificationSummary)
     abstention: AbstentionDetail | None = None
     created_at: datetime

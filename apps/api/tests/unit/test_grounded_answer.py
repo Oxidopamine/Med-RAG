@@ -155,8 +155,11 @@ async def test_conflicts_are_typed_and_filtered_to_retrieved_evidence() -> None:
     composed = await GroundedAnswerComposer(backend).compose("Q?", PASSAGES)
 
     assert len(composed.conflicts) == 1
-    assert composed.conflicts[0]["conflict_type"] == "OUTDATED_INFORMATION"
-    assert composed.conflicts[0]["evidence_ids"] == "EV_aaa"
+    conflict = composed.conflicts[0]
+    assert conflict.conflict_type == "OUTDATED_INFORMATION"
+    # Typed rather than comma-joined, and narrowed to what this run retrieved: a conflict
+    # that points at a record the reader cannot open is a claim about unreachable evidence.
+    assert conflict.evidence_ids == ["EV_aaa"]
 
 
 async def test_prompt_carries_only_retrieved_passages() -> None:

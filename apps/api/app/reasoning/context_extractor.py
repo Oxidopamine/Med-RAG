@@ -49,6 +49,17 @@ def extract_context_preview(question: str) -> ClinicalContext:
     ):
         special_populations.add("RENAL_IMPAIRMENT")
 
+    # What was read from the question, and what was worked out from it. Renal impairment
+    # is concluded from a measurement or a condition rather than stated; topic and question
+    # type are classifications of the question, not assertions the reader made. Marking
+    # them is what lets the interface put a reader's eye on the guesses.
+    inferred: set[str] = set()
+    if special_populations:
+        inferred.add("special_populations")
+    if topic:
+        inferred.add("topic")
+    inferred.add("question_type")
+
     return ClinicalContext(
         age=age,
         conditions=conditions,
@@ -56,5 +67,6 @@ def extract_context_preview(question: str) -> ClinicalContext:
         special_populations=special_populations,
         question_type="treatment_guideline" if topic else "guideline_lookup",
         topic=topic,
+        inferred_fields=frozenset(inferred),
     )
 

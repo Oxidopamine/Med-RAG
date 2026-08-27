@@ -29,7 +29,18 @@ export type EvidenceDetail = Omit<Required<ApiSchemas["EvidenceDetail"]>, "locat
   locators: EvidenceLocator[];
 };
 export type RetrievalCandidate = ApiSchemas["RetrievalCandidate"];
-export type AbstentionDetail = Required<ApiSchemas["AbstentionDetail"]>;
+export type GuidelineConflict = Required<ApiSchemas["GuidelineConflict"]>;
+/**
+ * `closest_evidence` is re-typed for the same reason `QuestionResult.evidence_details`
+ * is: the generated locator leaves the cell address optional, and the refined
+ * `EvidenceDetail` is what every presentation helper is written against.
+ */
+export type AbstentionDetail = Omit<
+  Required<ApiSchemas["AbstentionDetail"]>,
+  "closest_evidence"
+> & {
+  closest_evidence: EvidenceDetail[];
+};
 export type VerificationSummary = ApiSchemas["VerificationSummary"];
 export type ActiveCorpusRelease = Required<ApiSchemas["ActiveCorpusRelease"]>;
 

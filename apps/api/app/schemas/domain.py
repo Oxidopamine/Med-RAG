@@ -164,7 +164,34 @@ class Measurement(CanonicalModel):
     provenance: str = Field(default="USER_ENTERED", min_length=1)
 
 
+# Field names a reader sees on the interpreted-context panel. An inferred marker naming
+# anything else is a bug in the extractor rather than a fact about the patient.
+CONTEXT_FIELDS = frozenset(
+    {
+        "age",
+        "sex",
+        "conditions",
+        "known_absent_conditions",
+        "measurements",
+        "special_populations",
+        "known_absent_special_populations",
+        "care_setting",
+        "jurisdiction",
+        "question_type",
+        "topic",
+    }
+)
+
+
 class ClinicalContext(CanonicalModel):
+    """What the system believes about the patient, and how it came to believe it.
+
+    ``inferred_fields`` names the fields the extractor *derived* rather than read from the
+    question. A stated age and an inferred one are not the same claim, and rendering both
+    in identical type asks a reader to audit everything or nothing. Measurements carry
+    their own ``provenance`` and are not listed here unless the whole list was derived.
+    """
+
     age: int | None = Field(default=None, ge=0, le=130)
     sex: str | None = None
     conditions: frozenset[str] = Field(default_factory=frozenset)
@@ -176,9 +203,15 @@ class ClinicalContext(CanonicalModel):
     jurisdiction: str | None = None
     question_type: str | None = None
     topic: str | None = None
+    inferred_fields: frozenset[str] = Field(default_factory=frozenset)
 
     @model_validator(mode="after")
     def validate_known_state(self) -> "ClinicalContext":
+        unknown_inferred = self.inferred_fields - CONTEXT_FIELDS
+        if unknown_inferred:
+            names = ", ".join(sorted(unknown_inferred))
+            raise ValueError(f"inferred fields must name context fields: {names}")
+
         contradictory_conditions = self.conditions & self.known_absent_conditions
         if contradictory_conditions:
             names = ", ".join(sorted(contradictory_conditions))

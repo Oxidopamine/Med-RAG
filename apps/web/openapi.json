@@ -3,7 +3,16 @@
     "schemas": {
       "AbstentionDetail": {
         "additionalProperties": false,
+        "description": "Why no claim was rendered, in terms a reader can act on.\n\n``closest_evidence_ids`` names what came closest; ``closest_evidence`` carries the\ncanonical record for each one where it could be resolved. The two are separate because\nthey can legitimately diverge: an abstention raised *because* detail was unavailable\nknows the identifiers and by definition cannot resolve them, and a reader is still\nbetter served by the identifiers than by silence.\n\nNothing here passed a claim gate. The detail exists so a reader can open a near miss\nand judge whether the corpus is thin or the question was wrong - not so it can be read\nas support.",
         "properties": {
+          "closest_evidence": {
+            "items": {
+              "$ref": "#/components/schemas/EvidenceDetail"
+            },
+            "maxItems": 20,
+            "title": "Closest Evidence",
+            "type": "array"
+          },
           "closest_evidence_ids": {
             "items": {
               "type": "string"
@@ -115,9 +124,16 @@
         "additionalProperties": false,
         "properties": {
           "activated_at": {
-            "format": "date-time",
-            "title": "Activated At",
-            "type": "string"
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Activated At"
           },
           "corpus_release_id": {
             "title": "Corpus Release Id",
@@ -131,13 +147,16 @@
           "qdrant_collection": {
             "title": "Qdrant Collection",
             "type": "string"
+          },
+          "serving_mode": {
+            "$ref": "#/components/schemas/ReleaseServingMode",
+            "default": "ACTIVATED"
           }
         },
         "required": [
           "corpus_release_id",
           "manifest_sha256",
-          "qdrant_collection",
-          "activated_at"
+          "qdrant_collection"
         ],
         "title": "ActiveCorpusRelease",
         "type": "object"
@@ -208,6 +227,7 @@
       },
       "ClinicalContext": {
         "additionalProperties": false,
+        "description": "What the system believes about the patient, and how it came to believe it.\n\n``inferred_fields`` names the fields the extractor *derived* rather than read from the\nquestion. A stated age and an inferred one are not the same claim, and rendering both\nin identical type asks a reader to audit everything or nothing. Measurements carry\ntheir own ``provenance`` and are not listed here unless the whole list was derived.",
         "properties": {
           "age": {
             "anyOf": [
@@ -238,6 +258,14 @@
               "type": "string"
             },
             "title": "Conditions",
+            "type": "array",
+            "uniqueItems": true
+          },
+          "inferred_fields": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Inferred Fields",
             "type": "array",
             "uniqueItems": true
           },
@@ -657,6 +685,77 @@
         "title": "ExtractionTrustRecord",
         "type": "object"
       },
+      "GuidelineConflict": {
+        "additionalProperties": false,
+        "description": "A disagreement between passages, typed rather than stringly.\n\n``evidence_ids`` was previously flattened to a comma-joined string inside an untyped\ndict, which every client had to re-parse and none could rely on. Typed, the two\npassages a conflict is *about* are addressable, which is what lets an interface show\nthem side by side instead of describing them.\n\nEvery field except the identifiers is optional: a record that arrives without a\nrecognised type is still shown, as unclassified, with whatever it does carry. The\nsystem does not resolve the disagreement - it reports it.",
+        "properties": {
+          "conflict_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Conflict Type"
+          },
+          "evidence_ids": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 20,
+            "title": "Evidence Ids",
+            "type": "array"
+          },
+          "organization": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Organization"
+          },
+          "rationale": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rationale"
+          },
+          "recommendation": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recommendation"
+          },
+          "summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Summary"
+          }
+        },
+        "title": "GuidelineConflict",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -952,11 +1051,9 @@
           },
           "conflicts": {
             "items": {
-              "additionalProperties": {
-                "type": "string"
-              },
-              "type": "object"
+              "$ref": "#/components/schemas/GuidelineConflict"
             },
+            "maxItems": 50,
             "title": "Conflicts",
             "type": "array"
           },
@@ -1045,6 +1142,15 @@
           "FAILED"
         ],
         "title": "QuestionStatus",
+        "type": "string"
+      },
+      "ReleaseServingMode": {
+        "description": "How a release being served earned the right to be served.\n\n`ACTIVATED` is the governed path: a signed activation decision backed by a sealed\nholdout acceptance, recorded in the singleton active-release pointer.\n\n`RESEARCH_UNACTIVATED` is a validated release served without one. It exists so the\nserving path can be exercised by a person before activation is reachable, and it is\nnamed in the payload rather than inferred, because the presence of a release is\notherwise indistinguishable from clinical acceptance to any client. A client that\ndoes not understand this field must not treat a release as accepted; that is why the\nfield is required reading for the provenance surface and why `activated_at` is null\nhere rather than carrying a plausible-looking timestamp.",
+        "enum": [
+          "ACTIVATED",
+          "RESEARCH_UNACTIVATED"
+        ],
+        "title": "ReleaseServingMode",
         "type": "string"
       },
       "RenderedClaim": {
@@ -1476,6 +1582,7 @@
     },
     "/health/ready": {
       "get": {
+        "description": "Report the release the question service will actually answer from.\n\nDeliberately not the governed pointer. Under research serving the pointer is empty\nby design while the service answers from a validated release, so reading the pointer\nhere would tell a client that answers will be withheld while answers are being\nproduced. That is a worse error than the one it replaced: the interface would be\nwrong about the system in the direction of understating what it is doing.\n\n`approved_corpus_available` stays strictly about *approval*, so a research release\nreports false - it has not passed activation. `serving_mode` is what distinguishes\n\"nothing will be answered\" from \"answers will come from a release that is not\nclinically accepted\", and a client that shows one message for both is wrong.",
         "operationId": "ready_health_ready_get",
         "responses": {
           "200": {

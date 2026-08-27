@@ -241,7 +241,7 @@ class QuestionService:
             )
 
             await self._emit(record, QuestionStatus.CHECKING_EVIDENCE_COMPLETENESS)
-            gate_abstention = self._gate(retrieval)
+            gate_abstention = await self._gate(retrieval, release)
             if gate_abstention is not None:
                 # Decided here, before any model call, and deliberately so.
                 record.abstention = gate_abstention
@@ -253,7 +253,13 @@ class QuestionService:
             await self._emit(record, QuestionStatus.VERIFYING)
             composed = await self._pipeline.compose(record.question, retrieval.passages)
             if composed.abstention is not None:
-                record.abstention = composed.abstention
+                # The composer names what came closest but has no way to resolve canonical
+                # records - the pipeline lives here. Without this, a composer-path
+                # abstention rendered every near miss as "could not be resolved", which
+                # reports a failure that was never attempted.
+                record.abstention = await self._with_closest_detail(
+                    composed.abstention, release
+                )
                 await self._emit(record, QuestionStatus.ABSTAINED)
                 return
 
@@ -306,8 +312,9 @@ class QuestionService:
         )
         await self._emit(record, QuestionStatus.ABSTAINED)
 
-    @staticmethod
-    def _gate(retrieval: ServingRetrievalResult) -> AbstentionDetail | None:
+    async def _gate(
+        self, retrieval: ServingRetrievalResult, release: ActiveCorpusRelease
+    ) -> AbstentionDetail | None:
         """Decide whether an answer may be attempted, before any model is called.
 
         ``ServingRetrievalResult.is_answerable`` already encodes this decision; it is
@@ -331,8 +338,43 @@ class QuestionService:
                     role.value for role in retrieval.missing_required_roles
                 ],
                 closest_evidence_ids=closest,
+                closest_evidence=await self._closest_details(release, closest),
             )
         return None
+
+    async def _with_closest_detail(
+        self, abstention: AbstentionDetail, release: ActiveCorpusRelease
+    ) -> AbstentionDetail:
+        """Attach canonical detail to an abstention raised outside the gate."""
+        if not abstention.closest_evidence_ids or abstention.closest_evidence:
+            return abstention
+        details = await self._closest_details(
+            release, list(abstention.closest_evidence_ids)
+        )
+        if not details:
+            return abstention
+        return abstention.model_copy(update={"closest_evidence": details})
+
+    async def _closest_details(
+        self, release: ActiveCorpusRelease, closest: list[str]
+    ) -> list[EvidenceDetail]:
+        """Canonical records for the passages that came closest, in ranked order.
+
+        Best effort by design. These passages carried no claim, so failing to resolve one
+        withholds nothing - the reader still gets its identifier from
+        ``closest_evidence_ids``, and an abstention that cannot explain itself fully is
+        better than an abstention that fails to render.
+        """
+        if not closest or self._pipeline is None:
+            return []
+        try:
+            details = await self._pipeline.evidence_details(
+                release.corpus_release_id, set(closest)
+            )
+        except Exception:
+            return []
+        by_id = {detail.evidence_id: detail for detail in details}
+        return [by_id[evidence_id] for evidence_id in closest if evidence_id in by_id]
 
     async def _resolve_details(
         self,

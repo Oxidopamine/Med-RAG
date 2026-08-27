@@ -28,7 +28,21 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Ready */
+        /**
+         * Ready
+         * @description Report the release the question service will actually answer from.
+         *
+         *     Deliberately not the governed pointer. Under research serving the pointer is empty
+         *     by design while the service answers from a validated release, so reading the pointer
+         *     here would tell a client that answers will be withheld while answers are being
+         *     produced. That is a worse error than the one it replaced: the interface would be
+         *     wrong about the system in the direction of understating what it is doing.
+         *
+         *     `approved_corpus_available` stays strictly about *approval*, so a research release
+         *     reports false - it has not passed activation. `serving_mode` is what distinguishes
+         *     "nothing will be answered" from "answers will come from a release that is not
+         *     clinically accepted", and a client that shows one message for both is wrong.
+         */
         get: operations["ready_health_ready_get"];
         put?: never;
         post?: never;
@@ -450,6 +464,33 @@ export interface components {
             span_count: number;
             trust_status: components["schemas"]["EvidenceTrustStatus"];
         };
+        /**
+         * GuidelineConflict
+         * @description A disagreement between passages, typed rather than stringly.
+         *
+         *     ``evidence_ids`` was previously flattened to a comma-joined string inside an untyped
+         *     dict, which every client had to re-parse and none could rely on. Typed, the two
+         *     passages a conflict is *about* are addressable, which is what lets an interface show
+         *     them side by side instead of describing them.
+         *
+         *     Every field except the identifiers is optional: a record that arrives without a
+         *     recognised type is still shown, as unclassified, with whatever it does carry. The
+         *     system does not resolve the disagreement - it reports it.
+         */
+        GuidelineConflict: {
+            /** Conflict Type */
+            conflict_type?: string | null;
+            /** Evidence Ids */
+            evidence_ids?: string[];
+            /** Organization */
+            organization?: string | null;
+            /** Rationale */
+            rationale?: string | null;
+            /** Recommendation */
+            recommendation?: string | null;
+            /** Summary */
+            summary?: string | null;
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -547,9 +588,7 @@ export interface components {
             /** Claims */
             claims?: components["schemas"]["RenderedClaim"][];
             /** Conflicts */
-            conflicts?: {
-                [key: string]: string;
-            }[];
+            conflicts?: components["schemas"]["GuidelineConflict"][];
             corpus_release?: components["schemas"]["ActiveCorpusRelease"] | null;
             /**
              * Created At
