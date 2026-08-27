@@ -11,11 +11,6 @@ from app.corpus_steward.benchmark import (
     RetrievalBenchmarkRunner,
     derive_development_suite_for_candidate,
 )
-from app.retrieval.pipeline import Candidate as _Candidate
-from app.retrieval.pipeline import (
-    conflict_aware_selection,
-    preserve_retrieval_floor,
-)
 from app.corpus_steward.benchmark_schemas import (
     BENCHMARK_CONTRACT_VERSION,
     BenchmarkAcceptance,
@@ -58,6 +53,11 @@ from app.corpus_steward.vector_producer import (
     VectorProductionCheckpoint,
     VectorProductionCheckpointContent,
     VectorProductionError,
+)
+from app.retrieval.pipeline import Candidate as _Candidate
+from app.retrieval.pipeline import (
+    conflict_aware_selection,
+    preserve_retrieval_floor,
 )
 from app.schemas.corpus import CorpusReleaseBundle, EvidenceRole
 
