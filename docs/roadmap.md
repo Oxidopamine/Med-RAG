@@ -255,6 +255,40 @@
   0.967. That is the one stratum built to defeat lexical matching - measured query-term
   coverage 0.411 against 1.000 for five other strata - so it is the stratum a dense
   retriever exists to win, and Qwen3-Embedding-0.6B loses it
+- correction: none of these differences is statistically significant, and the earlier
+  entries overstated them. These are paired measurements on identical cases, so the test
+  is exact McNemar on discordant pairs rather than the Wilson intervals quoted above:
+
+  | comparison | wins | losses | p |
+  | --- | --- | --- | --- |
+  | expansion-only vs Qwen candidate | 5 | 1 | 0.219 |
+  | expansion-only vs BM25 alone | 5 | 0 | 0.063 |
+  | Qwen candidate vs BM25 alone | 6 | 5 | 1.000 |
+
+  The one claim the data does support is the null one: the accepted Qwen candidate and
+  plain BM25 are indistinguishable, 6 wins against 5 losses, p = 1.000. The claim that
+  removing the dense lane *improves* retrieval is directionally consistent and not
+  established; 5-0 on five discordant pairs is p = 0.063
+- confound: this suite is built the way the literature says inflates lexical retrieval.
+  Its queries are normalized fragments of their own gold passages, so BM25 is scoring
+  near-duplicate matches, and synthetic query generation from documents is a documented
+  source of lexical-overlap bias in test collections. BM25 winning here is partly
+  predetermined by construction and does not transfer to clinician-authored queries.
+  `PARAPHRASED_INTENT` is the only stratum built against this, and it is
+  controlled-vocabulary substitution rather than real paraphrase
+- confound: fusion was never weighted. Both lanes sit at 1.0, and fusing a 0.682 lane
+  equally with a 0.961 lane degrading the result is a known property of unweighted RRF -
+  the documented "weakest link" effect - not evidence about dense retrieval. Weighted RRF
+  and convex combination both exist for exactly this case and neither was tried. "The
+  dense lane hurts" is therefore confounded with "equal-weight RRF over unequal lanes
+  hurts"
+- open question: whether the dense lane is misconfigured rather than unsuited.
+  Qwen3-Embedding-0.6B scoring 0.333 complete-evidence on `TERMINOLOGY` is low for that
+  model. The runtime matrix verifies bytes, norms, and truncation, which rules out
+  numerical fault but not a retrieval-semantics fault in instruction prefix, pooling, or
+  query/document asymmetry. It is equally consistent with source-fragment queries being
+  trivially easy for BM25 and merely ordinary for dense. Settling it needs queries that
+  are not derived from their own passages
 - known limit: this measures retrieval quality, not deployment cost. The zero-weight lane
   is still declared, so the run still loads the model and encodes every query with it;
   p95 moved only from 1,440 ms to 1,339 ms. Removing Qwen from the serving path needs a
