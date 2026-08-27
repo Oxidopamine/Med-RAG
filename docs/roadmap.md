@@ -282,13 +282,46 @@
   and convex combination both exist for exactly this case and neither was tried. "The
   dense lane hurts" is therefore confounded with "equal-weight RRF over unequal lanes
   hurts"
-- open question: whether the dense lane is misconfigured rather than unsuited.
-  Qwen3-Embedding-0.6B scoring 0.333 complete-evidence on `TERMINOLOGY` is low for that
-  model. The runtime matrix verifies bytes, norms, and truncation, which rules out
-  numerical fault but not a retrieval-semantics fault in instruction prefix, pooling, or
-  query/document asymmetry. It is equally consistent with source-fragment queries being
-  trivially easy for BM25 and merely ordinary for dense. Settling it needs queries that
-  are not derived from their own passages
+- resolved: the dense lane is not misconfigured. Every element of the Qwen3-Embedding
+  contract is implemented correctly - the instruction prefix is applied to queries and
+  never to documents, `document_prefix` is pinned to the empty string, the last-token
+  pooling is the official `last_token_pool` including its left-padding branch, the
+  tokenizer's `padding_side` default of `right` is explicitly overridden to `left`, the
+  tokenizer appends the `<|endoftext|>` terminator that last-token pooling depends on,
+  MRL truncation happens before final normalization, and `max_length` 8192 cannot
+  truncate a corpus whose mean record is 86 tokens
+- the dense scores are fully explained by query composition. Stripping each generator
+  template's fixed prefix and measuring what varies per case:
+
+  | stratum | opaque tokens | query words | mean gold | dense |
+  | --- | --- | --- | --- | --- |
+  | CONTRAINDICATION | 6% | 44.0 | 1.00 | 1.000 |
+  | DOSE | 4% | 46.7 | 1.00 | 1.000 |
+  | APPLICABILITY | 4% | 46.6 | 1.00 | 1.000 |
+  | MONITORING | 6% | 45.1 | 1.00 | 1.000 |
+  | NEGATION | 6% | 44.5 | 1.00 | 0.933 |
+  | PARAPHRASED_INTENT | 1% | 20.2 | 1.00 | 0.767 |
+  | CONFLICTING_EVIDENCE | 6% | 85.2 | 2.00 | 0.567 |
+  | TERMINOLOGY | 55% | 4.4 | 1.00 | 0.333 |
+
+  Dense scores 1.000 on every stratum whose query is ordinary prose. `TERMINOLOGY`
+  collapses because its query body averages 4.4 words of which 55% are opaque
+  identifiers - "HIV.B1 HIV.B.DE19" carries nothing for an embedding model to place in
+  vector space, and distinguishing `HIV.B.DE19` from `HIV.B.DE69` is exact string
+  matching, which is what BM25 exists for. `CONFLICTING_EVIDENCE` is lower because it
+  averages 2.00 gold records and complete-evidence-set demands both; a per-passage rate
+  near 0.75 gives a joint rate near 0.57, which is what it scores
+- corpus defect: 5,019 of 5,145 evidence records (97.6%) are XLSX row serializations that
+  carry literal spreadsheet cell addresses in their text - `A20=HIV.B1 Determine reason
+  for visit`, `B70=HIV.B.DE69`. 103,186 of the corpus's 426,073 whitespace tokens, 24%,
+  are cell coordinates. They are inert for BM25 because no query contains them, but they
+  are a quarter of what every dense embedding is computed over. Extraction should not be
+  emitting them
+- the earlier reading was too kind to the benchmark and too harsh on the model. Dropping
+  the dense lane remains right for this corpus, but the reason is that a coded data
+  dictionary is a lexical-matching problem, not that Qwen3-Embedding-0.6B is unsuited to
+  clinical retrieval. That conclusion does not survive a corpus containing real
+  guideline prose, and the PDF narrative sources are exactly that
 - known limit: this measures retrieval quality, not deployment cost. The zero-weight lane
   is still declared, so the run still loads the model and encodes every query with it;
   p95 moved only from 1,440 ms to 1,339 ms. Removing Qwen from the serving path needs a
