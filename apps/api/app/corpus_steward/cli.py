@@ -107,6 +107,12 @@ from app.corpus_steward.registry import (
     SQLAttestationRepository,
     SQLTrustRootRegistry,
 )
+from app.corpus_steward.reranker_runtime_matrix import (
+    RERANKER_RUNTIME_MATRIX_CONTRACT_VERSION,
+    RerankerRuntimeMatrixReport,
+    RerankerRuntimeMatrixRequest,
+    execute_reranker_runtime_matrix,
+)
 from app.corpus_steward.reranking import Qwen3RerankerAdapter, RerankerBackend
 from app.corpus_steward.schemas import (
     AttestationPurpose,
@@ -271,6 +277,34 @@ def qwen_runtime_matrix_schema_documents() -> dict[str, dict[str, object]]:
 
 def export_qwen_runtime_matrix_schemas(directory: Path) -> int:
     for filename, document in qwen_runtime_matrix_schema_documents().items():
+        export_schema(directory / filename, document)
+    return 0
+
+
+def reranker_runtime_matrix_schema_documents() -> dict[str, dict[str, object]]:
+    """Contracts for the reranker matrix, versioned separately from the dense one.
+
+    The two matrices measure different quantities -- pair throughput and score
+    stability here, per-item embedding latency and unit-norm deviation there -- so they
+    seal under their own contract version and can move independently.
+    """
+
+    models = {
+        "reranker-runtime-matrix-request": RerankerRuntimeMatrixRequest,
+        "reranker-runtime-matrix-report": RerankerRuntimeMatrixReport,
+    }
+    documents: dict[str, dict[str, object]] = {}
+    for name, model in models.items():
+        filename = f"{name}-{RERANKER_RUNTIME_MATRIX_CONTRACT_VERSION}.schema.json"
+        schema = model.model_json_schema()
+        schema["$id"] = f"https://med-rag.local/contracts/{filename}"
+        schema["x-contract-version"] = RERANKER_RUNTIME_MATRIX_CONTRACT_VERSION
+        documents[filename] = schema
+    return documents
+
+
+def export_reranker_runtime_matrix_schemas(directory: Path) -> int:
+    for filename, document in reranker_runtime_matrix_schema_documents().items():
         export_schema(directory / filename, document)
     return 0
 
@@ -455,6 +489,56 @@ async def qwen_runtime_matrix_command(arguments: argparse.Namespace) -> int:
                     {
                         "target_id": item.target.target_id,
                         "status": item.status,
+                        "blockers": list(item.blockers),
+                    }
+                    for item in report.content.results
+                ],
+                "report_sha256": report.report_sha256,
+                "output": str(arguments.output),
+            },
+            sort_keys=True,
+        )
+    )
+    return 0 if report.content.outcome == "COMPLETE" else 9
+
+
+async def reranker_runtime_matrix_command(arguments: argparse.Namespace) -> int:
+    request = RerankerRuntimeMatrixRequest.model_validate_json(
+        arguments.path.read_text(encoding="utf-8")
+    )
+    bundle = CorpusReleaseBundle.model_validate_json(
+        arguments.bundle.read_text(encoding="utf-8")
+    )
+    suite = BenchmarkSuite.model_validate_json(
+        arguments.suite.read_text(encoding="utf-8")
+    )
+    report = await execute_reranker_runtime_matrix(
+        request,
+        bundle,
+        suite,
+        workspace_root=arguments.workspace_root.resolve(strict=True),
+    )
+    _write_json_output(arguments.output, report)
+    print(
+        json.dumps(
+            {
+                "matrix_id": report.content.matrix_id,
+                "outcome": report.content.outcome,
+                "measured_target_count": sum(
+                    item.status == "MEASURED" for item in report.content.results
+                ),
+                "blocked_target_count": sum(
+                    item.status == "BLOCKED" for item in report.content.results
+                ),
+                "results": [
+                    {
+                        "target_id": item.target.target_id,
+                        "status": item.status,
+                        # Three reranker lanes can share one matrix, and their scores are
+                        # not on one scale, so the summary names the adapter that
+                        # produced each row rather than leaving it to the report file.
+                        "adapter_id": item.adapter_id,
+                        "adapter_revision": item.adapter_revision,
                         "blockers": list(item.blockers),
                     }
                     for item in report.content.results
@@ -2172,6 +2256,11 @@ def build_parser() -> argparse.ArgumentParser:
         description="Export pinned Qwen runtime-matrix request/report JSON Schemas.",
     )
     export_qwen_matrix.add_argument("directory", type=Path)
+    export_reranker_matrix = subparsers.add_parser(
+        "export-reranker-runtime-matrix-schemas",
+        description="Export pinned reranker runtime-matrix request/report JSON Schemas.",
+    )
+    export_reranker_matrix.add_argument("directory", type=Path)
     export_adjudication = subparsers.add_parser(
         "export-benchmark-adjudication-schemas",
         description="Export the clinical adjudication workflow JSON Schemas.",
@@ -2225,6 +2314,17 @@ def build_parser() -> argparse.ArgumentParser:
     qwen_matrix.add_argument("--suite", type=Path, required=True)
     qwen_matrix.add_argument("--workspace-root", type=Path, default=Path.cwd())
     qwen_matrix.add_argument("--output", type=Path, required=True)
+    reranker_matrix = subparsers.add_parser(
+        "reranker-runtime-matrix",
+        description=(
+            "Measure pinned verified-local reranker targets or seal their blockers."
+        ),
+    )
+    reranker_matrix.add_argument("path", type=Path)
+    reranker_matrix.add_argument("--bundle", type=Path, required=True)
+    reranker_matrix.add_argument("--suite", type=Path, required=True)
+    reranker_matrix.add_argument("--workspace-root", type=Path, default=Path.cwd())
+    reranker_matrix.add_argument("--output", type=Path, required=True)
     seal_vectors = subparsers.add_parser(
         "index-seal-vectors",
         description="Validate vector shapes/model pins and seal an index vector batch.",
@@ -2558,6 +2658,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return export_schema(arguments.path, bm25_statistics_schema_document())
     if arguments.command == "export-qwen-runtime-matrix-schemas":
         return export_qwen_runtime_matrix_schemas(arguments.directory)
+    if arguments.command == "export-reranker-runtime-matrix-schemas":
+        return export_reranker_runtime_matrix_schemas(arguments.directory)
     if arguments.command == "export-benchmark-adjudication-schemas":
         return export_benchmark_adjudication_schemas(arguments.directory)
     if arguments.command == "export-benchmark-source-derived-schemas":
@@ -2573,6 +2675,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             return derive_bm25_statistics_command(arguments)
         if arguments.command == "qwen-runtime-matrix":
             return asyncio.run(qwen_runtime_matrix_command(arguments))
+        if arguments.command == "reranker-runtime-matrix":
+            return asyncio.run(reranker_runtime_matrix_command(arguments))
         if arguments.command == "index-seal-vectors":
             return seal_index_vectors(arguments)
         if arguments.command == "index-produce-vectors":

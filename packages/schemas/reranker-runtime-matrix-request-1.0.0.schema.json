@@ -1,0 +1,164 @@
+{
+  "$defs": {
+    "RerankerRuntimeTarget": {
+      "additionalProperties": false,
+      "properties": {
+        "artifact_manifest_path": {
+          "maxLength": 500,
+          "minLength": 1,
+          "title": "Artifact Manifest Path",
+          "type": "string"
+        },
+        "artifact_root": {
+          "maxLength": 500,
+          "minLength": 1,
+          "title": "Artifact Root",
+          "type": "string"
+        },
+        "batch_size": {
+          "exclusiveMinimum": 0,
+          "maximum": 1024,
+          "title": "Batch Size",
+          "type": "integer"
+        },
+        "device": {
+          "maxLength": 50,
+          "minLength": 1,
+          "title": "Device",
+          "type": "string"
+        },
+        "dtype": {
+          "enum": [
+            "float32",
+            "float16",
+            "bfloat16",
+            "int8_dynamic"
+          ],
+          "title": "Dtype",
+          "type": "string"
+        },
+        "expected_artifact_sha256": {
+          "anyOf": [
+            {
+              "pattern": "^[a-f0-9]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Expected Artifact Sha256"
+        },
+        "max_length": {
+          "exclusiveMinimum": 0,
+          "maximum": 32768,
+          "title": "Max Length",
+          "type": "integer"
+        },
+        "model_id": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Model Id",
+          "type": "string"
+        },
+        "model_revision": {
+          "pattern": "^[0-9a-f]{40,64}$",
+          "title": "Model Revision",
+          "type": "string"
+        },
+        "target_id": {
+          "maxLength": 100,
+          "minLength": 1,
+          "title": "Target Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "target_id",
+        "model_id",
+        "model_revision",
+        "artifact_root",
+        "artifact_manifest_path",
+        "device",
+        "dtype",
+        "max_length",
+        "batch_size"
+      ],
+      "title": "RerankerRuntimeTarget",
+      "type": "object"
+    }
+  },
+  "$id": "https://med-rag.local/contracts/reranker-runtime-matrix-request-1.0.0.schema.json",
+  "additionalProperties": false,
+  "properties": {
+    "corpus_release_id": {
+      "maxLength": 64,
+      "minLength": 1,
+      "title": "Corpus Release Id",
+      "type": "string"
+    },
+    "manifest_sha256": {
+      "pattern": "^[a-f0-9]{64}$",
+      "title": "Manifest Sha256",
+      "type": "string"
+    },
+    "matrix_id": {
+      "maxLength": 100,
+      "minLength": 1,
+      "title": "Matrix Id",
+      "type": "string"
+    },
+    "measured_runs": {
+      "default": 3,
+      "exclusiveMinimum": 0,
+      "maximum": 100,
+      "title": "Measured Runs",
+      "type": "integer"
+    },
+    "pool_size": {
+      "default": 32,
+      "exclusiveMinimum": 0,
+      "maximum": 1000,
+      "title": "Pool Size",
+      "type": "integer"
+    },
+    "query_sample_count": {
+      "default": 8,
+      "exclusiveMinimum": 0,
+      "maximum": 10000,
+      "title": "Query Sample Count",
+      "type": "integer"
+    },
+    "schema_version": {
+      "const": "1.0.0",
+      "default": "1.0.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "targets": {
+      "items": {
+        "$ref": "#/$defs/RerankerRuntimeTarget"
+      },
+      "minItems": 1,
+      "title": "Targets",
+      "type": "array"
+    },
+    "warmup_runs": {
+      "default": 1,
+      "maximum": 20,
+      "minimum": 0,
+      "title": "Warmup Runs",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "matrix_id",
+    "corpus_release_id",
+    "manifest_sha256",
+    "targets"
+  ],
+  "title": "RerankerRuntimeMatrixRequest",
+  "type": "object",
+  "x-contract-version": "1.0.0"
+}

@@ -18,6 +18,7 @@ from app.schemas.corpus import SHA256_PATTERN, canonical_sha256
 from app.schemas.domain import CanonicalModel
 
 MODEL_ARTIFACT_CONTRACT_VERSION = "1.0.0"
+MODEL_ARTIFACT_PAIR_CONTRACT_VERSION = "1.0.0"
 _HASH_CHUNK_SIZE = 1024 * 1024
 _WINDOWS_REPARSE_POINT = 0x400
 
@@ -355,4 +356,221 @@ def verify_model_artifact(
         root=checked_root,
         manifest=manifest,
         expected_artifact_sha256=expected_artifact_sha256,
+    )
+
+
+class ModelArtifactRole(str, Enum):
+    """The asymmetric side a paired artifact is allowed to encode."""
+
+    DOCUMENT = "DOCUMENT"
+    QUERY = "QUERY"
+
+
+class ModelArtifactPairMember(CanonicalModel):
+    """One role-bound half of a dual-encoder candidate, sealed in full."""
+
+    role: ModelArtifactRole
+    manifest: ModelArtifactManifest
+
+
+class ModelArtifactPairManifestContent(CanonicalModel):
+    """Two asymmetric artifact roots bound as exactly one candidate identity.
+
+    Each member carries a complete, independently sealed single-artifact manifest, so
+    the pair digest transitively covers every byte of both roots. Behavior-affecting
+    parameters live only on the pair: a half sealed on its own declares no parameters
+    and therefore cannot configure any adapter by itself.
+    """
+
+    schema_version: Literal[MODEL_ARTIFACT_PAIR_CONTRACT_VERSION] = (
+        MODEL_ARTIFACT_PAIR_CONTRACT_VERSION
+    )
+    artifact_kind: ModelArtifactKind
+    model_id: str = Field(min_length=1, max_length=300)
+    revision: str = Field(min_length=1, max_length=300)
+    dimension: int = Field(gt=0, le=2**32)
+    adapter_id: str = Field(min_length=1, max_length=300)
+    adapter_revision: str = Field(min_length=1, max_length=300)
+    adapter_parameters: dict[str, str | int | float | bool | None] = Field(
+        default_factory=dict
+    )
+    members: tuple[ModelArtifactPairMember, ...] = Field(min_length=2, max_length=2)
+
+    @field_validator("adapter_parameters")
+    @classmethod
+    def validate_adapter_parameters(
+        cls, value: dict[str, str | int | float | bool | None]
+    ) -> dict[str, str | int | float | bool | None]:
+        if any(isinstance(item, float) and not math.isfinite(item) for item in value.values()):
+            raise ValueError("adapter parameters cannot contain non-finite numbers")
+        return value
+
+    @model_validator(mode="after")
+    def validate_pair_binding(self) -> ModelArtifactPairManifestContent:
+        roles = tuple(member.role for member in self.members)
+        if roles != (ModelArtifactRole.DOCUMENT, ModelArtifactRole.QUERY):
+            raise ValueError(
+                "an artifact pair must list exactly one document and one query member, "
+                "sorted by role"
+            )
+        digests = {member.manifest.artifact_sha256 for member in self.members}
+        if len(digests) != len(self.members):
+            raise ValueError("an artifact pair cannot bind the same artifact twice")
+        for member in self.members:
+            content = member.manifest.content
+            side = member.role.value.lower()
+            if content.artifact_kind is not self.artifact_kind:
+                raise ValueError(f"the {side} member must declare the paired artifact kind")
+            if content.dimension != self.dimension:
+                raise ValueError(f"the {side} member must declare the paired dimension")
+            if (
+                content.adapter_id != self.adapter_id
+                or content.adapter_revision != self.adapter_revision
+            ):
+                raise ValueError(f"the {side} member must declare the paired adapter")
+            if content.adapter_parameters:
+                raise ValueError(
+                    f"the {side} member cannot carry parameters; a paired candidate seals "
+                    "every behavior-affecting parameter on the pair"
+                )
+        if self.revision != pair_revision(self.members):
+            raise ValueError(
+                "an artifact pair revision must be the derived composite of its member "
+                "revisions"
+            )
+        return self
+
+
+class ModelArtifactPairManifest(CanonicalModel):
+    content: ModelArtifactPairManifestContent
+    artifact_sha256: str = Field(pattern=SHA256_PATTERN)
+
+    @model_validator(mode="after")
+    def verify_digest(self) -> ModelArtifactPairManifest:
+        if self.artifact_sha256 != canonical_sha256(self.content):
+            raise ValueError("model artifact pair digest does not match manifest content")
+        return self
+
+    @classmethod
+    def seal(cls, content: ModelArtifactPairManifestContent) -> ModelArtifactPairManifest:
+        return cls(content=content, artifact_sha256=canonical_sha256(content))
+
+    def member(self, role: ModelArtifactRole) -> ModelArtifactPairMember:
+        for member in self.content.members:
+            if member.role is role:
+                return member
+        raise ModelArtifactError(f"artifact pair has no {role.value.lower()} member")
+
+    def model_reference(self) -> EmbeddingModelReference:
+        return EmbeddingModelReference(
+            model_id=self.content.model_id,
+            revision=self.content.revision,
+            artifact_sha256=self.artifact_sha256,
+        )
+
+
+@dataclass(frozen=True)
+class VerifiedModelArtifactPair:
+    """Both halves verified, handed to an adapter as one indivisible identity.
+
+    Exposes the same ``manifest``/``reference`` surface a single verified artifact
+    does, so a paired adapter drops into every consumer that pins vector identity from
+    ``manifest.content`` without those consumers learning about roles.
+    """
+
+    manifest: ModelArtifactPairManifest
+    expected_artifact_sha256: str
+    document: VerifiedModelArtifact
+    query: VerifiedModelArtifact
+
+    @property
+    def reference(self) -> EmbeddingModelReference:
+        return self.manifest.model_reference()
+
+    def member(self, role: ModelArtifactRole) -> VerifiedModelArtifact:
+        return self.query if role is ModelArtifactRole.QUERY else self.document
+
+
+def pair_revision(members: tuple[ModelArtifactPairMember, ...]) -> str:
+    """Derive the one immutable revision string a paired candidate is known by."""
+
+    return ";".join(
+        f"{member.role.value.lower()}={member.manifest.content.revision}"
+        for member in members
+    )
+
+
+def build_model_artifact_pair_manifest(
+    *,
+    query: ModelArtifactManifest,
+    document: ModelArtifactManifest,
+    model_id: str,
+    adapter_parameters: dict[str, Any] | None = None,
+) -> ModelArtifactPairManifest:
+    """Bind two already-sealed artifact manifests into one paired candidate identity.
+
+    Kind, dimension, and adapter identity are read from the members rather than
+    restated, so a pair cannot claim an encoding contract its halves do not carry.
+    """
+
+    members = (
+        ModelArtifactPairMember(role=ModelArtifactRole.DOCUMENT, manifest=document),
+        ModelArtifactPairMember(role=ModelArtifactRole.QUERY, manifest=query),
+    )
+    content = ModelArtifactPairManifestContent(
+        artifact_kind=document.content.artifact_kind,
+        model_id=model_id,
+        revision=pair_revision(members),
+        dimension=document.content.dimension,
+        adapter_id=document.content.adapter_id,
+        adapter_revision=document.content.adapter_revision,
+        adapter_parameters=adapter_parameters or {},
+        members=members,
+    )
+    return ModelArtifactPairManifest.seal(content)
+
+
+def verify_model_artifact_pair(
+    *,
+    query_root: Path,
+    document_root: Path,
+    manifest: ModelArtifactPairManifest,
+    expected_artifact_sha256: str,
+    expected_kind: ModelArtifactKind | None = None,
+    limits: ModelArtifactVerificationLimits | None = None,
+) -> VerifiedModelArtifactPair:
+    """Exhaustively verify both roots against the one digest that pins the pair."""
+
+    if expected_artifact_sha256 != manifest.artifact_sha256:
+        raise ModelArtifactError(
+            "model artifact pair manifest does not match the independently pinned digest"
+        )
+    content = manifest.content
+    if expected_kind is not None and content.artifact_kind is not expected_kind:
+        raise ModelArtifactError(
+            f"expected a {expected_kind.value.lower()} model artifact pair, got "
+            f"{content.artifact_kind.value.lower()}"
+        )
+    roots = {
+        ModelArtifactRole.DOCUMENT: document_root,
+        ModelArtifactRole.QUERY: query_root,
+    }
+    verified: dict[ModelArtifactRole, VerifiedModelArtifact] = {}
+    for member in content.members:
+        verified[member.role] = verify_model_artifact(
+            roots[member.role],
+            member.manifest,
+            expected_artifact_sha256=member.manifest.artifact_sha256,
+            expected_kind=content.artifact_kind,
+            limits=limits,
+        )
+    if verified[ModelArtifactRole.DOCUMENT].root == verified[ModelArtifactRole.QUERY].root:
+        raise ModelArtifactError(
+            "an artifact pair cannot resolve both roles to the same artifact root"
+        )
+    return VerifiedModelArtifactPair(
+        manifest=manifest,
+        expected_artifact_sha256=expected_artifact_sha256,
+        document=verified[ModelArtifactRole.DOCUMENT],
+        query=verified[ModelArtifactRole.QUERY],
     )

@@ -19,7 +19,9 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_valida
 from app.corpus_steward.index_schemas import SparseVector
 from app.corpus_steward.model_artifacts import (
     ModelArtifactKind,
+    ModelArtifactRole,
     VerifiedModelArtifact,
+    VerifiedModelArtifactPair,
 )
 
 BGE_M3_MODEL_ID = "BAAI/bge-m3"
@@ -37,6 +39,16 @@ QWEN3_MODEL_DIMENSIONS = {
     "Qwen/Qwen3-Embedding-4B": 2560,
     "Qwen/Qwen3-Embedding-8B": 4096,
 }
+
+MEDCPT_PAIR_MODEL_ID = "ncbi/MedCPT"
+MEDCPT_QUERY_MODEL_ID = "ncbi/MedCPT-Query-Encoder"
+MEDCPT_ARTICLE_MODEL_ID = "ncbi/MedCPT-Article-Encoder"
+MEDCPT_DIMENSION = 768
+MEDCPT_MAX_POSITIONS = 512
+MEDCPT_ADAPTER_ID = "med-rag/medcpt-dual-encoder-transformers"
+MEDCPT_ADAPTER_REVISION = "1.0.0"
+MEDCPT_PASSAGE_FORMAT = "medcpt-title-section-chunk-v1"
+MEDCPT_PASSAGE_SEPARATOR = "\n\n"
 
 BM25_MODEL_ID = "med-rag/qdrant-bm25-unicode"
 BM25_MODEL_REVISION = "1.0.0"
@@ -111,6 +123,31 @@ class Qwen3OpenVINOAdapterParameters(_AdapterParameters):
     nncf_version: str = Field(min_length=1, max_length=100)
 
 
+class MedCPTDualEncoderParameters(_AdapterParameters):
+    """Sealed MedCPT encoding contract, shared by both halves of the pair.
+
+    A paired candidate seals its parameters once, on the pair, so the query and article
+    encoders can never drift apart in pooling, precision, or device. ``query_max_length``
+    and ``document_max_length`` are separate because MedCPT truncates the two sides
+    differently in official use (64 for queries, 512 for articles); both are capped at
+    the 512 positions the underlying BERT encoders actually have.
+    """
+
+    pooling: Literal["cls"]
+    normalize: bool
+    query_max_length: int = Field(gt=0, le=MEDCPT_MAX_POSITIONS)
+    document_max_length: int = Field(gt=0, le=MEDCPT_MAX_POSITIONS)
+    passage_format: Literal[MEDCPT_PASSAGE_FORMAT]
+    batch_size: int = Field(gt=0, le=1024)
+    device: str = Field(min_length=1, max_length=50)
+    dtype: Literal["float32", "float16", "bfloat16"]
+
+    @field_validator("device")
+    @classmethod
+    def validate_explicit_device(cls, value: str) -> str:
+        return BGEM3AdapterParameters.validate_explicit_device(value)
+
+
 class BM25AdapterParameters(_AdapterParameters):
     """The complete tokenization and BM25 term-frequency contract."""
 
@@ -146,7 +183,24 @@ class DenseInferenceRuntime(Protocol):
     ) -> Sequence[Sequence[float]]: ...
 
 
-def _validated_parameters(model: type[_AdapterParameters], artifact: VerifiedModelArtifact):
+class DualEncoderInferenceRuntime(Protocol):
+    """A dense runtime that can also encode the article encoder's sequence pairs."""
+
+    def encode(
+        self,
+        texts: Sequence[str],
+        *,
+        max_length: int,
+        pooling: Literal["cls", "mean", "last_token"],
+        normalize: bool,
+        text_pairs: Sequence[str] | None = None,
+    ) -> Sequence[Sequence[float]]: ...
+
+
+def _validated_parameters(
+    model: type[_AdapterParameters],
+    artifact: VerifiedModelArtifact | VerifiedModelArtifactPair,
+):
     try:
         return model.model_validate(artifact.manifest.content.adapter_parameters)
     except ValidationError as error:
@@ -264,11 +318,15 @@ class _TorchTransformerRuntime:
         max_length: int,
         pooling: Literal["cls", "mean", "last_token"],
         normalize: bool,
+        text_pairs: Sequence[str] | None = None,
     ) -> Sequence[Sequence[float]]:
         torch = self._torch
+        if text_pairs is not None and len(text_pairs) != len(texts):
+            raise ValueError("paired encoder inputs must align with their first segments")
         with self._lock, torch.inference_mode():
             encoded = self._tokenizer(
                 list(texts),
+                *([list(text_pairs)] if text_pairs is not None else []),
                 padding=True,
                 truncation=True,
                 max_length=max_length,
@@ -602,6 +660,179 @@ class Qwen3OpenVINODenseAdapter(Qwen3DenseAdapter):
             expected_dimension=maximum_dimension,
             padding_side=parameters.padding_side,
         )
+
+
+class MedCPTDualEncoderAdapter:
+    """MedCPT's two asymmetric checkpoints driven as one paired dense candidate.
+
+    Queries go through the query encoder and passages through the article encoder, each
+    from its own verified root. Both preserve the official contract: ``[CLS]`` pooling,
+    768 dimensions, and BERT's 512-position truncation ceiling. Passages are encoded as
+    the official title/abstract sequence pair, filled here by the versioned
+    title/section-plus-chunk format sealed in the manifest.
+    """
+
+    def __init__(
+        self,
+        pair: VerifiedModelArtifactPair,
+        *,
+        device: str | None = None,
+        query_runtime: DualEncoderInferenceRuntime | None = None,
+        document_runtime: DualEncoderInferenceRuntime | None = None,
+    ) -> None:
+        content = pair.manifest.content
+        if content.artifact_kind is not ModelArtifactKind.DENSE:
+            raise AdapterConfigurationError("MedCPT requires a dense artifact pair")
+        if content.model_id != MEDCPT_PAIR_MODEL_ID:
+            raise AdapterConfigurationError(
+                f"MedCPT requires the paired model_id {MEDCPT_PAIR_MODEL_ID!r}"
+            )
+        if content.dimension != MEDCPT_DIMENSION:
+            raise AdapterConfigurationError(
+                f"MedCPT must declare dimension {MEDCPT_DIMENSION}"
+            )
+        if (
+            content.adapter_id != MEDCPT_ADAPTER_ID
+            or content.adapter_revision != MEDCPT_ADAPTER_REVISION
+        ):
+            raise AdapterConfigurationError(
+                f"artifact pair requires {MEDCPT_ADAPTER_ID}@{MEDCPT_ADAPTER_REVISION}"
+            )
+        for role, model_id in (
+            (ModelArtifactRole.QUERY, MEDCPT_QUERY_MODEL_ID),
+            (ModelArtifactRole.DOCUMENT, MEDCPT_ARTICLE_MODEL_ID),
+        ):
+            member = pair.member(role).manifest.content
+            if member.model_id != model_id:
+                raise AdapterConfigurationError(
+                    f"the MedCPT {role.value.lower()} member must be {model_id!r}"
+                )
+            if re.fullmatch(r"[a-f0-9]{40,64}", member.revision) is None:
+                raise AdapterConfigurationError(
+                    "MedCPT requires an immutable lowercase commit revision per encoder"
+                )
+        parameters = _validated_parameters(MedCPTDualEncoderParameters, pair)
+        assert isinstance(parameters, MedCPTDualEncoderParameters)
+        if device is not None and device != parameters.device:
+            raise AdapterConfigurationError(
+                "requested device does not match the device sealed in the paired manifest"
+            )
+        self._artifact = pair
+        self._parameters = parameters
+        self._query_runtime = query_runtime or _TorchTransformerRuntime(
+            pair.query.root,
+            device=parameters.device,
+            dtype=parameters.dtype,
+            expected_dimension=MEDCPT_DIMENSION,
+        )
+        self._document_runtime = document_runtime or _TorchTransformerRuntime(
+            pair.document.root,
+            device=parameters.device,
+            dtype=parameters.dtype,
+            expected_dimension=MEDCPT_DIMENSION,
+        )
+
+    @property
+    def artifact(self) -> VerifiedModelArtifactPair:
+        return self._artifact
+
+    async def embed_queries(self, texts: Sequence[str]) -> Sequence[Sequence[float]]:
+        inputs = tuple(texts)
+        if any(not isinstance(text, str) or not text.strip() for text in inputs):
+            raise ValueError("MedCPT queries must be non-empty text")
+        vectors: list[tuple[float, ...]] = []
+        for start in range(0, len(inputs), self._parameters.batch_size):
+            batch = inputs[start : start + self._parameters.batch_size]
+            vectors.extend(
+                await self._encode(
+                    self._query_runtime,
+                    batch,
+                    max_length=self._parameters.query_max_length,
+                )
+            )
+        return tuple(vectors)
+
+    async def embed_documents(self, texts: Sequence[str]) -> Sequence[Sequence[float]]:
+        return await self.embed_passages(
+            tuple(self._split_passage(text) for text in texts)
+        )
+
+    async def embed_passages(
+        self, passages: Sequence[tuple[str, str]]
+    ) -> Sequence[Sequence[float]]:
+        """Encode explicit (title/section, chunk) pairs the article encoder expects."""
+
+        inputs = tuple(passages)
+        if any(
+            not isinstance(passage, tuple)
+            or len(passage) != 2
+            or not isinstance(passage[0], str)
+            or not isinstance(passage[1], str)
+            or not passage[1].strip()
+            for passage in inputs
+        ):
+            raise ValueError("MedCPT passages must be a title/section and a non-empty chunk")
+        vectors: list[tuple[float, ...] | None] = [None] * len(inputs)
+        for start in range(0, len(inputs), self._parameters.batch_size):
+            batch = tuple(
+                enumerate(inputs[start : start + self._parameters.batch_size], start=start)
+            )
+            # Group by whether a title/section is present so a chunk always sees the same
+            # token sequence regardless of which rows share its micro-batch.
+            for titled in (True, False):
+                rows = tuple(item for item in batch if bool(item[1][0].strip()) is titled)
+                if not rows:
+                    continue
+                encoded = await self._encode(
+                    self._document_runtime,
+                    tuple(row[1][0] if titled else row[1][1] for row in rows),
+                    max_length=self._parameters.document_max_length,
+                    text_pairs=tuple(row[1][1] for row in rows) if titled else None,
+                )
+                for (index, _passage), vector in zip(rows, encoded, strict=True):
+                    vectors[index] = vector
+        if any(vector is None for vector in vectors):
+            raise RuntimeError("MedCPT passage encoding was incomplete")
+        return tuple(vector for vector in vectors if vector is not None)
+
+    def _split_passage(self, text: str) -> tuple[str, str]:
+        if not isinstance(text, str) or not text.strip():
+            raise ValueError("MedCPT inputs must be non-empty text")
+        head, separator, tail = text.partition(MEDCPT_PASSAGE_SEPARATOR)
+        if not separator or not tail.strip():
+            return "", text
+        return head, tail
+
+    async def _encode(
+        self,
+        runtime: DualEncoderInferenceRuntime,
+        texts: Sequence[str],
+        *,
+        max_length: int,
+        text_pairs: Sequence[str] | None = None,
+    ) -> tuple[tuple[float, ...], ...]:
+        options: dict[str, object] = {}
+        if text_pairs is not None:
+            options["text_pairs"] = text_pairs
+        encoded = await asyncio.to_thread(
+            runtime.encode,
+            texts,
+            max_length=max_length,
+            pooling=self._parameters.pooling,
+            normalize=self._parameters.normalize,
+            **options,
+        )
+        if len(encoded) != len(texts):
+            raise RuntimeError("MedCPT runtime returned an incomplete batch")
+        vectors: list[tuple[float, ...]] = []
+        for vector in encoded:
+            converted = tuple(float(value) for value in vector)
+            if len(converted) != MEDCPT_DIMENSION:
+                raise RuntimeError("MedCPT runtime returned the wrong hidden dimension")
+            if any(not math.isfinite(value) for value in converted):
+                raise RuntimeError("MedCPT runtime returned a non-finite vector")
+            vectors.append(converted)
+        return tuple(vectors)
 
 
 def _is_cjk(character: str) -> bool:

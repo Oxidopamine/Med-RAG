@@ -29,6 +29,7 @@ from app.corpus_steward.index_schemas import (
 from app.corpus_steward.model_artifacts import (
     ModelArtifactKind,
     VerifiedModelArtifact,
+    VerifiedModelArtifactPair,
 )
 from app.schemas.corpus import (
     CorpusReleaseBundle,
@@ -141,10 +142,15 @@ class EmbeddingBackend(Protocol):
 
 
 class DenseEmbeddingAdapter(Protocol):
-    """Artifact-bound dense model runtime supplied by a production integration."""
+    """Artifact-bound dense model runtime supplied by a production integration.
+
+    A dual encoder supplies a verified artifact pair here instead: it pins vector
+    identity through the same ``manifest``/``reference`` surface, so both halves stay
+    bound to the one candidate identity written into the collection.
+    """
 
     @property
-    def artifact(self) -> VerifiedModelArtifact: ...
+    def artifact(self) -> VerifiedModelArtifact | VerifiedModelArtifactPair: ...
 
     async def embed_documents(
         self, texts: Sequence[str]

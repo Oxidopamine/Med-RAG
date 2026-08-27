@@ -17,11 +17,16 @@ from pydantic import Field, field_validator, model_validator
 from app.corpus_steward.adapter_registry import default_adapter_registry
 from app.corpus_steward.benchmark_schemas import BenchmarkSuite, BenchmarkSuitePartition
 from app.corpus_steward.embedding_adapters import (
+    BGE_M3_ADAPTER_ID,
+    BGE_M3_ADAPTER_REVISION,
+    BGE_M3_DIMENSION,
+    BGE_M3_MODEL_ID,
     QWEN3_ADAPTER_ID,
     QWEN3_ADAPTER_REVISION,
     QWEN3_MODEL_DIMENSIONS,
     QWEN3_OPENVINO_ADAPTER_ID,
     QWEN3_OPENVINO_ADAPTER_REVISION,
+    BGEM3AdapterParameters,
     Qwen3EmbeddingAdapterParameters,
     Qwen3OpenVINOAdapterParameters,
 )
@@ -34,6 +39,19 @@ from app.schemas.corpus import SHA256_PATTERN, CorpusReleaseBundle, canonical_sh
 from app.schemas.domain import CanonicalModel, utc_now
 
 QWEN_RUNTIME_MATRIX_CONTRACT_VERSION = "1.0.0"
+
+# This module measures every allowlisted dense adapter, not only Qwen3 — the name
+# predates BGE-M3 joining the matrix. Each entry pins the parameter-schema class used
+# to cross-check a target's declared runtime settings against its sealed artifact.
+_DENSE_MODEL_DIMENSIONS: dict[str, int] = {
+    **QWEN3_MODEL_DIMENSIONS,
+    BGE_M3_MODEL_ID: BGE_M3_DIMENSION,
+}
+_DENSE_ADAPTER_PARAMETER_MODELS: dict[tuple[str, str], type] = {
+    (QWEN3_ADAPTER_ID, QWEN3_ADAPTER_REVISION): Qwen3EmbeddingAdapterParameters,
+    (QWEN3_OPENVINO_ADAPTER_ID, QWEN3_OPENVINO_ADAPTER_REVISION): Qwen3OpenVINOAdapterParameters,
+    (BGE_M3_ADAPTER_ID, BGE_M3_ADAPTER_REVISION): BGEM3AdapterParameters,
+}
 
 
 class QwenRuntimeTarget(CanonicalModel):
@@ -51,8 +69,8 @@ class QwenRuntimeTarget(CanonicalModel):
 
     @model_validator(mode="after")
     def validate_supported_model(self) -> QwenRuntimeTarget:
-        if QWEN3_MODEL_DIMENSIONS.get(self.model_id) != self.dimension:
-            raise ValueError("Qwen runtime target model/dimension is not allowlisted")
+        if _DENSE_MODEL_DIMENSIONS.get(self.model_id) != self.dimension:
+            raise ValueError("dense runtime target model/dimension is not allowlisted")
         return self
 
 
@@ -267,33 +285,24 @@ async def _measure_target(
         )
         content = manifest.content
         adapter_identity = (content.adapter_id, content.adapter_revision)
-        if adapter_identity == (QWEN3_ADAPTER_ID, QWEN3_ADAPTER_REVISION):
-            parameters = Qwen3EmbeddingAdapterParameters.model_validate(
-                content.adapter_parameters
-            )
-        elif adapter_identity == (
-            QWEN3_OPENVINO_ADAPTER_ID,
-            QWEN3_OPENVINO_ADAPTER_REVISION,
-        ):
-            parameters = Qwen3OpenVINOAdapterParameters.model_validate(
-                content.adapter_parameters
-            )
-        else:
-            raise ValueError("verified artifact does not use an allowlisted Qwen adapter")
+        parameter_model = _DENSE_ADAPTER_PARAMETER_MODELS.get(adapter_identity)
+        if parameter_model is None:
+            raise ValueError("verified artifact does not use an allowlisted dense adapter")
+        parameters = parameter_model.model_validate(content.adapter_parameters)
         if (
             content.artifact_kind is not ModelArtifactKind.DENSE
             or content.model_id != target.model_id
             or content.revision != target.model_revision
             or content.dimension != target.dimension
         ):
-            raise ValueError("verified artifact does not match the pinned Qwen target")
+            raise ValueError("verified artifact does not match the pinned dense target")
         if (
             parameters.device != target.device
             or parameters.dtype != target.dtype
             or parameters.max_length != target.max_length
             or parameters.batch_size != target.batch_size
         ):
-            raise ValueError("Qwen artifact runtime parameters do not match matrix target")
+            raise ValueError("dense artifact runtime parameters do not match matrix target")
         initialization_started = perf_counter()
         adapter = default_adapter_registry().create_dense(
             verified, device=target.device
@@ -324,7 +333,8 @@ async def _measure_target(
             root,
             questions,
             documents,
-            query_instruction=parameters.query_instruction,
+            adapter_identity=adapter_identity,
+            parameters=parameters,
             max_length=target.max_length,
         )
         peak_cuda = _peak_cuda_memory(target.device)
@@ -362,12 +372,41 @@ async def _measure_target(
         )
 
 
+def _formatted_query_document_texts(
+    adapter_identity: tuple[str, str],
+    parameters,
+    questions: tuple[str, ...],
+    documents: tuple[str, ...],
+) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    """Reproduce each adapter's own text formatting for an honest truncation count."""
+
+    if adapter_identity == (BGE_M3_ADAPTER_ID, BGE_M3_ADAPTER_REVISION):
+        return (
+            tuple(
+                f"{parameters.query_prefix} {question}" if parameters.query_prefix else question
+                for question in questions
+            ),
+            tuple(
+                f"{parameters.document_prefix} {document}"
+                if parameters.document_prefix
+                else document
+                for document in documents
+            ),
+        )
+    formatted_queries = tuple(
+        f"Instruct: {parameters.query_instruction}\nQuery:{question}"
+        for question in questions
+    )
+    return formatted_queries, documents
+
+
 def _truncation_counts(
     root: Path,
     questions: tuple[str, ...],
     documents: tuple[str, ...],
     *,
-    query_instruction: str,
+    adapter_identity: tuple[str, str],
+    parameters,
     max_length: int,
 ) -> tuple[int, int]:
     from transformers import AutoTokenizer
@@ -378,8 +417,8 @@ def _truncation_counts(
         trust_remote_code=False,
         use_fast=True,
     )
-    formatted_queries = tuple(
-        f"Instruct: {query_instruction}\nQuery:{question}" for question in questions
+    formatted_queries, formatted_documents = _formatted_query_document_texts(
+        adapter_identity, parameters, questions, documents
     )
     return (
         sum(
@@ -388,7 +427,7 @@ def _truncation_counts(
         ),
         sum(
             len(tokenizer(text, truncation=False)["input_ids"]) > max_length
-            for text in documents
+            for text in formatted_documents
         ),
     )
 

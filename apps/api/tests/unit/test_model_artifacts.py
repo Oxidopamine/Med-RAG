@@ -3,6 +3,7 @@ from collections.abc import Sequence
 from pathlib import Path
 
 import pytest
+from pydantic import ValidationError
 
 from app.corpus_steward.cli import model_artifact_schema_document
 from app.corpus_steward.index_schemas import SparseVector
@@ -10,8 +11,13 @@ from app.corpus_steward.model_artifacts import (
     ModelArtifactError,
     ModelArtifactKind,
     ModelArtifactManifest,
+    ModelArtifactPairManifest,
+    ModelArtifactPairManifestContent,
+    ModelArtifactRole,
     build_model_artifact_manifest,
+    build_model_artifact_pair_manifest,
     verify_model_artifact,
+    verify_model_artifact_pair,
 )
 from app.corpus_steward.vector_producer import (
     EmbeddingExecutionPolicy,
@@ -218,3 +224,176 @@ def test_checked_in_model_artifact_schema_matches_versioned_contract() -> None:
     assert json.loads(SCHEMA_PATH.read_text(encoding="utf-8")) == (
         model_artifact_schema_document()
     )
+
+
+def _pair_member(
+    tmp_path: Path,
+    name: str,
+    *,
+    model_id: str,
+    revision: str,
+    adapter_id: str = "med-rag/dual-adapter",
+    adapter_revision: str = "1.0.0",
+    dimension: int = 768,
+    adapter_parameters: dict | None = None,
+):
+    root = tmp_path / name
+    root.mkdir(parents=True)
+    (root / "config.json").write_text(
+        json.dumps({"architecture": name}, sort_keys=True), encoding="utf-8"
+    )
+    manifest = build_model_artifact_manifest(
+        root,
+        artifact_kind=ModelArtifactKind.DENSE,
+        model_id=model_id,
+        revision=revision,
+        dimension=dimension,
+        adapter_id=adapter_id,
+        adapter_revision=adapter_revision,
+        adapter_parameters=adapter_parameters,
+    )
+    return root, manifest
+
+
+def _pair(tmp_path: Path, **overrides):
+    query_root, query = _pair_member(
+        tmp_path,
+        "query-encoder",
+        model_id="example/query-encoder",
+        revision="1111111111111111111111111111111111111111",
+        **overrides.pop("query", {}),
+    )
+    document_root, document = _pair_member(
+        tmp_path,
+        "article-encoder",
+        model_id="example/article-encoder",
+        revision="2222222222222222222222222222222222222222",
+        **overrides.pop("document", {}),
+    )
+    manifest = build_model_artifact_pair_manifest(
+        query=query,
+        document=document,
+        model_id=overrides.pop("model_id", "example/dual-encoder"),
+        adapter_parameters=overrides.pop("adapter_parameters", {"pooling": "cls"}),
+    )
+    assert not overrides
+    return query_root, document_root, manifest
+
+
+def test_artifact_pair_binds_two_roots_as_one_verified_candidate_identity(
+    tmp_path: Path,
+) -> None:
+    query_root, document_root, manifest = _pair(tmp_path)
+
+    verified = verify_model_artifact_pair(
+        query_root=query_root,
+        document_root=document_root,
+        manifest=manifest,
+        expected_artifact_sha256=manifest.artifact_sha256,
+        expected_kind=ModelArtifactKind.DENSE,
+    )
+
+    assert verified.query.root == query_root.resolve()
+    assert verified.document.root == document_root.resolve()
+    assert verified.member(ModelArtifactRole.QUERY) is verified.query
+    assert verified.member(ModelArtifactRole.DOCUMENT) is verified.document
+    # One identity for the pair, whose digest transitively covers both roots' bytes.
+    assert verified.reference == manifest.model_reference()
+    assert verified.reference.artifact_sha256 == manifest.artifact_sha256
+    assert verified.reference.revision == (
+        "document=2222222222222222222222222222222222222222;"
+        "query=1111111111111111111111111111111111111111"
+    )
+    assert manifest.content.dimension == 768
+    assert manifest.content.artifact_kind is ModelArtifactKind.DENSE
+
+
+def test_artifact_pair_digest_covers_every_byte_of_both_halves(tmp_path: Path) -> None:
+    query_root, document_root, manifest = _pair(tmp_path)
+    (document_root / "config.json").write_text("{}", encoding="utf-8")
+
+    with pytest.raises(ModelArtifactError, match="size|digest"):
+        verify_model_artifact_pair(
+            query_root=query_root,
+            document_root=document_root,
+            manifest=manifest,
+            expected_artifact_sha256=manifest.artifact_sha256,
+        )
+
+
+def test_artifact_pair_rejects_swapped_roles_and_a_shared_root(tmp_path: Path) -> None:
+    query_root, document_root, manifest = _pair(tmp_path)
+
+    with pytest.raises(ModelArtifactError, match="size|digest|inventory mismatch"):
+        verify_model_artifact_pair(
+            query_root=document_root,
+            document_root=query_root,
+            manifest=manifest,
+            expected_artifact_sha256=manifest.artifact_sha256,
+        )
+
+    with pytest.raises(
+        ModelArtifactError, match="size|digest|inventory mismatch|same artifact root"
+    ):
+        verify_model_artifact_pair(
+            query_root=query_root,
+            document_root=query_root,
+            manifest=manifest,
+            expected_artifact_sha256=manifest.artifact_sha256,
+        )
+
+
+def test_artifact_pair_requires_an_independent_digest_pin(tmp_path: Path) -> None:
+    query_root, document_root, manifest = _pair(tmp_path)
+
+    with pytest.raises(ModelArtifactError, match="independently pinned"):
+        verify_model_artifact_pair(
+            query_root=query_root,
+            document_root=document_root,
+            manifest=manifest,
+            expected_artifact_sha256="0" * 64,
+        )
+
+
+def test_artifact_pair_members_cannot_disagree_or_carry_their_own_parameters(
+    tmp_path: Path,
+) -> None:
+    with pytest.raises(ValidationError, match="paired dimension"):
+        _pair(tmp_path / "dimension", query={"dimension": 1024})
+
+    with pytest.raises(ValidationError, match="paired adapter"):
+        _pair(tmp_path / "adapter", query={"adapter_revision": "2.0.0"})
+
+    with pytest.raises(ValidationError, match="cannot carry parameters"):
+        _pair(tmp_path / "parameters", query={"adapter_parameters": {"pooling": "cls"}})
+
+
+def test_artifact_pair_revision_and_membership_cannot_be_forged(tmp_path: Path) -> None:
+    _, _, manifest = _pair(tmp_path)
+    content = manifest.content.model_dump(mode="json")
+    document, query = (member for member in content["members"])
+
+    with pytest.raises(ValidationError, match="derived composite"):
+        ModelArtifactPairManifestContent.model_validate({**content, "revision": "v1"})
+
+    with pytest.raises(ValidationError, match="same artifact twice"):
+        ModelArtifactPairManifestContent.model_validate(
+            {**content, "members": [document, {**document, "role": "QUERY"}]}
+        )
+
+    with pytest.raises(ValidationError, match="one document and one query"):
+        ModelArtifactPairManifestContent.model_validate(
+            {**content, "members": [query, document]}
+        )
+
+
+def test_artifact_pair_manifest_digest_must_match_its_content(tmp_path: Path) -> None:
+    _, _, manifest = _pair(tmp_path)
+
+    with pytest.raises(ValidationError, match="digest does not match"):
+        ModelArtifactPairManifest(content=manifest.content, artifact_sha256="0" * 64)
+
+    resealed = ModelArtifactPairManifest.seal(
+        manifest.content.model_copy(update={"model_id": "example/other"})
+    )
+    assert resealed.artifact_sha256 != manifest.artifact_sha256

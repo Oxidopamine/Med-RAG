@@ -1,0 +1,61 @@
+{
+  "content": {
+    "corpus_release_id": "CR_b6155a25415b25f3ba787b3b036da10d",
+    "development_suite_sha256": "b16a9dff474bdc03a3493f97ceb2c961558205279bc9ccac6d330514bcb2a073",
+    "environment": {
+      "cuda_available": true,
+      "cuda_device_names": [
+        "NVIDIA L4"
+      ],
+      "operating_system": "Linux-6.9.12-x86_64-with-glibc2.35",
+      "processor": "x86_64",
+      "python_version": "3.10.12",
+      "torch_version": "2.5.1+cu121",
+      "transformers_version": "5.16.1"
+    },
+    "executed_at": "2026-08-27T15:09:33.727222Z",
+    "manifest_sha256": "c233322a6e7224e16cafed25d4e5a8c6850fd20a790de5e09081bbeab46ce98c",
+    "matrix_id": "qwen3-embedding-4b-gpu-fp16-v1",
+    "outcome": "COMPLETE",
+    "request_sha256": "8f7980ec93e3d85e8d162517bfd8ec3f1f209096d7382662e852e8534dd537ed",
+    "results": [
+      {
+        "artifact_sha256": "11ed00c61e3eef5d696834d9226f75a380fe975a54d51e09dd4cd6095a0a773f",
+        "blockers": [],
+        "measurements": {
+          "cold_query_latency_ms": 1895.6759769999962,
+          "document_count": 32,
+          "document_items_per_second": 10.280046283800992,
+          "document_mean_latency_ms": 3112.8264519999975,
+          "document_p95_latency_ms": 3115.427625999928,
+          "initialization_latency_ms": 25266.457921000096,
+          "maximum_norm_deviation": 1.4432899320127035e-15,
+          "peak_cuda_memory_bytes": 10205938176,
+          "peak_process_rss_bytes": 17049059328,
+          "query_count": 32,
+          "query_items_per_second": 22.426948003179692,
+          "query_mean_latency_ms": 1426.8548709999702,
+          "query_p95_latency_ms": 1754.6302709999964,
+          "truncated_document_count": 0,
+          "truncated_query_count": 0
+        },
+        "status": "MEASURED",
+        "target": {
+          "artifact_manifest_path": "manifests/qwen3-embedding-4b-gpu-fp16-v1.json",
+          "artifact_root": "models/qwen3-embedding-4b-gpu-fp16-v1",
+          "batch_size": 16,
+          "device": "cuda",
+          "dimension": 2560,
+          "dtype": "float16",
+          "expected_artifact_sha256": "11ed00c61e3eef5d696834d9226f75a380fe975a54d51e09dd4cd6095a0a773f",
+          "max_length": 8192,
+          "model_id": "Qwen/Qwen3-Embedding-4B",
+          "model_revision": "5cf2132abc99cad020ac570b19d031efec650f2b",
+          "target_id": "qwen3-embedding-4b-gpu-fp16-v1"
+        }
+      }
+    ],
+    "schema_version": "1.0.0"
+  },
+  "report_sha256": "2cd0ae8747af067e1d3ae448b376e7cb30a2d17cd5d9fa727f825242f80d2f00"
+}
