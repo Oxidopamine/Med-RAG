@@ -1,24 +1,69 @@
 # Autonomous guideline corpus plan
 
 Status: Phase 0 and the Phase 1 inventory-reconciliation slice are executable
-Reviewed: 2026-08-25
+Reviewed: 2026-08-27
 Scope: official WHO, US, UK, and EU clinical-guideline sources selected by the project
+
+> **Current MVP scope is narrower than this plan.** The product MVP is WHO SMART HIV
+> only; corpus breadth is deferred until the vertical works end to end. This document
+> remains the target architecture, not the current build order. See
+> [roadmap.md](roadmap.md).
 
 ## Implementation status
 
 The first executable slice now includes contract version `1.0.0`, a frozen synthetic
 release bundle, a checked-in JSON Schema, canonical release/evidence persistence, a
 singleton active-release pointer, release/index/activation outbox events, deterministic
-activation gates, and a separate steward validation command. Serving requests pin the
-active release at submission and continue to abstain because retrieval is not configured.
+activation gates, and a separate steward validation command. HTTP question requests pin
+the active release at submission and continue to abstain, because `QuestionService` is not
+yet wired to retrieval. A serving retrieval path and grounded answer composition do exist
+and run against a validated release through `scripts/ask.py`; see
+[architecture.md](architecture.md) for that boundary.
 
 Phase 1 now includes the PostgreSQL trust-root and signing-key registries, an idempotent
 attempt/resumable-stage ledger, content-addressed raw inventory and source artifacts, a
 connector SDK, deterministic synthetic connector, scoped WHO SMART FHIR connector,
 inventory gates, signed exceptions, and Ed25519 verification for reconciliation stages and
-activation decisions. A production workflow scheduler, remote object-store backend,
-additional publishers, Qdrant index construction, and extraction/retrieval benchmarks
+activation decisions. A production workflow scheduler and remote object-store backend
 remain to be built in later phases.
+
+### What the WHO catalogue investigation established (2026-08-27)
+
+The second publisher connector is built, and the route to it was not the expected one.
+
+- **WHO IRIS is completely enumerable but cannot define "guideline".** OAI-PMH 2.0 over
+  DSpace 7.6, second-level granularity, `deletedRecord: transient`, 276,695 records. But
+  its 786 sets are offices and programmes, and `itemtype` has 23 values with no
+  `Guideline` among them — guidelines sit inside *Technical Documents* (33,818) and
+  *Publications* (16,158), in a vocabulary carrying four spellings of "Technical
+  Documents". Nothing there can anchor a complete-inventory gate without the project
+  inventing the population itself, which the trust-root model forbids.
+- **WHO publishes the population elsewhere.** The publications OData hub filtered by the
+  guidelines publishing office returns exactly **358** records — the catalogue WHO renders
+  itself, vetted by the Guidelines Review Committee. Publisher-defined scope, which is
+  what the architecture requires. Records carry ISBN, IRIS handle, publication and
+  modification timestamps.
+- **`DownloadUrl` is not stable and must not be bound.** The same 358 records under the
+  same `$select` return 198 populated fields ordered by `Id` and 256 ordered by
+  publication date, with individual records flipping between a URL and null. Binding
+  `artifact_url` to it would make the inventory fingerprint depend on query shape and
+  report phantom drift on every re-reconciliation. The connector always resolves through
+  the IRIS handle instead, which is deterministic and additionally yields a publisher
+  checksum. Verified: two independent enumerations produce identical item fingerprints.
+- **Scope is a disposition, not an enumeration filter.** The complete catalogue count is
+  preserved in the raw inventory responses; the trust root's `scope_item_ids` records
+  exactly which records it claims. Filtering during enumeration would make the coverage
+  guarantee unfalsifiable — "not in scope" would become indistinguishable from "the
+  connector missed it".
+- **Unacquirable records are recorded, not raised.** Structural blockers stay in the
+  inventory carrying an `acquisition_blocker`; only transport and JSON faults raise, since
+  those are retryable and must not become permanent exceptions.
+
+**The blocking gap for any PDF-only publisher:** `MaterializationService.materialize`
+requires a structured report, which on the HIV path came from FHIR package processing.
+WHO guideline PDFs have no FHIR package, so they can be enumerated and acquired but
+cannot currently reach evidence materialization. A narrative-only path through the
+structured/materialization seam is the work that unblocks corpus breadth.
 
 ## Decision
 

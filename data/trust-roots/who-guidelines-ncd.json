@@ -1,0 +1,221 @@
+{
+  "allowed_domains": [
+    "iris.who.int",
+    "who.int",
+    "www.who.int"
+  ],
+  "asset_licensing": [
+    {
+      "acquisition_allowed": true,
+      "asset_id": "1d90e72b-7821-4670-96c8-169527be111d",
+      "asset_kind": "NARRATIVE_SOURCE",
+      "credential_reference": null,
+      "evidence_materialization_allowed": true,
+      "license_id": "CC-BY-NC-SA-3.0-IGO",
+      "notes": "HYPERTENSION (2021-08-24). Controlling clinical source: Guideline for the pharmacological treatment of hypertension in adults. Rendering disabled pending deployment-specific licence review.",
+      "policy_url": "https://iris.who.int/handle/10665/344424",
+      "redistribution_allowed": false,
+      "render_allowed": false,
+      "source_declared_license_id": "CC-BY-NC-SA-3.0-IGO"
+    },
+    {
+      "acquisition_allowed": true,
+      "asset_id": "2ac67774-ed30-46f3-b826-bff01f6a83e2",
+      "asset_kind": "NARRATIVE_SOURCE",
+      "credential_reference": null,
+      "evidence_materialization_allowed": true,
+      "license_id": "CC-BY-NC-SA-3.0-IGO",
+      "notes": "CERVICAL (2021-12-21). Controlling clinical source: WHO guideline for screening and treatment of cervical pre-cancer lesions for cervical cancer prevention, second edition:. Rendering disabled pending deployment-specific licence review.",
+      "policy_url": "https://iris.who.int/handle/10665/350652",
+      "redistribution_allowed": false,
+      "render_allowed": false,
+      "source_declared_license_id": "CC-BY-NC-SA-3.0-IGO"
+    },
+    {
+      "acquisition_allowed": true,
+      "asset_id": "5adb9d35-f0b5-402c-8b48-285e1ba034a0",
+      "asset_kind": "NARRATIVE_SOURCE",
+      "credential_reference": null,
+      "evidence_materialization_allowed": true,
+      "license_id": "CC-BY-NC-SA-3.0-IGO",
+      "notes": "LOW_BACK_PAIN (2023-12-07). Controlling clinical source: WHO guideline for non-surgical management of chronic primary low back pain in adults in primary and community care setti. Rendering disabled pending deployment-specific licence review.",
+      "policy_url": "https://iris.who.int/handle/10665/374726",
+      "redistribution_allowed": false,
+      "render_allowed": false,
+      "source_declared_license_id": "CC-BY-NC-SA-3.0-IGO"
+    },
+    {
+      "acquisition_allowed": true,
+      "asset_id": "5e38c3ec-f3ab-421e-82b1-2746b1557b64",
+      "asset_kind": "NARRATIVE_SOURCE",
+      "credential_reference": null,
+      "evidence_materialization_allowed": true,
+      "license_id": "CC-BY-NC-SA-3.0-IGO",
+      "notes": "ANAEMIA (2024-03-05). Controlling clinical source: Guideline on haemoglobin cutoffs to define anaemia in individuals and populations. Rendering disabled pending deployment-specific licence review.",
+      "policy_url": "https://iris.who.int/handle/10665/376196",
+      "redistribution_allowed": false,
+      "render_allowed": false,
+      "source_declared_license_id": "CC-BY-NC-SA-3.0-IGO"
+    },
+    {
+      "acquisition_allowed": true,
+      "asset_id": "7ba2d6e8-5a75-4366-bb42-21b08f483da6",
+      "asset_kind": "NARRATIVE_SOURCE",
+      "credential_reference": null,
+      "evidence_materialization_allowed": true,
+      "license_id": "CC-BY-NC-SA-3.0-IGO",
+      "notes": "RHEUMATIC_HEART (2024-10-29). Controlling clinical source: WHO guideline on the prevention and diagnosis of rheumatic fever and rheumatic heart disease. Rendering disabled pending deployment-specific licence review.",
+      "policy_url": "https://iris.who.int/handle/10665/379374",
+      "redistribution_allowed": false,
+      "render_allowed": false,
+      "source_declared_license_id": "CC-BY-NC-SA-3.0-IGO"
+    },
+    {
+      "acquisition_allowed": true,
+      "asset_id": "7d024a2a-7e93-47f5-9d6c-a5773198d7b6",
+      "asset_kind": "NARRATIVE_SOURCE",
+      "credential_reference": null,
+      "evidence_materialization_allowed": true,
+      "license_id": "CC-BY-NC-SA-3.0-IGO",
+      "notes": "SALT_SUBSTITUTES (2025-01-27). Controlling clinical source: Use of lower-sodium salt substitutes: WHO guideline \ufeff. Rendering disabled pending deployment-specific licence review.",
+      "policy_url": "https://iris.who.int/handle/10665/380227",
+      "redistribution_allowed": false,
+      "render_allowed": false,
+      "source_declared_license_id": "CC-BY-NC-SA-3.0-IGO"
+    },
+    {
+      "acquisition_allowed": true,
+      "asset_id": "8ccc77d1-74b5-4c3e-988f-9178d27ca837",
+      "asset_kind": "NARRATIVE_SOURCE",
+      "credential_reference": null,
+      "evidence_materialization_allowed": true,
+      "license_id": "CC-BY-NC-SA-3.0-IGO",
+      "notes": "DEMENTIA (2019-01-01). Controlling clinical source: Risk reduction of cognitive decline and dementia: WHO guidelines. Rendering disabled pending deployment-specific licence review.",
+      "policy_url": "https://iris.who.int/handle/10665/312180",
+      "redistribution_allowed": false,
+      "render_allowed": false,
+      "source_declared_license_id": "CC-BY-NC-SA-3.0-IGO"
+    },
+    {
+      "acquisition_allowed": true,
+      "asset_id": "b5a2e3f8-a57d-4b7f-a54e-4cc95c9ead40",
+      "asset_kind": "NARRATIVE_SOURCE",
+      "credential_reference": null,
+      "evidence_materialization_allowed": true,
+      "license_id": "CC-BY-NC-SA-3.0-IGO",
+      "notes": "LEAD (2021-10-27). Controlling clinical source: Guideline for clinical management of exposure to lead. Rendering disabled pending deployment-specific licence review.",
+      "policy_url": "https://iris.who.int/handle/10665/347360",
+      "redistribution_allowed": false,
+      "render_allowed": false,
+      "source_declared_license_id": "CC-BY-NC-SA-3.0-IGO"
+    },
+    {
+      "acquisition_allowed": true,
+      "asset_id": "b73186ba-0003-40b0-8e50-6bcb50885e48",
+      "asset_kind": "NARRATIVE_SOURCE",
+      "credential_reference": null,
+      "evidence_materialization_allowed": true,
+      "license_id": "CC-BY-NC-SA-3.0-IGO",
+      "notes": "LEAD (2021-10-28). Controlling clinical source: Guideline for clinical management of exposure to lead: Executive summary. Rendering disabled pending deployment-specific licence review.",
+      "policy_url": "https://iris.who.int/handle/10665/347235",
+      "redistribution_allowed": false,
+      "render_allowed": false,
+      "source_declared_license_id": "CC-BY-NC-SA-3.0-IGO"
+    },
+    {
+      "acquisition_allowed": true,
+      "asset_id": "bc2678f7-6b06-46c0-85d5-026a956107ec",
+      "asset_kind": "NARRATIVE_SOURCE",
+      "credential_reference": null,
+      "evidence_materialization_allowed": true,
+      "license_id": "CC-BY-NC-SA-3.0-IGO",
+      "notes": "TOBACCO_CESSATION (2024-07-02). Controlling clinical source: WHO clinical treatment guideline for tobacco cessation in adults. Rendering disabled pending deployment-specific licence review.",
+      "policy_url": "https://iris.who.int/handle/10665/377825",
+      "redistribution_allowed": false,
+      "render_allowed": false,
+      "source_declared_license_id": "CC-BY-NC-SA-3.0-IGO"
+    },
+    {
+      "acquisition_allowed": true,
+      "asset_id": "cc40c0bd-1f24-46e2-bbcf-1aaa508f3942",
+      "asset_kind": "NARRATIVE_SOURCE",
+      "credential_reference": null,
+      "evidence_materialization_allowed": true,
+      "license_id": "CC-BY-NC-SA-3.0-IGO",
+      "notes": "CERVICAL (2026-05-08). Controlling clinical source: WHO guideline for screening and treatment of cervical pre-cancer lesions for cervical cancer prevention: use of human pa. Rendering disabled pending deployment-specific licence review.",
+      "policy_url": "https://iris.who.int/handle/10665/385575",
+      "redistribution_allowed": false,
+      "render_allowed": false,
+      "source_declared_license_id": "CC-BY-NC-SA-3.0-IGO"
+    },
+    {
+      "acquisition_allowed": true,
+      "asset_id": "cef42cf6-b44c-4e31-8680-e4814a9341df",
+      "asset_kind": "NARRATIVE_SOURCE",
+      "credential_reference": null,
+      "evidence_materialization_allowed": true,
+      "license_id": "CC-BY-NC-SA-3.0-IGO",
+      "notes": "MHGAP (2023-11-20). Controlling clinical source: Mental Health Gap Action Programme (mhGAP) guideline for mental, neurological and substance use disorders. Rendering disabled pending deployment-specific licence review.",
+      "policy_url": "https://iris.who.int/handle/10665/374250",
+      "redistribution_allowed": false,
+      "render_allowed": false,
+      "source_declared_license_id": "CC-BY-NC-SA-3.0-IGO"
+    },
+    {
+      "acquisition_allowed": true,
+      "asset_id": "df727f94-0af7-4205-9fdb-655af6a28700",
+      "asset_kind": "NARRATIVE_SOURCE",
+      "credential_reference": null,
+      "evidence_materialization_allowed": true,
+      "license_id": "CC-BY-NC-SA-3.0-IGO",
+      "notes": "CERVICAL (2021-07-06). Controlling clinical source: WHO guideline for screening and treatment of cervical pre-cancer lesions for cervical cancer prevention. Rendering disabled pending deployment-specific licence review.",
+      "policy_url": "https://iris.who.int/handle/10665/342365",
+      "redistribution_allowed": false,
+      "render_allowed": false,
+      "source_declared_license_id": "CC-BY-NC-SA-3.0-IGO"
+    }
+  ],
+  "connector_config": {
+    "allow_unsuffixed_language": false,
+    "hub_url": "https://www.who.int/api/hubs/publications",
+    "iris_api_base": "https://iris.who.int/server/api",
+    "language_suffix": "-eng",
+    "page_size": 100,
+    "publishing_office_id": "c09761c0-ab8e-4cfa-9744-99509c4d306b",
+    "resolve_missing_artifacts": true,
+    "scope_declaration": "PARKED EXPANSION CANDIDATE - NOT THE CURRENT MVP SCOPE. Selects WHO adult non-communicable disease and chronic care guidelines from the official WHO guidelines catalogue. The complete catalogue is enumerated and preserved in the raw inventory responses; scope_item_ids records exactly which records this trust root claims. Authored 2026-08-27. The MVP corpus is WHO SMART HIV only (WHO_SMART_HIV); this trust root is unregistered and must not be reconciled until the narrative-only materialization path exists, because PDF-only sources cannot currently reach evidence materialization. See docs/roadmap.md.",
+    "scope_item_ids": [
+      "1d90e72b-7821-4670-96c8-169527be111d",
+      "2ac67774-ed30-46f3-b826-bff01f6a83e2",
+      "5adb9d35-f0b5-402c-8b48-285e1ba034a0",
+      "5e38c3ec-f3ab-421e-82b1-2746b1557b64",
+      "7ba2d6e8-5a75-4366-bb42-21b08f483da6",
+      "7d024a2a-7e93-47f5-9d6c-a5773198d7b6",
+      "8ccc77d1-74b5-4c3e-988f-9178d27ca837",
+      "b5a2e3f8-a57d-4b7f-a54e-4cc95c9ead40",
+      "b73186ba-0003-40b0-8e50-6bcb50885e48",
+      "bc2678f7-6b06-46c0-85d5-026a956107ec",
+      "cc40c0bd-1f24-46e2-bbcf-1aaa508f3942",
+      "cef42cf6-b44c-4e31-8680-e4814a9341df",
+      "df727f94-0af7-4205-9fdb-655af6a28700"
+    ],
+    "title": "WHO guidelines - non-communicable disease expansion candidate (parked)"
+  },
+  "connector_name": "who-guidelines-hub",
+  "connector_version": "1.0.0",
+  "enabled": false,
+  "jurisdictions": [
+    "WORLD"
+  ],
+  "polling_interval_seconds": 86400,
+  "product_families": [
+    "WHO_GUIDELINES_REVIEW_COMMITTEE_APPROVED_GUIDELINE"
+  ],
+  "publisher_id": "PUB_WHO",
+  "publisher_name": "World Health Organization",
+  "schema_version": "1.0.0",
+  "trust_root_id": "WHO_GUIDELINES_NCD",
+  "trusted_stage_key_ids": [
+    "local-steward-stage"
+  ]
+}

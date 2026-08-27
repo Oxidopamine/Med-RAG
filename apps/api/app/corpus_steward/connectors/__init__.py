@@ -2,6 +2,7 @@
 
 from app.corpus_steward.connectors.base import Connector, HTTPConnectorTransport
 from app.corpus_steward.connectors.synthetic import SyntheticConnector
+from app.corpus_steward.connectors.who_guidelines_hub import WHOGuidelinesHubConnector
 from app.corpus_steward.connectors.who_smart import WHOSmartFHIRConnector
 
 
@@ -9,6 +10,7 @@ def connector_for(name: str, version: str) -> Connector:
     connector_types = {
         SyntheticConnector.name: SyntheticConnector,
         WHOSmartFHIRConnector.name: WHOSmartFHIRConnector,
+        WHOGuidelinesHubConnector.name: WHOGuidelinesHubConnector,
     }
     try:
         connector = connector_types[name]()
@@ -26,6 +28,7 @@ __all__ = [
     "Connector",
     "HTTPConnectorTransport",
     "SyntheticConnector",
+    "WHOGuidelinesHubConnector",
     "WHOSmartFHIRConnector",
     "connector_for",
 ]

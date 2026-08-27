@@ -86,6 +86,53 @@ failures. The first real connector reads the official WHO SMART HIV FHIR
 raw JSON, and acquires its published `package.tgz`. CI builds are deliberately excluded by
 the checked-in trust-root policy.
 
+### `who-guidelines-hub` connector
+
+The second real connector reads the official WHO publications OData catalogue filtered by
+the guidelines publishing office — the 358 records WHO renders as its own guidelines list,
+vetted by the Guidelines Review Committee. WHO defines the population; the connector does
+not decide what counts as a guideline.
+
+Three behaviours are deliberate and should not be "simplified" away:
+
+- **Pagination orders by `Id`, never by date.** Publication dates are neither unique nor
+  stable enough to page against, and a shifting sort silently drops or repeats records.
+- **`DownloadUrl` is never bound to `artifact_url`.** Its population depends on query sort
+  order (measured 2026-08-27: 198 populated under `$orderby=Id`, 256 under
+  `$orderby=PublicationDateAndTime desc`, same `$select`). Binding it would make the
+  inventory fingerprint depend on query shape and report phantom drift on every
+  re-reconciliation. Resolution always goes through the record's IRIS handle, which is
+  deterministic and yields a publisher checksum; the hub URL is retained only as a
+  cross-check and a divergence is recorded rather than silently resolved in IRIS's favour.
+- **Structural blockers are recorded, not raised.** A record the publisher lists but does
+  not make retrievable stays in the inventory carrying an `acquisition_blocker`, so
+  complete-inventory accounting still sees it. Transport and JSON faults still raise:
+  those are retryable, and turning one into a permanent exception would drop a record the
+  publisher does list.
+
+`scope_item_ids` in the trust-root config records exactly which catalogue records the
+trust root claims. The complete catalogue count is preserved in the raw inventory
+responses, so scope narrowing is auditable rather than silent — filtering during
+enumeration would make "not in scope" indistinguishable from "the connector missed it".
+
+`data/trust-roots/who-guidelines-ncd.json` is an authored expansion candidate held at
+`enabled: false`. It must not be reconciled until narrative-only materialization exists:
+PDF-only sources have no structured report, and `MaterializationService.materialize`
+requires one. See [narrative-only-materialization.md](narrative-only-materialization.md)
+for the full set of blockers and the accepted design.
+
+**Two asset vocabularies meet on one artifact here, and that is correct.** In this trust
+root every `asset_licensing` entry declares `LicensedAssetKind.NARRATIVE_SOURCE` while the
+same bytes are preserved by reconciliation as `ArtifactKind.SOURCE`. They are not competing
+labels for one property: `LicensedAssetKind` records *what the content is*, `ArtifactKind`
+records *how it was acquired*. On the WHO SMART HIV path they happen to line up, because
+the narratives are side-channel assets fetched separately from the FHIR package that is the
+inventory source. On a narrative-anchored publisher the inventory source **is** the
+controlling clinical narrative — `asset_id` in `asset_licensing` is the `item_id` from the
+connector — so one artifact carries both. Do not reconcile the two enums or add a
+`NARRATIVE_INVENTORY_SOURCE` member to paper over the overlap; the overlap is a fact about
+the topology.
+
 Every current official item must resolve to an immutable source artifact or an unexpired
 exception whose detached Ed25519 signature verifies under a key registered for the
 `EXCEPTION` purpose. Otherwise the command records an item-specific blocker, returns exit
