@@ -1235,6 +1235,65 @@ async def register_key(arguments: argparse.Namespace) -> int:
         await database.close()
 
 
+async def set_source_licence(arguments: argparse.Namespace) -> int:
+    """Record a rendering licence decision against a source's two permissions.
+
+    Both flags are required rather than defaulted. `docs/rendering-licence.md` exists
+    because quoting a passage and reproducing a page are different acts with different
+    answers, and a command that set one while letting the other drift would rebuild the
+    conflation the columns were split to end.
+
+    Build-side, like every other policy input: this decides what a release may show, and
+    that is not a decision the serving process gets to take at request time.
+    """
+
+    from sqlalchemy import select as _select
+
+    from app.persistence.models import SourceRow
+
+    database = Database(arguments.database_url)
+    try:
+        async with database.session() as session:
+            rows = (
+                (
+                    await session.execute(
+                        _select(SourceRow).where(SourceRow.source_id.in_(arguments.source_id))
+                    )
+                )
+                .scalars()
+                .all()
+            )
+            if missing := sorted(set(arguments.source_id) - {row.source_id for row in rows}):
+                raise ValueError(f"unknown source_id: {', '.join(missing)}")
+            changes = []
+            for row in sorted(rows, key=lambda item: item.source_id):
+                changes.append(
+                    {
+                        "source_id": row.source_id,
+                        "license_excerpt_allowed": {
+                            "from": row.license_excerpt_allowed,
+                            "to": arguments.excerpt,
+                        },
+                        "license_render_allowed": {
+                            "from": row.license_render_allowed,
+                            "to": arguments.page_render,
+                        },
+                    }
+                )
+                row.license_excerpt_allowed = arguments.excerpt
+                row.license_render_allowed = arguments.page_render
+            await session.commit()
+        print(
+            json.dumps(
+                {"decision_ref": arguments.decision_ref, "sources": changes},
+                sort_keys=True,
+            )
+        )
+        return 0
+    finally:
+        await database.close()
+
+
 def keygen(arguments: argparse.Namespace) -> int:
     if arguments.private_key.exists() or arguments.public_key.exists():
         raise ValueError("refusing to overwrite an existing key file")
@@ -2481,6 +2540,36 @@ def build_parser() -> argparse.ArgumentParser:
     trust_root.add_argument("path", type=Path)
     trust_root.add_argument("--replace", action="store_true")
     _add_database_argument(trust_root)
+    set_licence = subparsers.add_parser(
+        "set-source-licence",
+        description=(
+            "Record a rendering licence decision for one or more sources. Both "
+            "permissions must be stated explicitly; see docs/rendering-licence.md."
+        ),
+    )
+    set_licence.add_argument("source_id", nargs="+")
+    excerpt_flag = set_licence.add_mutually_exclusive_group(required=True)
+    excerpt_flag.add_argument(
+        "--excerpt",
+        dest="excerpt",
+        action="store_true",
+        help="permit showing the passage text",
+    )
+    excerpt_flag.add_argument("--no-excerpt", dest="excerpt", action="store_false")
+    page_flag = set_licence.add_mutually_exclusive_group(required=True)
+    page_flag.add_argument(
+        "--page-render",
+        dest="page_render",
+        action="store_true",
+        help="permit reproducing a region of the source page",
+    )
+    page_flag.add_argument("--no-page-render", dest="page_render", action="store_false")
+    set_licence.add_argument(
+        "--decision-ref",
+        required=True,
+        help="where the decision is recorded, e.g. docs/rendering-licence.md#decision",
+    )
+    _add_database_argument(set_licence)
     signing_key = subparsers.add_parser(
         "register-key", description="Register a trusted Ed25519 public key."
     )
@@ -2713,6 +2802,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             return asyncio.run(derive_benchmark_suite_for_candidate(arguments))
         if arguments.command == "register-trust-root":
             return asyncio.run(register_trust_root(arguments))
+        if arguments.command == "set-source-licence":
+            return asyncio.run(set_source_licence(arguments))
         if arguments.command == "register-key":
             return asyncio.run(register_key(arguments))
         if arguments.command == "keygen":

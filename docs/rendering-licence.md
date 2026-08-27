@@ -147,6 +147,53 @@ Once taken, this decision sets `render_allowed` policy per asset in the material
 layer. It is a policy input, not a code change to the anchor chain — the locator, the
 evidence digest, and the anchor replay are unaffected by it either way.
 
+## Applying it, 2026-08-28
+
+The decision could not be expressed when it was taken. `render_allowed` was one boolean
+gating both the excerpt and the page image, which is the conflation this document opened
+by naming — so branch A was unrepresentable: permitting item 2 would have permitted
+item 3 with it.
+
+**Done.**
+
+- The source-level permission is split in two. `license_excerpt_allowed` is "the passage
+  text may be shown"; `license_render_allowed` narrows to "a region of the source page
+  may be reproduced". Migration `0015_licence_excerpt_permission` adds the column and
+  backfills the excerpt permission for any source already cleared for page reproduction,
+  which is the only direction that is implied.
+- The two are **nested, not independent**: the page permission is derived from the
+  excerpt permission, because a page whose text may not be quoted cannot have that text
+  reproduced as a picture instead. This also makes `EvidenceDetail`'s own invariant —
+  restricted evidence exposes no exact highlight — structurally unviolatable rather than
+  merely respected.
+- `EvidenceDetail.render_allowed` now answers the client's question, "may I show this
+  passage", so it carries the excerpt permission. The page permission reaches the client
+  only through `exact_highlight_available`, which is the only thing it can license.
+- The decision is recorded against all four WHO sources by
+  `corpus-steward set-source-licence --excerpt --no-page-render`, which requires both
+  flags explicitly so one can never be set while the other drifts.
+
+**Not yet in effect, and why.** Every one of the 5,145 evidence records carries its own
+`render_allowed: false`, written at materialization from the trust root's licence policy
+and sealed into the record's digest. The serving projection is a conjunction, so the
+build-time copy vetoes the source-level grant and passages still render blank. Making
+branch A visible therefore requires re-materializing the release under a licence policy
+that permits rendering.
+
+That is cheaper than it sounds and is still not free. `evidence_id` derives from
+`run_id:asset_id:unit_id` and not from `render_allowed`, so a re-materialization at the
+same materializer version reproduces **every evidence ID unchanged**, and `content_exact`
+is untouched — so the embeddings remain valid and nothing needs re-encoding. What does
+change is each record's digest, and therefore the release manifest and the release ID:
+the work is a re-materialize, re-register, re-validate, re-seal of the existing vectors
+under the new release ID, re-index, and re-attest.
+
+[mvp-definition.md](mvp-definition.md) already says to batch that re-release behind the
+coverage decision, because everything binding to this corpus is work done twice if stage
+2 condemns it. So the flag flip rides that re-release rather than being taken on its own,
+and the code is ready for it. **A reader today gets locators and citations; passage text
+arrives with the next release.**
+
 ## Sources
 
 - CC BY-NC-SA 3.0 IGO legal code: <https://creativecommons.org/licenses/by-nc-sa/3.0/igo/legalcode>

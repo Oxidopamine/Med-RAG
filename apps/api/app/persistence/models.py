@@ -58,6 +58,13 @@ class SourceRow(Base):
     source_class: Mapped[str] = mapped_column(String(8), nullable=False)
     jurisdiction: Mapped[str] = mapped_column(String(32), nullable=False)
     canonical_url: Mapped[str] = mapped_column(Text, nullable=False)
+    # Two distinct licence acts, deliberately not one flag. `excerpt` is "may the
+    # passage text be shown"; `render` is the stricter "may a region of the source page
+    # be reproduced". WHO's carve-out for figures, tables and maps separates them for a
+    # corpus made of table rows. See docs/rendering-licence.md.
+    license_excerpt_allowed: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False
+    )
     license_render_allowed: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 

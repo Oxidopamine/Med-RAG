@@ -111,6 +111,7 @@ class SQLSourceRegistry:
             source_class=payload.source_class.value,
             jurisdiction=payload.jurisdiction,
             canonical_url=str(payload.canonical_url),
+            license_excerpt_allowed=payload.license_excerpt_allowed,
             license_render_allowed=payload.license_render_allowed,
             created_at=now,
         )
@@ -416,6 +417,7 @@ class SQLSourceRegistry:
             source_class=SourceClass(row.source_class),
             jurisdiction=row.jurisdiction,
             canonical_url=row.canonical_url,
+            license_excerpt_allowed=row.license_excerpt_allowed,
             license_render_allowed=row.license_render_allowed,
             created_at=row.created_at,
         )

@@ -840,7 +840,23 @@ class SQLCorpusReleaseRepository:
         ):
             return None
 
-        render_allowed = evidence.render_allowed and source.license_render_allowed
+        # Two permissions, not one. Quoting a passage and reproducing a region of the
+        # source page are different acts under the licence, and for this corpus they
+        # have different answers: WHO's carve-out for figures, tables and maps lands on
+        # the page image, and the release is almost entirely table rows. Collapsing them
+        # would mean a decision to permit excerpts silently permitting page reproduction
+        # too - which is exactly what docs/rendering-licence.md branch A withholds.
+        #
+        # The per-evidence flag still gates both: a record the corpus itself marks
+        # unrenderable is unrenderable however permissive the source licence is.
+        # The two permissions are nested, not independent: reproducing a region of the
+        # page shows the words on it, so a source whose text may not be quoted cannot
+        # have that text reproduced as a picture instead. Deriving the page permission
+        # from the excerpt one makes that structural, which is also what keeps
+        # `EvidenceDetail`'s own invariant - restricted evidence exposes no exact
+        # highlight - impossible to violate from here rather than merely unlikely.
+        excerpt_allowed = evidence.render_allowed and source.license_excerpt_allowed
+        page_render_allowed = excerpt_allowed and source.license_render_allowed
         locators = [
             EvidenceLocator(
                 kind=anchor.kind.value,
@@ -848,7 +864,9 @@ class SQLCorpusReleaseRepository:
                 pdf_page=anchor.pdf_page,
                 printed_page=anchor.printed_page,
                 bbox=anchor.bbox,
-                exact_highlight_available=render_allowed and anchor.bbox is not None,
+                # An exact highlight draws the region onto the page, so it is the page
+                # permission that gates it, never the excerpt permission.
+                exact_highlight_available=page_render_allowed and anchor.bbox is not None,
                 # A cell address is the whole of what a TABLE_CELL anchor knows. Dropping
                 # it here left the client a locator naming a cell it could not identify,
                 # which is indistinguishable from a document-scope anchor. It carries no
@@ -861,7 +879,7 @@ class SQLCorpusReleaseRepository:
         ]
         return EvidenceDetail(
             evidence_id=evidence.evidence_id,
-            exact_text=evidence.content_exact if render_allowed else None,
+            exact_text=evidence.content_exact if excerpt_allowed else None,
             # The current canonical corpus contract has evidence roles, not a type or
             # section hierarchy. Keep those fields truthful until ingestion supplies them.
             evidence_type=None,
@@ -879,7 +897,11 @@ class SQLCorpusReleaseRepository:
             lifecycle_status=source_version.status,
             effective_from=source_version.effective_from,
             effective_to=source_version.effective_to,
-            render_allowed=render_allowed,
+            # `EvidenceDetail.render_allowed` is the client's answer to "may I show this
+            # passage", which is the excerpt permission. The page permission reaches the
+            # client only through `exact_highlight_available` on each locator, because
+            # that is the only thing it can license.
+            render_allowed=excerpt_allowed,
             locators=locators,
         )
 

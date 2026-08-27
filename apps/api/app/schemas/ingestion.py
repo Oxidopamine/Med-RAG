@@ -52,6 +52,7 @@ class SourceCreate(CanonicalModel):
     source_class: SourceClass
     jurisdiction: str = Field(min_length=2, max_length=32)
     canonical_url: HttpUrl
+    license_excerpt_allowed: bool = False
     license_render_allowed: bool = False
 
 
@@ -62,6 +63,7 @@ class SourceRecord(CanonicalModel):
     source_class: SourceClass
     jurisdiction: str
     canonical_url: HttpUrl
+    license_excerpt_allowed: bool
     license_render_allowed: bool
     created_at: datetime
 

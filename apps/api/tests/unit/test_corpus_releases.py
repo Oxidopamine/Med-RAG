@@ -287,6 +287,10 @@ async def seed_fixture_source(database: Database) -> None:
                 source_class="E1",
                 jurisdiction="TEST",
                 canonical_url="https://fixtures.invalid/synthetic-guideline",
+                # A fully licensed source: both the excerpt and the page-reproduction
+                # permission. They are separate columns because branch A of the WHO
+                # decision grants the first and withholds the second.
+                license_excerpt_allowed=True,
                 license_render_allowed=True,
                 created_at=now,
             )
@@ -612,10 +616,30 @@ async def test_evidence_detail_resolution_honors_license_and_fails_closed(tmp_pa
         ),
     )
 
+    # Branch A of the rendering-licence decision: the passage may be quoted, a region of
+    # the page may not be reproduced. Withdrawing only the page permission must leave the
+    # excerpt intact, or the decision cannot be expressed at all.
     async with database.session() as session:
         source = await session.get(SourceRow, "SRC_FIXTURE_001")
         assert source is not None
         source.license_render_allowed = False
+
+    excerpt_only = await repository.evidence_details(
+        registered.corpus_release_id,
+        {"EV_FIXTURE_PRIMARY_001"},
+    )
+    assert len(excerpt_only) == 1
+    assert excerpt_only[0].render_allowed is True
+    assert excerpt_only[0].exact_text is not None
+    assert excerpt_only[0].locators[0].exact_highlight_available is False
+
+    # Withdrawing the excerpt permission withdraws the page one with it: a page whose
+    # text may not be quoted cannot have that text reproduced as a picture instead.
+    async with database.session() as session:
+        source = await session.get(SourceRow, "SRC_FIXTURE_001")
+        assert source is not None
+        source.license_excerpt_allowed = False
+        source.license_render_allowed = True
 
     restricted = await repository.evidence_details(
         registered.corpus_release_id,
