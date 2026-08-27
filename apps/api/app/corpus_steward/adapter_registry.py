@@ -96,6 +96,11 @@ class ManifestAdapterRegistry:
     def create_dense(
         self, artifact: VerifiedModelArtifact, **runtime_options: Any
     ) -> DenseEmbeddingAdapter:
+        if isinstance(artifact, VerifiedModelArtifactPair):
+            raise AdapterConfigurationError(
+                "an artifact pair cannot be dispatched as a single dense adapter; half a "
+                "dual encoder is not a symmetric model"
+            )
         return self._create(
             artifact,
             expected_kind=ModelArtifactKind.DENSE,
@@ -113,6 +118,11 @@ class ManifestAdapterRegistry:
         symmetric model can never be dispatched as one half of a pair.
         """
 
+        if not isinstance(artifact, VerifiedModelArtifactPair):
+            raise AdapterConfigurationError(
+                "a paired dense adapter requires a verified artifact pair, not a single "
+                "artifact"
+            )
         return self._create(
             artifact,
             expected_kind=ModelArtifactKind.DENSE,

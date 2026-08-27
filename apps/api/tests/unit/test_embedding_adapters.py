@@ -1,3 +1,4 @@
+import asyncio
 import json
 import sys
 from collections.abc import Sequence
@@ -6,6 +7,7 @@ from pathlib import Path
 from types import ModuleType, SimpleNamespace
 
 import pytest
+from pydantic import ValidationError
 
 from app.corpus_steward import adapter_registry, cli
 from app.corpus_steward.adapter_registry import ManifestAdapterRegistry
@@ -34,6 +36,7 @@ from app.corpus_steward.embedding_adapters import (
     AdapterConfigurationError,
     BGEM3DenseAdapter,
     MedCPTDualEncoderAdapter,
+    MedCPTDualEncoderParameters,
     QdrantBM25SparseAdapter,
     Qwen3DenseAdapter,
     Qwen3OpenVINODenseAdapter,
@@ -790,6 +793,92 @@ async def test_medcpt_release_documents_are_encoded_chunk_only(tmp_path: Path) -
         "Give 50 mg once daily.",
     )
     assert document_runtime.calls[0]["text_pairs"] is None
+
+
+def test_a_pair_and_a_single_artifact_cannot_stand_in_for_each_other(
+    tmp_path: Path,
+) -> None:
+    """Both directions fail closed, with an error rather than an AttributeError.
+
+    The reverse direction previously survived every identity check and died deep in the
+    adapter on a missing method, which _create does not catch.
+    """
+
+    registry = adapter_registry.default_adapter_registry()
+    pair = _medcpt_pair(tmp_path / "pair", parameters=_medcpt_parameters())
+    single = _verified_artifact(
+        tmp_path,
+        name="single-dense",
+        kind=ModelArtifactKind.DENSE,
+        model_id=BGE_M3_MODEL_ID,
+        dimension=BGE_M3_DIMENSION,
+        adapter_id=BGE_M3_ADAPTER_ID,
+        adapter_revision=BGE_M3_ADAPTER_REVISION,
+        parameters=_dense_parameters(),
+    )
+
+    with pytest.raises(AdapterConfigurationError, match="not a symmetric model"):
+        registry.create_dense(pair)
+
+    with pytest.raises(AdapterConfigurationError, match="requires a verified artifact pair"):
+        registry.create_dense_pair(single)
+
+
+def test_medcpt_requires_dot_distance_when_it_does_not_normalize(tmp_path: Path) -> None:
+    """MedCPT ranks by dot product over unnormalized [CLS] vectors.
+
+    Qdrant normalizes at insert under Cosine, discarding exactly the norms that ranking
+    depends on, so serving unnormalized vectors through a Cosine collection measures a
+    different model than the published one.
+    """
+
+    unnormalized = MedCPTDualEncoderAdapter(
+        _medcpt_pair(tmp_path / "dot", parameters=_medcpt_parameters()),
+        query_runtime=_DualEncoderRuntime(1.0),
+        document_runtime=_DualEncoderRuntime(2.0),
+    )
+    assert unnormalized.required_distance == "Dot"
+
+    normalized_parameters = {**_medcpt_parameters(), "normalize": True}
+    normalized = MedCPTDualEncoderAdapter(
+        _medcpt_pair(tmp_path / "cosine", parameters=normalized_parameters),
+        query_runtime=_DualEncoderRuntime(1.0),
+        document_runtime=_DualEncoderRuntime(2.0),
+    )
+    assert normalized.required_distance == "Cosine"
+
+
+def test_medcpt_article_budget_is_pinned_not_merely_bounded(tmp_path: Path) -> None:
+    """A shorter article budget must not verify: 512 is the published behaviour.
+
+    As a ceiling this would accept 64 and silently truncate the passage side of every
+    document while the manifest still looked valid.
+    """
+
+    starved = {**_medcpt_parameters(), "document_max_length": 64}
+
+    with pytest.raises(ValidationError):
+        MedCPTDualEncoderParameters.model_validate(starved)
+
+
+def test_medcpt_rejects_a_passage_format_no_encoder_implements(tmp_path: Path) -> None:
+    """The sealed format is a dispatch key, not a label.
+
+    model_construct bypasses the Literal deliberately: the guard exists for a future v2
+    that would otherwise be added to the Literal and silently encode as v1.
+    """
+
+    adapter = MedCPTDualEncoderAdapter(
+        _medcpt_pair(tmp_path, parameters=_medcpt_parameters()),
+        query_runtime=_DualEncoderRuntime(1.0),
+        document_runtime=_DualEncoderRuntime(2.0),
+    )
+    adapter._parameters = MedCPTDualEncoderParameters.model_construct(
+        **{**_medcpt_parameters(), "passage_format": "medcpt-title-section-chunk-v2"}
+    )
+
+    with pytest.raises(AdapterConfigurationError, match="no encoder implements"):
+        asyncio.run(adapter.embed_passages((("Dosing", "Give 50 mg once daily."),)))
 
 
 async def test_medcpt_pair_is_dispatched_only_through_the_paired_allowlist(

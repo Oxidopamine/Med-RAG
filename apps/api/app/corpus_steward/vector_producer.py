@@ -152,6 +152,11 @@ class DenseEmbeddingAdapter(Protocol):
     @property
     def artifact(self) -> VerifiedModelArtifact | VerifiedModelArtifactPair: ...
 
+    @property
+    def required_distance(self) -> str:
+        """The Qdrant distance this model's published scoring requires."""
+        ...
+
     async def embed_documents(
         self, texts: Sequence[str]
     ) -> Sequence[Sequence[float]]: ...
@@ -211,7 +216,7 @@ class ProductionEmbeddingBackend:
         *,
         policy: EmbeddingExecutionPolicy | None = None,
         dense_name: str = "dense",
-        dense_distance: str = "Cosine",
+        dense_distance: str | None = None,
         sparse_name: str = "sparse",
     ) -> None:
         if dense.artifact.manifest.content.artifact_kind is not ModelArtifactKind.DENSE:
@@ -220,6 +225,18 @@ class ProductionEmbeddingBackend:
             raise ValueError("sparse adapter is not bound to a verified sparse artifact")
         if dense_name == sparse_name:
             raise ValueError("dense and sparse vector names must differ")
+        # The collection's distance is a property of the model, not a deployment choice.
+        # It was previously hardcoded to Cosine, which silently mis-serves any model that
+        # ranks by dot product over unnormalized vectors: Qdrant normalizes at insert
+        # under Cosine, discarding the very norms such a model ranks by. Adapters declare
+        # what their published scoring needs, and an explicit override must agree.
+        required_distance = getattr(dense, "required_distance", None)
+        if dense_distance is None:
+            dense_distance = required_distance or "Cosine"
+        elif required_distance is not None and dense_distance != required_distance:
+            raise ValueError(
+                f"dense adapter requires {required_distance} distance, not {dense_distance}"
+            )
         self._dense_adapter = dense
         self._sparse_adapter = sparse
         self._policy = policy or EmbeddingExecutionPolicy()

@@ -48,6 +48,8 @@ MEDCPT_MAX_POSITIONS = 512
 MEDCPT_ADAPTER_ID = "med-rag/medcpt-dual-encoder-transformers"
 MEDCPT_ADAPTER_REVISION = "1.0.0"
 MEDCPT_PASSAGE_FORMAT = "medcpt-title-section-chunk-v1"
+# MedCPT's published usage truncates queries at 64 tokens and articles at 512.
+MEDCPT_QUERY_MAX_LENGTH = 64
 
 BM25_MODEL_ID = "med-rag/qdrant-bm25-unicode"
 BM25_MODEL_REVISION = "1.0.0"
@@ -128,14 +130,19 @@ class MedCPTDualEncoderParameters(_AdapterParameters):
     A paired candidate seals its parameters once, on the pair, so the query and article
     encoders can never drift apart in pooling, precision, or device. ``query_max_length``
     and ``document_max_length`` are separate because MedCPT truncates the two sides
-    differently in official use (64 for queries, 512 for articles); both are capped at
-    the 512 positions the underlying BERT encoders actually have.
+    differently in official use: 64 for queries, 512 for articles.
+
+    ``document_max_length`` is pinned rather than bounded. A ceiling would let a manifest
+    seal a much shorter article budget - 64, say - and still verify and dispatch cleanly,
+    silently truncating the passage side of a model whose published behaviour is 512. The
+    query side stays adjustable around its official 64, because query length is a property
+    of the question rather than of the checkpoint.
     """
 
     pooling: Literal["cls"]
     normalize: bool
-    query_max_length: int = Field(gt=0, le=MEDCPT_MAX_POSITIONS)
-    document_max_length: int = Field(gt=0, le=MEDCPT_MAX_POSITIONS)
+    query_max_length: int = Field(default=MEDCPT_QUERY_MAX_LENGTH, gt=0, le=MEDCPT_MAX_POSITIONS)
+    document_max_length: Literal[MEDCPT_MAX_POSITIONS] = MEDCPT_MAX_POSITIONS
     passage_format: Literal[MEDCPT_PASSAGE_FORMAT]
     batch_size: int = Field(gt=0, le=1024)
     device: str = Field(min_length=1, max_length=50)
@@ -256,13 +263,15 @@ class _TorchTransformerRuntime:
         dtype: str,
         expected_dimension: int,
         padding_side: Literal["left", "right"] | None = None,
+        minimum_positions: int | None = None,
+        label: str = "dense",
     ) -> None:
         try:
             import torch
             from transformers import AutoModel, AutoTokenizer
         except ImportError as error:
             raise AdapterConfigurationError(
-                "the BGE-M3 adapter requires the 'retrieval' optional dependencies"
+                f"the {label} adapter requires the 'retrieval' optional dependencies"
             ) from error
 
         if device.startswith("cuda") and not torch.cuda.is_available():
@@ -297,13 +306,25 @@ class _TorchTransformerRuntime:
                 raise AdapterConfigurationError(
                     "local model hidden size does not match the sealed dimension"
                 )
+            if minimum_positions is not None:
+                # Without this, a sealed truncation budget is never checked against what
+                # the checkpoint can actually encode, so a manifest can pin a length the
+                # model will silently cut short.
+                positions = getattr(
+                    self._model.config, "max_position_embeddings", minimum_positions
+                )
+                if positions < minimum_positions:
+                    raise AdapterConfigurationError(
+                        f"local {label} artifact encodes {positions} positions, fewer than "
+                        f"the sealed {minimum_positions}"
+                    )
             self._model.to(device)
             self._model.eval()
         except AdapterConfigurationError:
             raise
         except Exception as error:
             raise AdapterConfigurationError(
-                f"local BGE-M3 artifact could not be loaded: {error.__class__.__name__}"
+                f"local {label} artifact could not be loaded: {error.__class__.__name__}"
             ) from error
 
         self._device = device
@@ -471,11 +492,18 @@ class BGEM3DenseAdapter:
             device=parameters.device,
             dtype=parameters.dtype,
             expected_dimension=BGE_M3_DIMENSION,
+            label="BGE-M3",
         )
 
     @property
     def artifact(self) -> VerifiedModelArtifact:
         return self._artifact
+
+    @property
+    def required_distance(self) -> str:
+        """Cosine over unit-normalized vectors, which is this family's official scoring."""
+
+        return "Cosine"
 
     async def embed_documents(
         self, texts: Sequence[str]
@@ -563,6 +591,12 @@ class Qwen3DenseAdapter:
     @property
     def artifact(self) -> VerifiedModelArtifact:
         return self._artifact
+
+    @property
+    def required_distance(self) -> str:
+        """Cosine over unit-normalized vectors, which is this family's official scoring."""
+
+        return "Cosine"
 
     async def embed_documents(
         self, texts: Sequence[str]
@@ -733,17 +767,34 @@ class MedCPTDualEncoderAdapter:
             device=parameters.device,
             dtype=parameters.dtype,
             expected_dimension=MEDCPT_DIMENSION,
+            minimum_positions=parameters.query_max_length,
+            label="MedCPT query encoder",
         )
         self._document_runtime = document_runtime or _TorchTransformerRuntime(
             pair.document.root,
             device=parameters.device,
             dtype=parameters.dtype,
             expected_dimension=MEDCPT_DIMENSION,
+            minimum_positions=parameters.document_max_length,
+            label="MedCPT article encoder",
         )
 
     @property
     def artifact(self) -> VerifiedModelArtifactPair:
         return self._artifact
+
+    @property
+    def required_distance(self) -> str:
+        """MedCPT ranks by dot product over unnormalized ``[CLS]`` vectors.
+
+        Cosine is not a harmless substitute. Qdrant normalizes at insert under Cosine, so
+        it discards exactly the vector-norm differences MedCPT's published ranking relies
+        on; the two orderings diverge whenever document norms vary. Serving unnormalized
+        vectors through a Cosine collection would silently measure a model that is not
+        the one NCBI published.
+        """
+
+        return "Cosine" if self._parameters.normalize else "Dot"
 
     async def embed_queries(self, texts: Sequence[str]) -> Sequence[Sequence[float]]:
         inputs = tuple(texts)
@@ -780,6 +831,14 @@ class MedCPTDualEncoderAdapter:
     ) -> Sequence[Sequence[float]]:
         """Encode explicit (title/section, chunk) pairs the article encoder expects."""
 
+        # Dispatch on the sealed format even though only one exists today. Without this
+        # the version is a label rather than a key, and a v2 added to the Literal would
+        # silently encode as v1 while its manifest claimed otherwise.
+        if self._parameters.passage_format != MEDCPT_PASSAGE_FORMAT:
+            raise AdapterConfigurationError(
+                f"no encoder implements passage format "
+                f"{self._parameters.passage_format!r}"
+            )
         inputs = tuple(passages)
         if any(
             not isinstance(passage, tuple)
