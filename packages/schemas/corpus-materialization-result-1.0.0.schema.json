@@ -502,7 +502,15 @@
       "additionalProperties": false,
       "properties": {
         "authority_binding": {
-          "$ref": "#/$defs/SignedAuthorityBinding"
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SignedAuthorityBinding"
+            },
+            {
+              "$ref": "#/$defs/SignedNarrativeAuthorityBinding"
+            }
+          ],
+          "title": "Authority Binding"
         },
         "blockers": {
           "default": [],
@@ -541,8 +549,11 @@
           "type": "string"
         },
         "materializer_name": {
-          "const": "authority-evidence-materializer",
           "default": "authority-evidence-materializer",
+          "enum": [
+            "authority-evidence-materializer",
+            "narrative-evidence-materializer"
+          ],
           "title": "Materializer Name",
           "type": "string"
         },
@@ -569,7 +580,15 @@
           "type": "string"
         },
         "structural_mapping": {
-          "$ref": "#/$defs/StructuralMappingAttachment"
+          "anyOf": [
+            {
+              "$ref": "#/$defs/StructuralMappingAttachment"
+            },
+            {
+              "$ref": "#/$defs/NarrativeAnalysisAttachment"
+            }
+          ],
+          "title": "Structural Mapping"
         }
       },
       "required": [
@@ -793,6 +812,154 @@
       "title": "MaterializedEvidenceRecord",
       "type": "object"
     },
+    "NarrativeAnalysisAttachment": {
+      "additionalProperties": false,
+      "description": "Peer of :class:`StructuralMappingAttachment` for the narrative topology.\n\n``clinical_content_included`` stays ``False``: the narrative source analysis is a\nstructural census of the document, not its text. ``unit_inventory_sha256`` is the prior\nstatement the materializer must recompute from the bytes it extracts and agree with --\nwithout that comparison the attachment is a rubber stamp.",
+      "properties": {
+        "asset_id": {
+          "minLength": 1,
+          "title": "Asset Id",
+          "type": "string"
+        },
+        "authorized_use": {
+          "const": "CLINICAL_EVIDENCE",
+          "default": "CLINICAL_EVIDENCE",
+          "title": "Authorized Use",
+          "type": "string"
+        },
+        "clinical_content_included": {
+          "const": false,
+          "default": false,
+          "title": "Clinical Content Included",
+          "type": "boolean"
+        },
+        "declared_license_id": {
+          "anyOf": [
+            {
+              "maxLength": 200,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Declared License Id"
+        },
+        "narrative_analysis_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Narrative Analysis Sha256",
+          "type": "string"
+        },
+        "narrative_run_id": {
+          "minLength": 1,
+          "title": "Narrative Run Id",
+          "type": "string"
+        },
+        "unit_count": {
+          "exclusiveMinimum": 0,
+          "title": "Unit Count",
+          "type": "integer"
+        },
+        "unit_inventory_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Unit Inventory Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "asset_id",
+        "narrative_run_id",
+        "narrative_analysis_sha256",
+        "unit_inventory_sha256",
+        "unit_count"
+      ],
+      "title": "NarrativeAnalysisAttachment",
+      "type": "object"
+    },
+    "NarrativeAuthorityBindingContent": {
+      "additionalProperties": false,
+      "description": "Authority binding for a narrative-anchored publisher, where one artifact is both the\ninventory source and the controlling clinical narrative.\n\nA sibling of :class:`AuthorityBindingContent`, never an extension of it. That model is\nfrozen: its canonical bytes are committed to signed history that can never be re-signed,\nand ``canonical_json_bytes`` serializes even a ``None``-defaulted field. The two members\nare told apart by their disjoint required fields under ``extra=\"forbid\"``.",
+      "properties": {
+        "assets": {
+          "items": {
+            "$ref": "#/$defs/AuthorityAssetBinding"
+          },
+          "minItems": 1,
+          "title": "Assets",
+          "type": "array"
+        },
+        "bound_at": {
+          "format": "date-time",
+          "title": "Bound At",
+          "type": "string"
+        },
+        "controlling_source_id": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Controlling Source Id",
+          "type": "string"
+        },
+        "input_closure_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Input Closure Sha256",
+          "type": "string"
+        },
+        "licensing_trust_root_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Licensing Trust Root Sha256",
+          "type": "string"
+        },
+        "materialization_run_id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Materialization Run Id",
+          "type": "string"
+        },
+        "narrative_analysis_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Narrative Analysis Sha256",
+          "type": "string"
+        },
+        "reconciliation_candidate_id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Reconciliation Candidate Id",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "1.0.0",
+          "default": "1.0.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "trust_root_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Trust Root Id",
+          "type": "string"
+        },
+        "trust_root_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Trust Root Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "materialization_run_id",
+        "reconciliation_candidate_id",
+        "trust_root_id",
+        "trust_root_sha256",
+        "licensing_trust_root_sha256",
+        "input_closure_sha256",
+        "narrative_analysis_sha256",
+        "controlling_source_id",
+        "assets",
+        "bound_at"
+      ],
+      "title": "NarrativeAuthorityBindingContent",
+      "type": "object"
+    },
     "SignedAuthorityBinding": {
       "additionalProperties": false,
       "properties": {
@@ -837,6 +1004,29 @@
         "attestation"
       ],
       "title": "SignedCorpusReleaseCandidate",
+      "type": "object"
+    },
+    "SignedNarrativeAuthorityBinding": {
+      "additionalProperties": false,
+      "properties": {
+        "attestation": {
+          "$ref": "#/$defs/VerifiedAttestationReference"
+        },
+        "binding_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Binding Sha256",
+          "type": "string"
+        },
+        "content": {
+          "$ref": "#/$defs/NarrativeAuthorityBindingContent"
+        }
+      },
+      "required": [
+        "content",
+        "binding_sha256",
+        "attestation"
+      ],
+      "title": "SignedNarrativeAuthorityBinding",
       "type": "object"
     },
     "SourceAnchor": {

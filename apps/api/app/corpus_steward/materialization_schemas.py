@@ -6,7 +6,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Literal
 
-from pydantic import Field, field_validator, model_validator
+from pydantic import Field, TypeAdapter, field_validator, model_validator
 
 from app.corpus_steward.schemas import (
     STEWARD_CONTRACT_VERSION,
@@ -18,6 +18,13 @@ from app.schemas.domain import CanonicalModel, SourceStatus
 
 MATERIALIZER_NAME = "authority-evidence-materializer"
 MATERIALIZER_VERSION = "1.0.0"
+
+# The narrative path is a separate materializer, not a mode of the structured one. It
+# derives its run ID from the inventory item as well as the candidate, so a multi-item
+# candidate is correct from the first run; the structured derivation is left untouched so
+# no already-signed run ID moves. See docs/narrative-only-materialization.md.
+NARRATIVE_MATERIALIZER_NAME = "narrative-evidence-materializer"
+NARRATIVE_MATERIALIZER_VERSION = "1.0.0"
 
 
 class MaterializationState(str, Enum):
@@ -137,6 +144,73 @@ class SignedAuthorityBinding(CanonicalModel):
         return self
 
 
+class NarrativeAuthorityBindingContent(CanonicalModel):
+    """Authority binding for a narrative-anchored publisher, where one artifact is both the
+    inventory source and the controlling clinical narrative.
+
+    A sibling of :class:`AuthorityBindingContent`, never an extension of it. That model is
+    frozen: its canonical bytes are committed to signed history that can never be re-signed,
+    and ``canonical_json_bytes`` serializes even a ``None``-defaulted field. The two members
+    are told apart by their disjoint required fields under ``extra="forbid"``.
+    """
+
+    schema_version: Literal[STEWARD_CONTRACT_VERSION] = STEWARD_CONTRACT_VERSION
+    materialization_run_id: str = Field(min_length=1, max_length=64)
+    reconciliation_candidate_id: str = Field(min_length=1, max_length=64)
+    trust_root_id: str = Field(min_length=1, max_length=128)
+    trust_root_sha256: str = Field(pattern=SHA256_PATTERN)
+    licensing_trust_root_sha256: str = Field(pattern=SHA256_PATTERN)
+    input_closure_sha256: str = Field(pattern=SHA256_PATTERN)
+    narrative_analysis_sha256: str = Field(pattern=SHA256_PATTERN)
+    controlling_source_id: str = Field(min_length=1, max_length=200)
+    assets: tuple[AuthorityAssetBinding, ...] = Field(min_length=1)
+    bound_at: datetime
+
+    @field_validator("assets")
+    @classmethod
+    def sort_unique_assets(
+        cls, value: tuple[AuthorityAssetBinding, ...]
+    ) -> tuple[AuthorityAssetBinding, ...]:
+        ids = [item.asset_id for item in value]
+        if len(ids) != len(set(ids)):
+            raise ValueError("authority binding asset IDs must be unique")
+        return tuple(sorted(value, key=lambda item: item.asset_id))
+
+    @model_validator(mode="after")
+    def require_every_asset_controls(self) -> NarrativeAuthorityBindingContent:
+        if any(
+            item.authority_role is not AuthorityRole.CONTROLLING_CLINICAL_SOURCE
+            for item in self.assets
+        ):
+            raise ValueError("a narrative authority binding admits no structured companion")
+        if any(item.authorized_use is not AuthorizedUse.CLINICAL_EVIDENCE for item in self.assets):
+            raise ValueError("only controlling assets may authorize clinical evidence")
+        if self.controlling_source_id in {item.asset_id for item in self.assets}:
+            raise ValueError("controlling_source_id identifies the source set, not one asset")
+        return self
+
+
+class SignedNarrativeAuthorityBinding(CanonicalModel):
+    content: NarrativeAuthorityBindingContent
+    binding_sha256: str = Field(pattern=SHA256_PATTERN)
+    attestation: VerifiedAttestationReference
+
+    @model_validator(mode="after")
+    def verify_digest_and_attestation(self) -> SignedNarrativeAuthorityBinding:
+        expected = canonical_sha256(self.content)
+        if self.binding_sha256 != expected:
+            raise ValueError("authority binding digest is inconsistent")
+        if self.attestation.statement_sha256 != expected:
+            raise ValueError("authority binding signature covers different content")
+        return self
+
+
+# The envelope field names are deliberately identical, so every reader of ``binding_sha256``,
+# ``attestation`` or ``content.assets`` keeps working on either member.
+AnyAuthorityBinding = SignedAuthorityBinding | SignedNarrativeAuthorityBinding
+ANY_AUTHORITY_BINDING: TypeAdapter[AnyAuthorityBinding] = TypeAdapter(AnyAuthorityBinding)
+
+
 class MaterializedEvidenceContent(CanonicalModel):
     schema_version: Literal[STEWARD_CONTRACT_VERSION] = STEWARD_CONTRACT_VERSION
     materialization_run_id: str = Field(min_length=1, max_length=64)
@@ -228,6 +302,28 @@ class StructuralMappingAttachment(CanonicalModel):
     clinical_content_included: Literal[False] = False
 
 
+class NarrativeAnalysisAttachment(CanonicalModel):
+    """Peer of :class:`StructuralMappingAttachment` for the narrative topology.
+
+    ``clinical_content_included`` stays ``False``: the narrative source analysis is a
+    structural census of the document, not its text. ``unit_inventory_sha256`` is the prior
+    statement the materializer must recompute from the bytes it extracts and agree with --
+    without that comparison the attachment is a rubber stamp.
+    """
+
+    asset_id: str = Field(min_length=1)
+    narrative_run_id: str = Field(min_length=1)
+    narrative_analysis_sha256: str = Field(pattern=SHA256_PATTERN)
+    unit_inventory_sha256: str = Field(pattern=SHA256_PATTERN)
+    unit_count: int = Field(gt=0)
+    declared_license_id: str | None = Field(default=None, max_length=200)
+    authorized_use: Literal[AuthorizedUse.CLINICAL_EVIDENCE] = AuthorizedUse.CLINICAL_EVIDENCE
+    clinical_content_included: Literal[False] = False
+
+
+AnySourceAnalysisAttachment = StructuralMappingAttachment | NarrativeAnalysisAttachment
+
+
 class EvidenceCoverageReport(CanonicalModel):
     authority_binding_sha256: str = Field(pattern=SHA256_PATTERN)
     assets: tuple[AssetCoverage, ...] = Field(min_length=1)
@@ -271,10 +367,14 @@ class MaterializationReportContent(CanonicalModel):
     schema_version: Literal[STEWARD_CONTRACT_VERSION] = STEWARD_CONTRACT_VERSION
     materialization_run_id: str = Field(min_length=1, max_length=64)
     reconciliation_candidate_id: str = Field(min_length=1, max_length=64)
-    materializer_name: Literal[MATERIALIZER_NAME] = MATERIALIZER_NAME
-    materializer_version: Literal[MATERIALIZER_VERSION] = MATERIALIZER_VERSION
-    authority_binding: SignedAuthorityBinding
-    structural_mapping: StructuralMappingAttachment
+    materializer_name: Literal[MATERIALIZER_NAME, NARRATIVE_MATERIALIZER_NAME] = (
+        MATERIALIZER_NAME
+    )
+    materializer_version: Literal[MATERIALIZER_VERSION, NARRATIVE_MATERIALIZER_VERSION] = (
+        MATERIALIZER_VERSION
+    )
+    authority_binding: AnyAuthorityBinding
+    structural_mapping: AnySourceAnalysisAttachment
     evidence: tuple[MaterializedEvidenceArtifactEntry | MaterializedEvidenceRecord, ...]
     coverage: EvidenceCoverageReport
     completed_at: datetime
@@ -329,6 +429,31 @@ class MaterializationReportContent(CanonicalModel):
         expected_ready = self.coverage.complete and not self.blockers
         if self.ready_for_qa != expected_ready:
             raise ValueError("materialization QA readiness is inconsistent")
+        return self
+
+    @model_validator(mode="after")
+    def verify_one_topology(self) -> MaterializationReportContent:
+        """The materializer, its authority binding and its source analysis agree, or none do.
+
+        Widening three fields by union admits combinations neither materializer can produce
+        -- a narrative binding under a structural mapping, for instance. This closes them.
+        """
+
+        narrative_materializer = self.materializer_name == NARRATIVE_MATERIALIZER_NAME
+        expected_version = (
+            NARRATIVE_MATERIALIZER_VERSION if narrative_materializer else MATERIALIZER_VERSION
+        )
+        if self.materializer_version != expected_version:
+            raise ValueError("materializer name and version identify different materializers")
+        narrative_binding = isinstance(self.authority_binding, SignedNarrativeAuthorityBinding)
+        narrative_analysis = isinstance(self.structural_mapping, NarrativeAnalysisAttachment)
+        if (
+            narrative_binding is not narrative_materializer
+            or narrative_analysis is not narrative_materializer
+        ):
+            raise ValueError(
+                "materializer, authority binding and source analysis describe different topologies"
+            )
         return self
 
 

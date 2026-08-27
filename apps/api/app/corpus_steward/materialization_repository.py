@@ -10,13 +10,14 @@ from sqlalchemy.exc import IntegrityError
 from app.corpus_steward.materialization_schemas import (
     MATERIALIZER_NAME,
     MATERIALIZER_VERSION,
+    AnyAuthorityBinding,
     MaterializationReport,
     MaterializationResult,
     MaterializationState,
     MaterializedEvidenceArtifactEntry,
     MaterializedEvidenceRecord,
-    SignedAuthorityBinding,
     SignedCorpusReleaseCandidate,
+    StructuralMappingAttachment,
 )
 from app.persistence.database import Database
 from app.persistence.models import (
@@ -152,7 +153,15 @@ class SQLMaterializationRepository:
             raise MaterializationRepositoryError(
                 "corpus candidate and artifact must be stored together"
             )
-        binding: SignedAuthorityBinding = content.authority_binding
+        binding: AnyAuthorityBinding = content.authority_binding
+        mapping = content.structural_mapping
+        if not isinstance(mapping, StructuralMappingAttachment):
+            # materialization_runs.structured_run_id is still NOT NULL. The narrative
+            # materializer lands with the migration that makes it nullable and adds
+            # narrative_run_id; until then this is a loud stop, not a silent one.
+            raise MaterializationRepositoryError(
+                "narrative materialization runs need the nullable structured_run_id column"
+            )
         try:
             async with self._database.session() as session:
                 existing = await session.get(MaterializationRunRow, content.materialization_run_id)
@@ -167,7 +176,7 @@ class SQLMaterializationRepository:
                         materialization_run_id=content.materialization_run_id,
                         reconciliation_candidate_id=content.reconciliation_candidate_id,
                         input_run_id=input_run_id,
-                        structured_run_id=content.structural_mapping.structured_run_id,
+                        structured_run_id=mapping.structured_run_id,
                         materializer_name=content.materializer_name,
                         materializer_version=content.materializer_version,
                         state=state.value,

@@ -95,6 +95,17 @@ class MaterializationService:
     ) -> MaterializationResult:
         source = await self._source_repository.source_context(candidate_id, item_id=item_id)
         candidate = source.candidate
+        if len(candidate.content.source_artifacts) != 1:
+            # _run_id hashes the candidate and the materializer, not the item, and
+            # repository.existing() looks up by candidate alone. On a multi-item
+            # candidate a second --item-id would return the first item's stored run as
+            # this item's result. Known limit of the structured path: the derivation is
+            # committed to signed history and cannot move. The narrative materializer
+            # includes the item ID from its first run instead.
+            raise ValueError(
+                "the structured materializer derives one run per candidate; this candidate "
+                "carries more than one included item"
+            )
         trust_root = await self._trust_roots.get_revision(
             candidate.content.trust_root_sha256,
             trust_root_id=candidate.content.snapshot.trust_root_id,

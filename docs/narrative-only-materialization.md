@@ -1,6 +1,6 @@
 # Narrative-only materialization
 
-Status: decisions accepted; step 1 (digest regression fixture) complete, schema widening not started
+Status: decisions accepted; steps 1-3 complete (digest fixture, schema widening, structured multi-item guard); narrative analysis stage not started
 Authored: 2026-08-27
 Decided: 2026-08-27
 Scope: the structured/materialization seam, so a PDF-only publisher can reach evidence
@@ -204,6 +204,45 @@ Verified by mutation: injecting `narrative_analysis_sha256: str | None = None` i
 `AuthorityBindingContent` — the exact shape of change option C forbids — fails four tests,
 including the real stored binding and the real 53 MB report.
 
+### The widening that landed
+
+Committed together, because the last of them is invisible to any static check:
+
+- **`NarrativeAuthorityBindingContent` / `SignedNarrativeAuthorityBinding`** — the sibling
+  member. `AuthorityBindingContent` was not touched, not one field.
+- **`NarrativeAnalysisAttachment`** — peer of `StructuralMappingAttachment`, mirroring it
+  field for field: `narrative_run_id`, `narrative_analysis_sha256`,
+  `unit_inventory_sha256`, `unit_count`, and `declared_license_id` where the structural
+  member carries `implementation_guide_experimental`. `clinical_content_included` stays
+  `False` on both — the census is not the text.
+- **`AnyAuthorityBinding` and `AnySourceAnalysisAttachment`**, plus the
+  `ANY_AUTHORITY_BINDING` `TypeAdapter`, which is the only way the union reaches a parse
+  of a stored JSON column.
+- **`materializer_name` / `materializer_version`** widened to two-value literals with the
+  structured values still the defaults, so the structured path constructs unchanged.
+- **`MaterializationReportContent.verify_one_topology`** — new. Three fields widened
+  independently admit combinations neither materializer can produce: a narrative binding
+  under a structural mapping, the narrative materializer over structured inputs. The
+  validator requires materializer, binding and analysis to agree or none to. It is
+  satisfied by the stored HIV report, which is why it could be added at all.
+
+**The escape hatch was not needed and was not used.** No compat shim, no
+`MATERIALIZER_VERSION` bump, no re-materialization, no `_run_id` change.
+
+Verified, not assumed: the full suite passes (249 tests), and
+`test_stored_materialization_report_digest_is_unchanged` **ran rather than skipping** — the
+real 53 MB report was read from the local artifact store, validated through the widened
+union, resolved to `SignedAuthorityBinding`, and re-serialized to bytes identical to the
+stored blob. Option C holds on the one artifact that could have disproved it.
+
+Four new tests pin the widening itself: that stored content still resolves to the
+structured member; that a narrative binding resolves to the narrative member and that
+neither member validates the other's payload (`extra="forbid"` over disjoint required
+fields is the whole discriminator); and that the three mixed topologies are rejected while
+the all-narrative combination validates. The pinned field-name sets now cover the three new
+models too — not history yet, but pinned so the first narrative binding is signed against a
+shape someone chose rather than one that drifted in.
+
 ## Run identity: two materializers, no cascade
 
 The first draft of this note treated per-item run identity as a fix to `_run_id` and
@@ -223,6 +262,21 @@ exist. **Do not "fix" `_run_id` for the structured path.** Add a guard that rais
 structured candidate ever carries more than one included item, and record it as a known
 limit. That converts a silent wrong answer into a loud one without touching signed history.
 
+**The guard landed with the widening.** `MaterializationService.materialize` now raises if
+`candidate.content.source_artifacts` holds more than one entry, immediately after
+`source_context` and before any other collaborator is touched — so nothing is written for a
+candidate the structured derivation cannot address. Note where the hole actually was:
+`source_context` already refused a multi-item candidate when `item_id` was `None`
+([structured_repository.py:95](../apps/api/app/corpus_steward/structured_repository.py#L95)).
+Passing `--item-id` was what got past it, and then `repository.existing(candidate_id)`
+returned the first item's run. Two tests cover it, and the guard was mutation-checked:
+disabling the condition makes the multi-item test fail.
+
+**Known limit, recorded:** the structured materializer derives one run per reconciliation
+candidate. A structured publisher whose candidate carries several included items cannot be
+materialized at all until that derivation changes, and the derivation cannot change — it is
+committed to signed history. The narrative materializer is the path that admits many items.
+
 ## Every site that must widen with the schema
 
 Type-checking does not propagate the union to code that parses a stored JSON column back
@@ -239,17 +293,32 @@ into a concrete model. Five sites, all in the same step as the schema change:
 The `.content.assets` and `.content.licensing_trust_root_sha256` accesses in
 `qa_service.py` are safe: both binding members carry those fields.
 
+**Corrected while implementing: seven sites, not five.** The fifth row above is wrong —
+`materialization_service.py` constructs `SignedAuthorityBinding` directly and carries no
+annotation to widen, so the structured path needed no change there at all. Two sites the
+table missed:
+
+| Site | Why |
+| --- | --- |
+| [qa_repository.py:329](../apps/api/app/corpus_steward/qa_repository.py#L329) | `register_promoted_sources(authority_binding: SignedAuthorityBinding)` — the promotion boundary, reached with whatever `candidate_context` returned |
+| `packages/schemas/corpus-materialization-result-1.0.0.schema.json` | a checked-in contract document, regenerated from `MaterializationResult.model_json_schema()` and asserted equal by `test_materialization_schema_is_checked_in` |
+
+The regenerated contract is purely additive: three `$ref`/`const` sites become `anyOf`
+and two-value `enum`s. Nothing the schema admitted before is now rejected, and the
+filename stays pinned to `MATERIALIZER_VERSION` `1.0.0`, which did not move.
+
 ## Work items
 
 Ordered; each is independently reviewable.
 
 1. **Digest regression fixture.** *(Done — `apps/api/tests/unit/test_steward_digest_history.py`.)*
    No behaviour change.
-2. **Narrative binding member and the five widen sites** — `NarrativeAuthorityBindingContent`,
-   `NarrativeAnalysisAttachment`, the `materializer_name` literal union, and the table above.
-   `AuthorityBindingContent` is not touched.
-3. **Structured multi-item guard.** Raise if a structured candidate carries more than one
-   included item; record the known limit. No change to `_run_id` on that path.
+2. **Narrative binding member and the widen sites** *(Done.)*
+   `NarrativeAuthorityBindingContent`, `NarrativeAnalysisAttachment`, the `materializer_name`
+   literal union, and seven sites rather than five. `AuthorityBindingContent` untouched.
+3. **Structured multi-item guard.** *(Done — same commit.)* Raises if a structured candidate
+   carries more than one included item; known limit recorded above. `_run_id` unchanged on
+   that path.
 4. **Narrative-anchored input closure.** A mode selected by trust-root config (proposed
    `source_topology: "NARRATIVE_ANCHORED"`, absent ⇒ today's DAK behaviour): skip FHIR
    parsing and the dependency registry, and synthesize the `ResolvedNarrativeArtifact` from
@@ -308,6 +377,20 @@ XLSX rows and the narrative corpus fails differently:
   or within-asset dedup will not catch these; near-identical recommendation text from two
   editions of the same guideline is a supersession problem wearing a dedup costume, and
   picking the wrong edition is a clinical-safety failure, not a ranking nuisance.
+
+  **Update, 2026-08-27: lifecycle now decides, and that closes the half of this that was
+  actually dangerous.** `SERVABLE_LIFECYCLE_STATES` in
+  [retrieval_service.py:72](../apps/api/app/reasoning/retrieval_service.py#L72) admits
+  `EFFECTIVE` only, and is applied as a retrieval filter rather than a post-hoc ranking
+  adjustment. A superseded edition materialized into the corpus can no longer reach a
+  reader, so "the 2021 guideline outranks the 2026 one" stops being a clinical-safety
+  failure. What remains is a retrieval-quality problem: two editions that are both
+  `EFFECTIVE`, or a summary and its full document, still crowd each other's passages out of
+  a fixed candidate budget. That is the right shape of problem to have here — dedup should
+  be arguing about redundancy, not about which edition is current. The supersession
+  question moves to where it belongs, which is whether lifecycle status is *correct* for
+  all thirteen assets at materialization time, not whether retrieval can be taught to
+  prefer the newer text.
 - **Running headers and footers repeat on every page.** Page-level units make WHO
   boilerplate — document title, ISBN, page number — a term that occurs in every unit of a
   300-page document.

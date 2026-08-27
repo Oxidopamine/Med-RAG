@@ -9,8 +9,9 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
 from app.corpus_steward.materialization_schemas import (
+    ANY_AUTHORITY_BINDING,
+    AnyAuthorityBinding,
     MaterializedEvidenceRecord,
-    SignedAuthorityBinding,
     SignedCorpusReleaseCandidate,
 )
 from app.corpus_steward.qa_schemas import (
@@ -60,7 +61,7 @@ class MaterializedEvidenceArtifact:
 class QACandidateContext:
     materialization_run_id: str
     candidate: SignedCorpusReleaseCandidate
-    authority_binding: SignedAuthorityBinding
+    authority_binding: AnyAuthorityBinding
     reconciliation: ReconciliationReleaseCandidate
     evidence: tuple[MaterializedEvidenceArtifact, ...]
 
@@ -121,7 +122,10 @@ class SQLQARepository:
             run, candidate = matches[0]
             if candidate.candidate_sha256 != run.corpus_candidate_sha256:
                 raise QARepositoryError("stored corpus release candidate digest is inconsistent")
-            binding = SignedAuthorityBinding.model_validate(run.authority_binding)
+            # A stored JSON column, so the widened annotation above reaches this parse
+            # only through the adapter. Naming one member here would materialize a
+            # narrative binding successfully and then reject it at QA.
+            binding = ANY_AUTHORITY_BINDING.validate_python(run.authority_binding)
             if binding.binding_sha256 != run.authority_binding_sha256:
                 raise QARepositoryError("stored authority binding digest is inconsistent")
             reconciliation_row = await session.get(
@@ -323,7 +327,7 @@ class SQLQARepository:
         self,
         *,
         evidence: tuple[CorpusEvidenceRecord, ...],
-        authority_binding: SignedAuthorityBinding,
+        authority_binding: AnyAuthorityBinding,
         trust_root: TrustRootDefinition,
     ) -> None:
         assets = {item.asset_id: item for item in authority_binding.content.assets}

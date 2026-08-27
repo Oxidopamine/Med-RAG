@@ -16,11 +16,15 @@ See docs/narrative-only-materialization.md for why this gates the narrative-only
 import hashlib
 import json
 import os
+from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
 
 from app.corpus_steward.materialization_schemas import (
+    ANY_AUTHORITY_BINDING,
+    NARRATIVE_MATERIALIZER_NAME,
+    NARRATIVE_MATERIALIZER_VERSION,
     AssetCoverage,
     AuthorityAssetBinding,
     AuthorityBindingContent,
@@ -31,8 +35,11 @@ from app.corpus_steward.materialization_schemas import (
     MaterializedEvidenceArtifactEntry,
     MaterializedEvidenceContent,
     MaterializedEvidenceRecord,
+    NarrativeAnalysisAttachment,
+    NarrativeAuthorityBindingContent,
     SignedAuthorityBinding,
     SignedCorpusReleaseCandidate,
+    SignedNarrativeAuthorityBinding,
     StructuralMappingAttachment,
 )
 from app.corpus_steward.schemas import AssetLicensingPolicy, VerifiedAttestationReference
@@ -179,7 +186,33 @@ FROZEN_MODEL_FIELDS: dict[str, tuple[str, ...]] = {
         "source_version_id",
     ),
     "MaterializedEvidenceRecord": ("content", "evidence_sha256"),
+    # Not history yet: no narrative binding has been signed. Pinned all the same, so the
+    # first one is signed against a shape someone chose rather than one that drifted in.
+    "NarrativeAnalysisAttachment": (
+        "asset_id",
+        "authorized_use",
+        "clinical_content_included",
+        "declared_license_id",
+        "narrative_analysis_sha256",
+        "narrative_run_id",
+        "unit_count",
+        "unit_inventory_sha256",
+    ),
+    "NarrativeAuthorityBindingContent": (
+        "assets",
+        "bound_at",
+        "controlling_source_id",
+        "input_closure_sha256",
+        "licensing_trust_root_sha256",
+        "materialization_run_id",
+        "narrative_analysis_sha256",
+        "reconciliation_candidate_id",
+        "schema_version",
+        "trust_root_id",
+        "trust_root_sha256",
+    ),
     "SignedAuthorityBinding": ("attestation", "binding_sha256", "content"),
+    "SignedNarrativeAuthorityBinding": ("attestation", "binding_sha256", "content"),
     "SignedCorpusReleaseCandidate": ("attestation", "candidate_sha256", "content"),
     "StructuralMappingAttachment": (
         "asset_id",
@@ -215,7 +248,10 @@ _MODELS = {
     "MaterializedEvidenceArtifactEntry": MaterializedEvidenceArtifactEntry,
     "MaterializedEvidenceContent": MaterializedEvidenceContent,
     "MaterializedEvidenceRecord": MaterializedEvidenceRecord,
+    "NarrativeAnalysisAttachment": NarrativeAnalysisAttachment,
+    "NarrativeAuthorityBindingContent": NarrativeAuthorityBindingContent,
     "SignedAuthorityBinding": SignedAuthorityBinding,
+    "SignedNarrativeAuthorityBinding": SignedNarrativeAuthorityBinding,
     "SignedCorpusReleaseCandidate": SignedCorpusReleaseCandidate,
     "StructuralMappingAttachment": StructuralMappingAttachment,
     "VerifiedAttestationReference": VerifiedAttestationReference,
@@ -300,3 +336,159 @@ def test_signed_content_models_have_not_gained_or_lost_fields(model_name: str) -
         "re-signed. Widen an existing field by union instead -- see "
         "docs/narrative-only-materialization.md."
     )
+
+
+# ---------------------------------------------------------------------------------------
+# The union widening itself. Option C only holds if the stored structured member is still
+# the one that wins, and if the new member cannot be mistaken for it.
+# ---------------------------------------------------------------------------------------
+
+
+def _digest(seed: str) -> str:
+    return hashlib.sha256(seed.encode()).hexdigest()
+
+
+def _narrative_binding() -> SignedNarrativeAuthorityBinding:
+    """A narrative binding built from the real one: same assets, minus the companion."""
+
+    stored = SignedAuthorityBinding.model_validate(
+        json.loads((FIXTURE_DIR / "authority-binding.json").read_bytes())
+    )
+    content = NarrativeAuthorityBindingContent(
+        materialization_run_id="MAT_0000000000000000000000000000narr",
+        reconciliation_candidate_id=stored.content.reconciliation_candidate_id,
+        trust_root_id=stored.content.trust_root_id,
+        trust_root_sha256=stored.content.trust_root_sha256,
+        licensing_trust_root_sha256=stored.content.licensing_trust_root_sha256,
+        input_closure_sha256=stored.content.input_closure_sha256,
+        narrative_analysis_sha256=_digest("narrative-analysis"),
+        controlling_source_id=stored.content.controlling_source_id,
+        assets=tuple(
+            item
+            for item in stored.content.assets
+            if item.asset_id != stored.content.structured_companion_id
+        ),
+        bound_at=stored.content.bound_at,
+    )
+    digest = canonical_sha256(content)
+    return SignedNarrativeAuthorityBinding(
+        content=content,
+        binding_sha256=digest,
+        attestation=stored.attestation.model_copy(update={"statement_sha256": digest}),
+    )
+
+
+def test_widened_binding_field_still_resolves_the_stored_member() -> None:
+    """The whole point of option C: existing signed content picks the old member, unchanged."""
+
+    raw = (FIXTURE_DIR / "authority-binding.json").read_bytes()
+    binding = ANY_AUTHORITY_BINDING.validate_python(json.loads(raw))
+
+    assert isinstance(binding, SignedAuthorityBinding)
+    assert binding.binding_sha256 == AUTHORITY_BINDING_SHA256
+    assert canonical_json_bytes(binding) == raw
+
+
+def test_narrative_binding_is_not_mistaken_for_the_structured_member() -> None:
+    binding = _narrative_binding()
+    resolved = ANY_AUTHORITY_BINDING.validate_python(json.loads(canonical_json_bytes(binding)))
+
+    assert isinstance(resolved, SignedNarrativeAuthorityBinding)
+    assert canonical_json_bytes(resolved) == canonical_json_bytes(binding)
+    # extra="forbid" over disjoint required fields is what discriminates the two members.
+    with pytest.raises(ValueError):
+        SignedAuthorityBinding.model_validate(json.loads(canonical_json_bytes(binding)))
+    with pytest.raises(ValueError):
+        SignedNarrativeAuthorityBinding.model_validate(
+            json.loads((FIXTURE_DIR / "authority-binding.json").read_bytes())
+        )
+
+
+def _report_content(**overrides: object) -> MaterializationReportContent:
+    entry = MaterializedEvidenceArtifactEntry(
+        evidence_id="EV_topology",
+        evidence_sha256=_digest("evidence"),
+        artifact_sha256=_digest("artifact"),
+        source_artifact_sha256=_digest("source"),
+        asset_id="WHO_HIV_DAK_2_MAIN",
+        source_unit_id="unit-1",
+    )
+    coverage = EvidenceCoverageReport(
+        authority_binding_sha256=AUTHORITY_BINDING_SHA256,
+        assets=(
+            AssetCoverage(
+                asset_id="WHO_HIV_DAK_2_MAIN",
+                source_artifact_sha256=_digest("source"),
+                expected_source_units=1,
+                materialized_source_units=1,
+                empty_source_units=0,
+                evidence_ids=("EV_topology",),
+                complete=True,
+            ),
+        ),
+        expected_asset_ids=("WHO_HIV_DAK_2_MAIN",),
+        evidence_count=1,
+        complete=True,
+    )
+    fields: dict[str, object] = {
+        "materialization_run_id": MATERIALIZATION_RUN_ID,
+        "reconciliation_candidate_id": "RC_be174c24ccfbcecf332a58c93ae4ea02",
+        "authority_binding": SignedAuthorityBinding.model_validate(
+            json.loads((FIXTURE_DIR / "authority-binding.json").read_bytes())
+        ),
+        "structural_mapping": StructuralMappingAttachment(
+            asset_id="WHO_SMART_HIV_FHIR",
+            structured_run_id="STR_topology",
+            structured_report_sha256=_digest("structured-report"),
+            resource_inventory_sha256=_digest("resource-inventory"),
+            resource_count=1,
+            implementation_guide_experimental=True,
+        ),
+        "evidence": (entry,),
+        "coverage": coverage,
+        "completed_at": datetime(2026, 8, 25, 8, 8, 30, tzinfo=timezone.utc),
+        "ready_for_qa": True,
+    }
+    fields.update(overrides)
+    return MaterializationReportContent(**fields)
+
+
+def test_report_accepts_the_structured_topology() -> None:
+    content = _report_content()
+
+    assert isinstance(content.authority_binding, SignedAuthorityBinding)
+    assert isinstance(content.structural_mapping, StructuralMappingAttachment)
+
+
+def test_report_rejects_a_binding_and_an_analysis_from_different_topologies() -> None:
+    """Three widened fields admit combinations no materializer produces. None may validate."""
+
+    narrative_analysis = NarrativeAnalysisAttachment(
+        asset_id="WHO_HIV_DAK_2_MAIN",
+        narrative_run_id="NAR_topology",
+        narrative_analysis_sha256=_digest("narrative-analysis"),
+        unit_inventory_sha256=_digest("unit-inventory"),
+        unit_count=1,
+    )
+    # A narrative analysis under the structured materializer and its structured binding.
+    with pytest.raises(ValueError):
+        _report_content(structural_mapping=narrative_analysis)
+    # The narrative materializer over structured inputs.
+    with pytest.raises(ValueError):
+        _report_content(materializer_name=NARRATIVE_MATERIALIZER_NAME)
+    # A narrative binding still carrying a structural mapping.
+    with pytest.raises(ValueError):
+        _report_content(
+            materializer_name=NARRATIVE_MATERIALIZER_NAME,
+            authority_binding=_narrative_binding(),
+        )
+    # All three agreeing is the one narrative combination that validates.
+    content = _report_content(
+        materializer_name=NARRATIVE_MATERIALIZER_NAME,
+        materializer_version=NARRATIVE_MATERIALIZER_VERSION,
+        authority_binding=_narrative_binding(),
+        structural_mapping=narrative_analysis,
+    )
+
+    assert isinstance(content.authority_binding, SignedNarrativeAuthorityBinding)
+    assert isinstance(content.structural_mapping, NarrativeAnalysisAttachment)
