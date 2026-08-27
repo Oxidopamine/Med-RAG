@@ -231,12 +231,12 @@ class ServingRetrievalEngine:
             problems.append("dense model artifact")
         if sparse.model != self._sparse_lane.model:
             problems.append("sparse model artifact")
-        if self._backend.dense_adapter_identity() != (
+        if self._backend.dense_adapter_identity != (
             self._dense_lane.adapter_id,
             self._dense_lane.adapter_revision,
         ):
             problems.append("dense adapter identity")
-        if self._backend.sparse_adapter_identity() != (
+        if self._backend.sparse_adapter_identity != (
             self._sparse_lane.adapter_id,
             self._sparse_lane.adapter_revision,
         ):
