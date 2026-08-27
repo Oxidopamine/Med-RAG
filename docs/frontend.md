@@ -32,7 +32,17 @@ polling responses are generation-checked and cannot overwrite the active run.
 
 The desktop interface uses a full-width composer followed by a two-column audit
 workspace: the result and evidence panels on the left, and source inspection plus
-verification on the right. The source inspector presents canonical passage text and
+verification on the right. Above 1080px both columns are sticky panes that scroll within
+the viewport rather than the page growing to hold them, because a claim and the passage it
+rests on have to be readable against each other. Scroll chaining is left on so the page can
+still tuck the composer away, and the panes are capped in `dvh` so mobile browser chrome
+does not hide their last rows. Below 1080px the columns become `display: contents` and the
+sticky positioning is explicitly reset - the grid track sticky was measured against no
+longer exists.
+
+Every panel that is a direct child of the workspace grid needs an explicit `order` in the
+1080px block. A panel without one inherits `order: 0` and jumps ahead of everything that
+has one, which is how uncited passages once rendered above the answer. The source inspector presents canonical passage text and
 locator metadata supplied by the API; it is not a fabricated PDF page or a general PDF
 renderer.
 
@@ -45,8 +55,10 @@ gate outcome ahead of detailed provenance on touch and zoomed layouts.
 
 The feature components in `components/evidence-workspace/` have focused roles:
 
-- `app-header.tsx` renders product identity, primary navigation, and the prototype
-  status.
+- `app-header.tsx` renders product identity, the active release, and the prototype
+  status. The release chip replaces a primary navigation that had one destination: which
+  approved release a question will be checked against is the product's boundary, and it
+  was previously discoverable only after a run.
 - `question-composer.tsx` owns question entry and submission controls.
 - `getting-started.tsx` explains corpus readiness and the fail-closed starting state.
 - `run-progress.tsx` presents the current pipeline stage without exposing claim text in
@@ -60,14 +72,52 @@ The feature components in `components/evidence-workspace/` have focused roles:
 - `provenance-strip.tsx` exposes the pinned corpus release, manifest reference, and run
   identifier.
 - `feedback-banner.tsx` provides calm inline status, success, warning, and error
-  messages.
+  messages. Transient messages sit in a slot above the workspace grid whose height is
+  reserved while a result is on screen, so an arriving or auto-dismissing message neither
+  moves the result nor covers the source inspector.
 - `context-dialog.tsx` provides the interpreted-context editor.
 
 `use-evidence-run.ts` owns the asynchronous state machine, including SSE progress,
 terminal-result loading, stale-run cancellation, and polling fallback.
 
-Component styling is scoped through `workspace.module.css`. Keep only application-wide
-tokens, font inheritance, and element resets in `app/globals.css`. The context editor
+In the source inspector, rank is the identity of every rail entry and the locator is
+secondary text beneath it — three label vocabularies in a 66px column was a puzzle rather
+than a wayfinder. `j` and `k` walk the ranking, bound to the rail rather than the document
+so they cannot swallow a keystroke while someone is typing a question, and focus follows
+the selection. The text-size choice persists in `localStorage`: it is an accessibility
+preference, not a per-run whim.
+
+Component styling is scoped through `workspace.module.css`; `app/globals.css` holds the
+token layer, font inheritance, and element resets. Components reference the semantic
+tokens only - `--bg-*`, `--text-*`, `--border-*`, `--ink-*`, `--accent-*`,
+`--ok/--warn/--danger-*` - and no component stylesheet carries a literal colour.
+
+**One light theme, declared.** `color-scheme: light` on `:root` so the browser paints its
+own scrollbars, canvas and native selects in the scheme the stylesheet designed for. There
+is no dark theme; the second palette was removed rather than left half-considered.
+
+**The black action.** `--ink` (near-black) is the only high-contrast fill in the
+interface, and exactly one control per surface may carry it: `Review evidence` on the
+composer, `Run again` in the context editor. Everything else is a hairline-bordered
+surface button. `--shadow-ink` carries an inset top highlight, which is what stops a flat
+black rectangle reading as a disabled block. Blue is reserved for links and the anchor
+viewer's status line; it is never used for emphasis.
+
+**Colour carries meaning or is not used.** Green means a gate passed, amber means
+something is withheld, red means it failed. Selection is black - a cursor, not a status -
+so a selected claim, citation chip or rail item takes an ink border rather than a tint.
+
+**Type.** Inter Tight for the interface, JetBrains Mono for anything a reader compares: a
+page number, an evidence ID, a run identifier, a manifest hash, a locator. The scale
+floors at `--t-2xs` (12px) and that tier is chrome - uppercase kickers, status pills,
+keycaps. Values a reader acts on sit at `--t-xs` or above. Inside the source sheet, `em`
+is used only for the passage and its immediate framing, because that is what the
+`Text size` control exists to scale; nested metadata uses fixed tokens, since compounding
+`em` had put anchor fields at 7.5px.
+
+`--control-min` (44px) is the smallest an interactive control may be. `--control-sm`
+(36px) is the compact pointer variant, and it resolves to `--control-min` below 860px, so
+every control takes a full target on touch without a rule per control. The context editor
 uses Radix Dialog for dialog semantics, focus containment and restoration, and Escape
 key handling. New interactive primitives should provide the same keyboard and screen
 reader behavior.
@@ -86,7 +136,11 @@ question structure, and the primary action is explicitly labelled `Review eviden
 The auto-growing textarea has a 4,000-character limit and grows from 60px to 144px
 before scrolling. `Ctrl+Enter` or `Command+Enter` submits; ordinary Enter remains
 available for multiline questions. Compact topic examples fill the field, return
-focus to the end of the inserted question, and never submit without user action.
+focus to the end of the inserted question, and never submit without user action. The
+examples are drawn from what the active release can answer - viral-load monitoring,
+treatment failure, PrEP eligibility, testing services - because an example the corpus is
+guaranteed to abstain on teaches the reader the product is broken rather than out of
+scope.
 
 The composer follows this quality bar:
 
@@ -104,12 +158,36 @@ The composer follows this quality bar:
 - Keyboard operation, visible focus, 44px touch targets, 16px mobile form text, zoom,
   reflow, and a 320px viewport are acceptance requirements.
 
-The `Sources` disclosure controls the request's `source_filters` independently of the
-clinical context inferred from the question:
+### The identifier guard
 
-- At least one of US, EU, or UK must be selected. All three are selected by default.
-- The final selected jurisdiction cannot be removed accidentally; the control keeps it
-  selected and explains what is required.
+`lib/identifiers.ts` scans the draft question, in the browser, for shapes that identify a
+person: a name, a date of birth, a record number, an email, a phone number. Nothing it
+finds leaves the page — the point is to stop the text being submitted, not to record that
+it existed. Matches are marked in the warning so the reader can check the judgement rather
+than trust it, with a one-click removal beside a way to overrule it.
+
+It never blocks submission. The reader may legitimately be testing with synthetic text, and
+a guard that cannot be overruled becomes one people route around. It is deliberately
+conservative in the other direction too: a false positive costs a dismissal, a false
+negative sends a name to a research pipeline, so `NOT_A_NAME` and the unit-aware
+record-number rule exist to keep ordinary clinical prose — "viral load 1200 copies/mL",
+"World Health Organization" — from tripping it. `lib/identifiers.test.ts` asserts both
+halves, and the silence half is the one that matters.
+
+### Source scope
+
+The `Sources` disclosure states the release's coverage and controls the request's
+`source_filters`:
+
+- **No jurisdiction control.** Every record in the active WHO SMART HIV release is scoped
+  `WORLD`, and `serving_pipeline._jurisdictions` widens any client selection to include
+  `WORLD`, so a country filter could never narrow a result - it only claimed to. The
+  request carries `jurisdictions: ["WORLD"]`.
+- **The guideline bodies are listed with their status.** WHO is `Active`; CDC, US DHHS/NIH,
+  EACS and BHIVA are marked `Coming soon`. None of them is selectable - availability
+  follows an approved corpus release, not a preference. They are listed rather than hidden
+  because the first thing a clinician asks of an evidence tool is what it has read, and an
+  empty answer from a corpus whose boundary was never stated reads as a defect.
 - Organization filters are optional tokens. Enter, comma, blur, or `Add` commits a
   token; whitespace is trimmed and matching is deduplicated case-insensitively.
 - `Reset` restores all jurisdictions and clears organizations. `Done`, Escape, or
@@ -160,9 +238,25 @@ Licensing is part of the render contract:
 - Missing evidence type, section hierarchy, page, printed page, dates, or highlight
   remains visibly unavailable. Evidence roles are not relabelled as evidence types.
 
-Copying an answer includes its claim-linked source links and research-use notice.
-Audit export downloads the complete validated terminal result and export timestamp as
-JSON; it does not imply clinical approval.
+Each rendered claim shows the evidence roles its cited evidence carries. The completeness
+gate decides whether a claim may be rendered by reading those roles, so showing them on the
+claim is the difference between "supported" as a badge and "supported" as a statement a
+reader can weigh — a claim resting only on `BACKGROUND` reads differently from one resting
+on a current primary guideline. Roles are deduplicated across the claim's evidence and
+ordered strongest first.
+
+Cited evidence and uncited candidates render as **one ranking** with a labelled boundary
+where citation stops, rather than two separately-numbered panels. The boundary is the
+informative part: it says how far down the ranking the gate went before it stopped citing,
+which two lists with independent numbering cannot express. Everything below it stays
+dashed, amber, and captioned with the roles it carried.
+
+Copying an answer includes its claim-linked source links and research-use notice. The
+provenance strip carries **Copy link** — the run's address at `/r/[questionId]`, which a
+reviewer can open, rather than an identifier they can only search for — and audit export,
+which belongs with run identity rather than with the answer. The run identifier stays
+visible for a support conversation. The strip is sticky under the header, because which
+release produced the passage on screen should not require a scroll to recover.
 
 ## Run and verification semantics
 
@@ -170,6 +264,13 @@ JSON; it does not imply clinical approval.
 polling fallback, retry, timeout, stop-monitoring, stale-run cancellation, and prior
 result retention. Progress messages describe pipeline state only; clinical claims are
 accepted only from a validated terminal result.
+
+The verification audit is open on every state, answer-ready included: five named gates and
+what each concluded is what distinguishes this from a general assistant, and collapsing it
+by default on the one result where all of them passed was the interface being modest about
+exactly that. Each stage reports its duration, derived from the gap between the previous
+stage's last observed event and its own; the first stage reports none, because the queue is
+not the stage.
 
 The verification audit represents five observable stages: clinical context, evidence
 retrieval/ranking, counter-evidence search, evidence completeness, and the final answer
@@ -206,6 +307,23 @@ Non-error feedback uses `role="status"` with a polite live region. Errors use
 editing validates contradictions and numeric fields inline, previews before/after
 changes, and submits only a valid context. A successful context submission closes the
 dialog and leaves the previous result visible while the new review runs.
+
+## Focus, and failing without a blank page
+
+A review can take minutes, so the result is not merely announced. The submit button is
+marked with `aria-disabled` rather than `disabled` - the same reasoning as `readOnly` on
+the busy textarea - so it keeps focus through the run instead of handing it back to
+`<body>`; `handleSubmit` rejects an empty or in-flight submission. When the run reaches a
+terminal state, focus moves to the answer heading, which carries `tabIndex={-1}` and a
+suppressed focus ring for this. Only idle focus is taken over: focus on the submit button
+that started the run, or dropped to `<body>`. A reader who has deliberately moved on -
+typing a follow-up, reading a source - keeps their place.
+
+`app/error.tsx` and `app/global-error.tsx` cover the one remaining way this interface can
+go silent, a throw while rendering. Both carry the research-use notice and say plainly
+that no clinical claim was rendered; the route boundary recovers the run identifier from
+`/r/[questionId]` so the failure is reportable against a specific review. The asynchronous
+paths are handled separately and already fail closed.
 
 ## API contracts
 
@@ -244,7 +362,12 @@ npm run build:web
 ```
 
 Vitest and React Testing Library cover presentation helpers, runtime contracts, and
-component interaction. Playwright exercises the complete mocked question workflow in
+component interaction. `expectNoAxeViolations` asserts axe's `incomplete` bucket as well
+as `violations`, with `color-contrast` allowlisted and its reason recorded at the helper:
+axe cannot resolve a background it did not compute, and the header gradient and
+translucent surfaces defeat it. Contrast for those nodes is measured directly instead.
+Asserting only on `violations` is how four dropped ARIA labels stayed green through a
+stylesheet rewrite that renamed one of them. Playwright exercises the complete mocked question workflow in
 Chromium, Firefox, and WebKit, including an axe-core accessibility scan:
 
 ```powershell
