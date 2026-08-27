@@ -25,6 +25,13 @@ import sys
 import time
 from pathlib import Path
 
+# Decision-rule text carries mathematical operators (>=, <=) that the Windows cp1252
+# console cannot encode, so printing a real passage raised UnicodeEncodeError. Reconfigure
+# rather than transliterate: the passage is evidence and must print as stored.
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "apps" / "api"))
 

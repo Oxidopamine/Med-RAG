@@ -64,6 +64,15 @@ class AbstentionReason(str, Enum):
     MODEL_DECLARED_INSUFFICIENT = "MODEL_DECLARED_INSUFFICIENT"
     NO_CLAIM_SURVIVED_GROUNDING = "NO_CLAIM_SURVIVED_GROUNDING"
     GENERATION_UNAVAILABLE = "GENERATION_UNAVAILABLE"
+    # Decided by the serving path before any model call: the retrieved set does not
+    # cover `retrieval_service.REQUIRED_ANSWER_ROLES`. Distinct from
+    # MODEL_DECLARED_INSUFFICIENT, which is the model lowering an outcome it was
+    # already allowed to attempt.
+    INCOMPLETE_EVIDENCE_ROLE_SET = "INCOMPLETE_EVIDENCE_ROLE_SET"
+    # A claim survived grounding but the canonical record backing it could not be
+    # resolved from the active release. Serving an answer whose citation cannot be
+    # opened is worse than serving none, so this fails closed after generation.
+    EVIDENCE_DETAIL_UNAVAILABLE = "EVIDENCE_DETAIL_UNAVAILABLE"
 
 
 class GenerationAdapterParameters(CanonicalModel):
