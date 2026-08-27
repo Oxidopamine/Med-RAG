@@ -14,6 +14,7 @@ from app.corpus_steward.model_artifacts import (
     ModelArtifactPairManifest,
     ModelArtifactPairManifestContent,
     ModelArtifactRole,
+    ModelArtifactVerificationLimits,
     build_model_artifact_manifest,
     build_model_artifact_pair_manifest,
     verify_model_artifact,
@@ -397,3 +398,80 @@ def test_artifact_pair_manifest_digest_must_match_its_content(tmp_path: Path) ->
         manifest.content.model_copy(update={"model_id": "example/other"})
     )
     assert resealed.artifact_sha256 != manifest.artifact_sha256
+
+
+def test_artifact_pair_enforces_one_resource_ceiling_across_both_roots(
+    tmp_path: Path,
+) -> None:
+    """A pair must not silently consume twice the single-artifact budget.
+
+    _enforce_limits runs inside each per-member verification, so a limit checked only
+    there passes for each half while the pair as a whole exceeds it.
+    """
+
+    query_root, document_root, manifest = _pair(tmp_path)
+    per_member_files = max(
+        len(member.manifest.content.files) for member in manifest.content.members
+    )
+    # Generous enough for either half alone, too small for both together.
+    limits = ModelArtifactVerificationLimits(max_file_count=per_member_files)
+
+    with pytest.raises(ModelArtifactError, match="file-count limit"):
+        verify_model_artifact_pair(
+            query_root=query_root,
+            document_root=document_root,
+            manifest=manifest,
+            expected_artifact_sha256=manifest.artifact_sha256,
+            limits=limits,
+        )
+
+    # Each half on its own still verifies under that same ceiling, which is the point.
+    for member, root in zip(
+        manifest.content.members, (document_root, query_root), strict=True
+    ):
+        verify_model_artifact(
+            root,
+            member.manifest,
+            expected_artifact_sha256=member.manifest.artifact_sha256,
+            limits=limits,
+        )
+
+
+def test_artifact_pair_rejects_a_member_revision_that_forges_the_composite(
+    tmp_path: Path,
+) -> None:
+    """Separators are structural, so a revision carrying one is ambiguous."""
+
+    for index, forged in enumerate(("1111;role=2222", "1111=2222")):
+        _, query = _pair_member(
+            tmp_path / f"forged-{index}",
+            "query-encoder",
+            model_id="example/query-encoder",
+            revision=forged,
+        )
+        _, document = _pair_member(
+            tmp_path / f"forged-{index}",
+            "article-encoder",
+            model_id="example/article-encoder",
+            revision="2" * 40,
+        )
+        with pytest.raises(ValueError, match="composite separators"):
+            build_model_artifact_pair_manifest(
+                query=query, document=document, model_id="example/dual-encoder"
+            )
+
+
+def test_artifact_pair_requires_two_different_models(tmp_path: Path) -> None:
+    """A dual encoder whose halves are the same model is a symmetric model."""
+
+    _, query = _pair_member(
+        tmp_path, "query-encoder", model_id="example/same-encoder", revision="1" * 40
+    )
+    _, document = _pair_member(
+        tmp_path, "article-encoder", model_id="example/same-encoder", revision="2" * 40
+    )
+
+    with pytest.raises(ValueError, match="two different models"):
+        build_model_artifact_pair_manifest(
+            query=query, document=document, model_id="example/dual-encoder"
+        )

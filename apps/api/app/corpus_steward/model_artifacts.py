@@ -18,6 +18,9 @@ from app.schemas.corpus import SHA256_PATTERN, canonical_sha256
 from app.schemas.domain import CanonicalModel
 
 MODEL_ARTIFACT_CONTRACT_VERSION = "1.0.0"
+# Structural separators in the derived pair revision; a member revision carrying one
+# would make two different pairs derivable to the same composite string.
+_PAIR_REVISION_SEPARATORS = frozenset((";", "="))
 MODEL_ARTIFACT_PAIR_CONTRACT_VERSION = "1.0.0"
 _HASH_CHUNK_SIZE = 1024 * 1024
 _WINDOWS_REPARSE_POINT = 0x400
@@ -416,6 +419,12 @@ class ModelArtifactPairManifestContent(CanonicalModel):
         digests = {member.manifest.artifact_sha256 for member in self.members}
         if len(digests) != len(self.members):
             raise ValueError("an artifact pair cannot bind the same artifact twice")
+        model_ids = {member.manifest.content.model_id for member in self.members}
+        if len(model_ids) != len(self.members):
+            raise ValueError(
+                "an artifact pair must bind two different models; a dual encoder whose "
+                "halves are the same model is a symmetric model"
+            )
         for member in self.members:
             content = member.manifest.content
             side = member.role.value.lower()
@@ -492,8 +501,21 @@ class VerifiedModelArtifactPair:
 
 
 def pair_revision(members: tuple[ModelArtifactPairMember, ...]) -> str:
-    """Derive the one immutable revision string a paired candidate is known by."""
+    """Derive the one immutable revision string a paired candidate is known by.
 
+    The separators are structural, so a member revision containing one would make the
+    composite ambiguous - two different pairs could derive the same string. Member
+    revisions are rejected rather than escaped, because a revision carrying a delimiter
+    is not a commit identifier any adapter here should accept.
+    """
+
+    for member in members:
+        revision = member.manifest.content.revision
+        if any(character in revision for character in _PAIR_REVISION_SEPARATORS):
+            raise ValueError(
+                "a paired member revision cannot contain the composite separators "
+                f"{''.join(sorted(_PAIR_REVISION_SEPARATORS))!r}"
+            )
     return ";".join(
         f"{member.role.value.lower()}={member.manifest.content.revision}"
         for member in members
@@ -551,6 +573,16 @@ def verify_model_artifact_pair(
             f"expected a {expected_kind.value.lower()} model artifact pair, got "
             f"{content.artifact_kind.value.lower()}"
         )
+    # Enforce the resource ceiling across the whole pair. _enforce_limits runs inside
+    # each per-member verification, so checking only there would let a pair consume
+    # twice the configured file count and byte budget with every individual check
+    # passing - the single-artifact ceiling would silently double.
+    _enforce_limits(
+        tuple(
+            item for member in content.members for item in member.manifest.content.files
+        ),
+        limits or ModelArtifactVerificationLimits(),
+    )
     roots = {
         ModelArtifactRole.DOCUMENT: document_root,
         ModelArtifactRole.QUERY: query_root,
