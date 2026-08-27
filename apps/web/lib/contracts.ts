@@ -107,6 +107,10 @@ export const corpusReadinessSchema: z.ZodType<CorpusReadiness> = z.strictObject(
   corpus_registry_available: z.boolean(),
   approved_corpus_available: z.boolean(),
   corpus_release_id: z.string().trim().min(1).nullable(),
+  // Null when nothing is being served. Distinguishes "answers will be withheld" from
+  // "answers will come from a release that has not been clinically accepted" - one
+  // message for both states is wrong about one of them.
+  serving_mode: z.enum(["ACTIVATED", "RESEARCH_UNACTIVATED"]).nullable().default(null),
   clinical_use_allowed: z.boolean(),
 });
 

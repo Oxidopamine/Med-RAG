@@ -45,6 +45,13 @@ export interface CorpusReadiness {
   clinical_use_allowed: boolean;
   corpus_registry_available: boolean;
   corpus_release_id: string | null;
+  /**
+   * How the release being served earned the right to be served, or null when nothing
+   * is. Separate from `approved_corpus_available` because a research release is being
+   * served and is not approved, and a surface that reads only the boolean tells the
+   * reader answers will be withheld while they are arriving.
+   */
+  serving_mode: "ACTIVATED" | "RESEARCH_UNACTIVATED" | null;
   status: string;
 }
 

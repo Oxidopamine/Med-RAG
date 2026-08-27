@@ -49,10 +49,11 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         # Every per-record guarantee is identical; only the pointer check differs.
         evidence_details_provider=_ResearchEvidenceDetails(corpus_releases),
     )
+    release_provider = (
+        serving.active_release if serving is not None else corpus_releases.active_release
+    )
     service = QuestionService(
-        active_release_provider=(
-            serving.active_release if serving is not None else corpus_releases.active_release
-        ),
+        active_release_provider=release_provider,
         pipeline=serving.pipeline if serving is not None else None,
     )
     ingestion_service = IngestionService(
@@ -65,6 +66,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         store=ImmutablePDFStore(settings.artifact_store_path),
         extractor=PyMuPDFSpanExtractor(),
     )
+    app.state.release_provider = release_provider
     app.state.database = database
     app.state.corpus_releases = corpus_releases
     app.state.question_service = service
