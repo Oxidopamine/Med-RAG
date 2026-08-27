@@ -25,7 +25,24 @@ services:
     volumes:
       - medrag-qdrant:/qdrant/storage
 
+  # --- Compatibility benchmark only. Not part of the default stack. ---
+  # Started explicitly with `docker compose --profile qdrant-compat up -d`.
+  # Storage is deliberately container-local (no volume) so every run starts
+  # from empty state and exercises collection creation rather than reuse.
+  # These services evaluate the roadmap's 1.15.4-vs-1.19.x question; they do
+  # not change the pin the serving path runs on.
+  qdrant-compat-baseline:
+    image: qdrant/qdrant:v1.15.4
+    profiles: ["qdrant-compat"]
+    ports:
+      - "6343:6333"
+
+  qdrant-compat-candidate:
+    image: qdrant/qdrant:v1.19.0
+    profiles: ["qdrant-compat"]
+    ports:
+      - "6344:6333"
+
 volumes:
   medrag-postgres:
   medrag-qdrant:
-
