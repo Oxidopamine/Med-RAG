@@ -47,6 +47,8 @@ native extraction records exact text and coordinates but only advances a source 
   are unknown rather than implicitly absent
 - `verification`: deterministic required-check policy, duplicate-check rejection,
   per-evidence check coverage, and a fail-closed gate
+- `retrieval`: one implementation of lane search and fusion, shared by the benchmark
+  runner and the serving query path, plus the release binding serving must satisfy
 - `reasoning`: orchestration only; it cannot override failed verification
 - `api`: transport and dependency wiring
 
@@ -76,6 +78,48 @@ release-specific index count and attestation pass. The pointer, release state tr
 and activation outbox event share one database transaction. Question jobs capture the
 active release at submission so an activation cannot move an in-flight request to another
 corpus.
+
+## Serving retrieval boundary
+
+A question is answered from the active release with the candidate that release was
+accepted with, or it is not answered.
+
+```text
+question
+  -> active release + signed benchmark acceptance
+  -> binding check: accepted candidate digest, collection the candidate would build
+  -> encode with the sealed candidate configuration
+  -> release-filtered and approval-filtered lane search on the attested collection
+  -> weighted RRF, retrieval floor, conflict-side selection, optional reranking
+  -> canonical evidence resolution and licence policy
+  -> grounded answer lane
+```
+
+`app/retrieval/pipeline.py` holds the mechanics and has exactly one implementation. The
+benchmark exists to predict how serving behaves, and that prediction is only worth
+something if both run the same code; a serving path that re-derived fusion would measure
+one system and ship another. The sealed candidate is authoritative for lane vector names,
+fusion weights, `rrf_k`, pool width, and output depth.
+
+`app/retrieval/serving.py` is what refuses. It will not serve a release whose accepted
+candidate digest differs from the loaded one, or whose collection is not the one that
+candidate would have built, recomputed from the release manifest. It will not answer
+through a partial fusion: the benchmark isolates a failed lane so a run can continue and
+report it, while serving abstains, because the accepted scores describe the whole fused
+configuration. It will not hand licence-restricted evidence to a generation provider,
+though such records still rank and are still counted. It will not widen a request whose
+organization filter matches no publisher in the release.
+
+Every progress status is emitted by the stage that produced it. A candidate with no
+reranker never reports `RERANKING`, and one with no query expansion never reports
+`SEARCHING_COUNTER_EVIDENCE`.
+
+A deployment with no `SERVING_CANDIDATE_PATH` starts with no engine and abstains on every
+question with a stated reason. It never falls back to an unpinned model. Partially
+specified artifacts are a different case and refuse to start at all.
+
+`scripts/serving/local_serving_exercise.py` drives the whole path against local
+PostgreSQL and Qdrant, activating the synthetic fixture release in a scratch database.
 
 ## Structured source boundary
 

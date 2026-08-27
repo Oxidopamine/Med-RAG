@@ -357,6 +357,39 @@ or evidence that the product is safe for autonomous clinical use.
 - all benchmark construction, candidate selection, acceptance checks, and release gates are
   automated; physician participation begins only with final-product evaluation
 
+## Complete: serving retrieval seam
+
+- one retrieval implementation shared by the benchmark runner and the serving API;
+  lane search, weighted RRF, the base-retrieval floor, conflict-side selection, and
+  reranking moved to `app/retrieval/pipeline.py` with the full existing suite, including
+  the frozen synthetic end-to-end fixture, passing unchanged
+- the serving path resolves the active release and its signed acceptance, checks that
+  the candidate this process loaded is the one that acceptance names, recomputes the
+  collection identity from the release manifest, encodes the question with the sealed
+  candidate configuration, and searches the attested collection under release and
+  approval filters
+- serving abstains rather than answering through a partial fusion. The benchmark
+  isolates a failed lane so a run can continue and report it; the accepted scores
+  describe the whole fused configuration, so a serving path missing a lane is a system
+  nobody measured
+- licence-restricted evidence ranks and is counted but its text never reaches a
+  generation provider; an organization filter matching no publisher in the release
+  abstains rather than answering unfiltered; retrieved evidence that will not resolve to
+  a canonical record abstains rather than citing the half that did
+- the five progress statuses report the stage that emitted them, so a candidate with no
+  reranker never reports `RERANKING` and one with no query expansion never reports
+  `SEARCHING_COUNTER_EVIDENCE`
+- a local exercise activates the synthetic fixture release in a scratch database against
+  real PostgreSQL and Qdrant and answers a question over three points in an attested
+  collection; the generation lane is stubbed there because no Bedrock or Vertex
+  credentials exist locally
+- known limit: the shipped `SourceFilters` default of US/EU/UK excludes a release outside
+  that set, and the WHO corpus is global. The filter is applied faithfully rather than
+  quietly widened, so the fix belongs in what the client sends
+- known limit: free-text organization tokens are resolved against the publishers of the
+  active release by ID or name. This is not a real publisher selector; the client should
+  offer the release publishers rather than accept typed abbreviations
+
 ## Then: verified rendering
 
 - atomic claim planning
