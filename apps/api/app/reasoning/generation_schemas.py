@@ -63,6 +63,11 @@ class AbstentionReason(str, Enum):
     NO_ACTIVE_RELEASE = "NO_ACTIVE_RELEASE"
     MODEL_DECLARED_INSUFFICIENT = "MODEL_DECLARED_INSUFFICIENT"
     NO_CLAIM_SURVIVED_GROUNDING = "NO_CLAIM_SURVIVED_GROUNDING"
+    # Distinct from the grounding case above: the claims cited retrieved evidence, and
+    # the deterministic validators then found their numbers, units, thresholds, or
+    # quotations absent from it. Keeping the two apart matters operationally, because
+    # they point at different defects - a citation problem against a content problem.
+    NO_CLAIM_SURVIVED_VERIFICATION = "NO_CLAIM_SURVIVED_VERIFICATION"
     GENERATION_UNAVAILABLE = "GENERATION_UNAVAILABLE"
 
 

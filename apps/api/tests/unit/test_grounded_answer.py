@@ -176,6 +176,98 @@ def test_evidence_block_labels_every_passage_with_its_id() -> None:
     assert "[2] evidence_id: EV_bbb" in block
 
 
+DOSING_PASSAGES = (
+    RetrievedPassage(
+        evidence_id="EV_dose",
+        text="Give dolutegravir 50 mg once daily. Switch if viral load is at least 1000 copies/mL.",
+    ),
+)
+FAITHFUL_DOSE = {"text": "Give dolutegravir 50 mg once daily.", "evidence_ids": ["EV_dose"]}
+FABRICATED_DOSE = {"text": "Give dolutegravir 400 mg once daily.", "evidence_ids": ["EV_dose"]}
+
+
+async def test_a_claim_citing_retrieved_evidence_still_has_to_verify() -> None:
+    """Citation grounding and content verification catch different defects.
+
+    The claim cites a passage that was genuinely retrieved, so grounding passes. The
+    dose it states was never in that passage, so it is withheld anyway.
+    """
+
+    backend = StubBackend(
+        answer(claims=[FABRICATED_DOSE])
+    )
+    composed = await GroundedAnswerComposer(backend).compose("Q?", DOSING_PASSAGES)
+
+    assert composed.answered is False
+    assert (
+        composed.abstention.reason_code
+        == AbstentionReason.NO_CLAIM_SURVIVED_VERIFICATION.value
+    )
+    assert composed.verification.withheld_claims == 1
+    assert "400" in composed.withheld[0].reason
+
+
+async def test_a_verified_claim_renders_with_its_status() -> None:
+    backend = StubBackend(
+        answer(claims=[FAITHFUL_DOSE])
+    )
+    composed = await GroundedAnswerComposer(backend).compose("Q?", DOSING_PASSAGES)
+
+    assert composed.answered is True
+    assert composed.claims[0].verification_status == "SUPPORTED"
+    assert composed.withheld == ()
+
+
+async def test_verification_withholds_only_the_defective_claim() -> None:
+    backend = StubBackend(
+        answer(
+            claims=[
+                FAITHFUL_DOSE,
+                {"text": "Switch below 1000 copies/mL.", "evidence_ids": ["EV_dose"]},
+            ]
+        )
+    )
+    composed = await GroundedAnswerComposer(backend).compose("Q?", DOSING_PASSAGES)
+
+    assert [item.text for item in composed.claims] == ["Give dolutegravir 50 mg once daily."]
+    assert composed.verification.supported_claims == 1
+    assert composed.verification.withheld_claims == 1
+    assert composed.withheld[0].status == "UNSUPPORTED"
+
+
+async def test_unrenderable_evidence_withholds_rather_than_rendering_unchecked() -> None:
+    """Restricted evidence cannot be read, so its content cannot be verified."""
+
+    restricted = (
+        RetrievedPassage(
+            evidence_id="EV_dose",
+            text="Give dolutegravir 50 mg once daily.",
+            render_allowed=False,
+        ),
+    )
+    backend = StubBackend(
+        answer(claims=[FAITHFUL_DOSE])
+    )
+    composed = await GroundedAnswerComposer(backend).compose("Q?", restricted)
+
+    assert composed.answered is False
+    assert composed.withheld[0].status == "UNRESOLVED"
+
+
+async def test_ungrounded_and_unverified_abstentions_stay_distinguishable() -> None:
+    """Every claim failing the citation check is still reported as a grounding defect."""
+
+    backend = StubBackend(
+        answer(claims=[{"text": "Give dolutegravir 50 mg once daily.", "evidence_ids": ["EV_zzz"]}])
+    )
+    composed = await GroundedAnswerComposer(backend).compose("Q?", DOSING_PASSAGES)
+
+    assert (
+        composed.abstention.reason_code
+        == AbstentionReason.NO_CLAIM_SURVIVED_GROUNDING.value
+    )
+
+
 def bedrock_parameters(**overrides) -> GenerationAdapterParameters:
     payload = {
         "provider": GenerationProvider.AWS_BEDROCK,

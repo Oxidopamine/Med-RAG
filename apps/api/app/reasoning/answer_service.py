@@ -20,6 +20,12 @@ from dataclasses import dataclass
 
 from app.reasoning.generation_adapters import GenerationBackend, GenerationUnavailableError
 from app.reasoning.generation_schemas import AbstentionReason, ModelAnswer
+from app.reasoning.verification import (
+    ClaimVerification,
+    DeterministicClaimVerifier,
+    VerifiableEvidence,
+    VerificationStatus,
+)
 from app.schemas.questions import AbstentionDetail, RenderedClaim, VerificationSummary
 
 SYSTEM_PROMPT = """You answer clinical questions strictly from numbered guideline \
@@ -50,6 +56,9 @@ _ABSTENTION_MESSAGES = {
     AbstentionReason.NO_CLAIM_SURVIVED_GROUNDING: (
         "No proposed claim was fully supported by the retrieved guideline passages."
     ),
+    AbstentionReason.NO_CLAIM_SURVIVED_VERIFICATION: (
+        "No proposed claim could be verified against the passages it cited."
+    ),
     AbstentionReason.GENERATION_UNAVAILABLE: (
         "The answer service could not produce a verifiable answer for this question."
     ),
@@ -58,13 +67,50 @@ _ABSTENTION_MESSAGES = {
 
 @dataclass(frozen=True)
 class RetrievedPassage:
-    """One retrieved evidence record as the generation lane sees it."""
+    """One retrieved evidence record as the generation lane sees it.
+
+    The provenance fields carry what the deterministic validators need to decide
+    whether this record may stand behind a rendered claim. They default to the state a
+    record must already be in to have been retrieved from an active release at all;
+    a caller that knows otherwise is expected to say so, and ``render_allowed=False``
+    is the case that turns a content check into ``UNRESOLVED`` rather than a pass.
+    """
 
     evidence_id: str
     text: str
     evidence_roles: tuple[str, ...] = ()
     source_title: str | None = None
     source_version_label: str | None = None
+    render_allowed: bool = True
+    approval_status: str = "APPROVED"
+    lifecycle_status: str = "ACTIVE"
+    locator_count: int = 1
+
+    def as_verifiable(self) -> VerifiableEvidence:
+        return VerifiableEvidence(
+            evidence_id=self.evidence_id,
+            exact_text=self.text if self.render_allowed else None,
+            render_allowed=self.render_allowed,
+            approval_status=self.approval_status,
+            lifecycle_status=self.lifecycle_status,
+            locator_count=self.locator_count,
+        )
+
+
+@dataclass(frozen=True)
+class WithheldClaim:
+    """A claim that was proposed and not rendered, with the reason it was not.
+
+    Withheld claims never reach the reader. They are kept because "the model proposed
+    six claims and two were withheld for a unit mismatch" is the signal that tells an
+    operator whether the lane is working; a bare count cannot distinguish a careful
+    model from a broken validator.
+    """
+
+    text: str
+    evidence_ids: tuple[str, ...]
+    status: str
+    reason: str
 
 
 @dataclass(frozen=True)
@@ -73,6 +119,7 @@ class ComposedAnswer:
     conflicts: tuple[dict[str, str], ...]
     verification: VerificationSummary
     abstention: AbstentionDetail | None
+    withheld: tuple[WithheldClaim, ...] = ()
 
     @property
     def answered(self) -> bool:
@@ -104,6 +151,7 @@ def _abstain(
     closest_evidence_ids: tuple[str, ...] = (),
     rendered: int = 0,
     withheld: int = 0,
+    withheld_claims: tuple[WithheldClaim, ...] = (),
 ) -> ComposedAnswer:
     return ComposedAnswer(
         claims=(),
@@ -116,15 +164,23 @@ def _abstain(
             message=message or _ABSTENTION_MESSAGES[reason],
             closest_evidence_ids=list(closest_evidence_ids),
         ),
+        withheld=withheld_claims,
     )
 
 
 class GroundedAnswerComposer:
     """Turn retrieved evidence into claims that are grounded by construction."""
 
-    def __init__(self, backend: GenerationBackend, *, system_prompt: str = SYSTEM_PROMPT) -> None:
+    def __init__(
+        self,
+        backend: GenerationBackend,
+        *,
+        system_prompt: str = SYSTEM_PROMPT,
+        verifier: DeterministicClaimVerifier | None = None,
+    ) -> None:
         self._backend = backend
         self._system_prompt = system_prompt
+        self._verifier = verifier or DeterministicClaimVerifier()
 
     async def compose(
         self,
@@ -156,12 +212,14 @@ class GroundedAnswerComposer:
             )
         return self._ground(answer, passages)
 
-    @staticmethod
     def _ground(
-        answer: ModelAnswer, passages: tuple[RetrievedPassage, ...]
+        self, answer: ModelAnswer, passages: tuple[RetrievedPassage, ...]
     ) -> ComposedAnswer:
         retrieved_ids = {item.evidence_id for item in passages}
         closest = tuple(item.evidence_id for item in passages[:5])
+        verifiable: dict[str, VerifiableEvidence] = {
+            item.evidence_id: item.as_verifiable() for item in passages
+        }
 
         if not answer.sufficient_evidence:
             return _abstain(
@@ -172,31 +230,69 @@ class GroundedAnswerComposer:
             )
 
         supported: list[RenderedClaim] = []
-        withheld = 0
+        withheld_claims: list[WithheldClaim] = []
+        ungrounded = 0
         for index, claim in enumerate(answer.claims, start=1):
             cited = list(dict.fromkeys(claim.evidence_ids))
             if not cited or not set(cited).issubset(retrieved_ids):
                 # A claim citing evidence that was never retrieved is discarded whole.
                 # Partial repair would keep the sentence while dropping the support it
                 # was written to rest on, which is the failure this check exists for.
-                withheld += 1
+                ungrounded += 1
+                withheld_claims.append(
+                    WithheldClaim(
+                        text=claim.text,
+                        evidence_ids=tuple(cited),
+                        status=VerificationStatus.UNSUPPORTED.value,
+                        reason="cites evidence that was not retrieved for this question",
+                    )
+                )
                 continue
+
+            # Citation grounding proves the claim points at retrieved evidence. It says
+            # nothing about whether the evidence contains what the claim asserts, which
+            # is what the deterministic validators decide next.
+            verification: ClaimVerification = self._verifier.verify(
+                claim.text, cited, verifiable
+            )
+            if verification.status is not VerificationStatus.SUPPORTED:
+                withheld_claims.append(
+                    WithheldClaim(
+                        text=claim.text,
+                        evidence_ids=tuple(cited),
+                        status=verification.status.value,
+                        reason=verification.summary(),
+                    )
+                )
+                continue
+
             supported.append(
                 RenderedClaim(
                     claim_id=f"CL_{index:03d}",
                     text=claim.text,
                     evidence_ids=cited,
-                    verification_status="SUPPORTED",
+                    verification_status=verification.status.value,
                 )
             )
 
         rendered = len(answer.claims)
+        withheld = len(withheld_claims)
         if not supported:
+            # Which abstention this is depends on why nothing survived. A claim withheld
+            # beyond the ungrounded ones reached the validators and failed there, so the
+            # defect is content rather than citation. Proposing no claims at all, or
+            # only unciteable ones, stays a grounding outcome.
+            reason = (
+                AbstentionReason.NO_CLAIM_SURVIVED_VERIFICATION
+                if withheld > ungrounded
+                else AbstentionReason.NO_CLAIM_SURVIVED_GROUNDING
+            )
             return _abstain(
-                AbstentionReason.NO_CLAIM_SURVIVED_GROUNDING,
+                reason,
                 closest_evidence_ids=closest,
                 rendered=rendered,
                 withheld=withheld,
+                withheld_claims=tuple(withheld_claims),
             )
 
         conflicts = tuple(
@@ -219,4 +315,5 @@ class GroundedAnswerComposer:
                 withheld_claims=withheld,
             ),
             abstention=None,
+            withheld=tuple(withheld_claims),
         )

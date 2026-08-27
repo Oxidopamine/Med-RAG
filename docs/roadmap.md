@@ -359,8 +359,29 @@ or evidence that the product is safe for autonomous clinical use.
 
 ## Then: verified rendering
 
-- atomic claim planning
-- numeric, unit, operator, quote, and provenance validators
+- complete: deterministic atomic claim planning. A model claim is split on sentence
+  terminators and semicolons, never on coordinating conjunctions, and every part must
+  pass independently. This closes the case where a fabricated half rides along on a
+  grounded half because every number in the sentence occurs somewhere in the cited
+  passages. Coordination stays inside one unit deliberately: "500 mg and 1 g" and
+  "monitor CD4 and viral load" have the same surface shape and opposite correct splits
+- complete: numeric, unit, operator, quote, and provenance validators, three-state and
+  fail-closed. A validator reports `UNSUPPORTED` only for a positive mismatch and
+  `UNRESOLVED` when it cannot read the evidence it was asked to check, so restricted
+  evidence withholds a claim rather than passing it unchecked. Only `SUPPORTED` claims
+  render; `verification_status` stopped being a constant string. Abstention now
+  separates `NO_CLAIM_SURVIVED_GROUNDING` from `NO_CLAIM_SURVIVED_VERIFICATION`,
+  because a citation defect and a content defect point at different faults
+- known limit: these validators check surface features, not entailment. A claim that
+  reuses the evidence's own numbers, units, and thresholds in the wrong relation passes
+  every one of them. What they decide completely is fabrication - a value, unit, bound,
+  or quotation that never appeared in the cited evidence at all
+- known limit: normalization sets the false-positive floor. Written-out numbers, unit
+  aliases, and both operator orders are handled, and unrecognized unit tokens degrade to
+  a bare numeric check rather than inventing a mismatch, but the coverage is a fixed
+  clinical vocabulary rather than a general one. It has not been measured against real
+  generated answers, only against unit fixtures, because no live generation candidate
+  has been run
 - implement the independent high-risk semantic verifier as a calibrated three-way
   entailment/contradiction/insufficient-support signal, never as mathematical proof and
   never as a replacement for deterministic validators
