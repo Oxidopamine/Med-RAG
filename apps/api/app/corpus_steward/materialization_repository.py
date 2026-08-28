@@ -85,7 +85,32 @@ class SQLMaterializationRepository:
                 candidate_artifact_sha256=row.corpus_candidate_artifact_sha256,
             )
 
-    async def artifact_storage_keys(self, artifact_sha256s: tuple[str, ...]) -> dict[str, str]:
+    async def artifact_storage_keys(
+        self,
+        artifact_sha256s: tuple[str, ...],
+        *,
+        accepted_kinds: frozenset[str] = frozenset({"NARRATIVE_SOURCE"}),
+    ) -> dict[str, str]:
+        """Storage keys for materialization inputs, checked against the acquisition kind.
+
+        ``accepted_kinds`` defaults to the DAK topology's requirement, and **every current
+        caller uses that default** - the narrative materialization branch that will pass
+        ``SOURCE`` is work item 7 of docs/narrative-only-materialization.md and is not
+        written yet. Until it is, a narrative-anchored candidate is still rejected here,
+        which is the correct behaviour: the rest of that path does not exist either.
+
+        The parameter is present because the narrative branch needs it: reconciliation
+        preserves the guideline PDF as the inventory source artifact, and re-acquiring it
+        under a second kind is refused by the ledger for good reason - the same bytes must
+        not carry two provenance stories.
+
+        Widening *this* check is safe because it is not the check that protects clinical
+        content. ``ArtifactKind`` records how bytes were acquired; whether they may become
+        evidence is decided by the trust root's per-asset
+        ``evidence_materialization_allowed`` and by the authority binding, both of which
+        run unchanged.
+        """
+
         if not artifact_sha256s:
             return {}
         async with self._database.session() as session:
@@ -98,9 +123,11 @@ class SQLMaterializationRepository:
                 raise MaterializationRepositoryError(
                     "materialization input artifact is not preserved"
                 )
-            if any(row.kind != "NARRATIVE_SOURCE" for row in rows):
+            rejected = sorted({row.kind for row in rows if row.kind not in accepted_kinds})
+            if rejected:
                 raise MaterializationRepositoryError(
-                    "evidence materialization accepts only narrative source artifacts"
+                    "evidence materialization rejected artifact kinds "
+                    f"{rejected}; accepted {sorted(accepted_kinds)}"
                 )
             return mapping
 

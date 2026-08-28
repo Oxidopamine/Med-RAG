@@ -9,6 +9,7 @@ import json
 import re
 import zipfile
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import PurePosixPath
 from typing import Any
 
@@ -34,6 +35,7 @@ from app.corpus_steward.structured_input_schemas import (
     DependencyRegistryPolicy,
     DependencyRequirement,
     NarrativeAssetDefinition,
+    NarrativeAssetRole,
     NarrativeAuthorityDefinition,
     ResolvedDependencyPackage,
     ResolvedNarrativeArtifact,
@@ -47,10 +49,19 @@ from app.corpus_steward.structured_input_schemas import (
     StructuredInputResolutionResult,
     StructuredInputState,
 )
-from app.corpus_steward.structured_repository import SQLStructuredPackageRepository
+from app.corpus_steward.structured_repository import (
+    SQLStructuredPackageRepository,
+    StructuredSourceContext,
+)
 from app.corpus_steward.structured_schemas import FHIRPackageDependency
 from app.schemas.corpus import canonical_json_bytes, canonical_sha256
 from app.schemas.domain import utc_now
+
+# Acquisition topologies. A DAK candidate's source artifact is a FHIR package whose
+# controlling narratives are separate assets; a narrative-anchored candidate's source
+# artifact is the clinical narrative itself. See docs/narrative-only-materialization.md.
+DAK_STRUCTURED = "DAK_STRUCTURED"
+NARRATIVE_ANCHORED = "NARRATIVE_ANCHORED"
 
 STRUCTURED_INPUT_ATTESTATION_PREDICATE = (
     "https://med-rag.local/attestations/structured/AUTHORITATIVE_INPUT_CLOSURE"
@@ -129,11 +140,24 @@ class StructuredInputClosureService:
         )
         if self._signer.key_id not in trust_root.trusted_stage_key_ids:
             raise ValueError("signing key is not trusted by this trust-root revision")
-        narratives, dependency_policy = self._policy(trust_root)
+        # Read once, and branch before `_policy`: on the narrative path `_policy` returns
+        # an empty narrative tuple and no dependency policy, so computing it first only to
+        # discard it invites a reader to think the narrative path uses it.
+        topology = self._topology(trust_root)
         source_content = self._artifacts.read(source.artifact_storage_key)
         if hashlib.sha256(source_content).hexdigest() != source.source_artifact.artifact_sha256:
             raise ValueError("preserved source artifact digest verification failed")
 
+        if topology == NARRATIVE_ANCHORED:
+            self._policy(trust_root)  # validates that no DAK-only config is declared
+            return await self._resolve_narrative_anchored(
+                source=source,
+                candidate_id=candidate_id,
+                trust_root=trust_root,
+                source_content=source_content,
+            )
+
+        narratives, dependency_policy = self._policy(trust_root)
         issues: dict[tuple[str, str], StructuredInputIssue] = {}
         checks: list[StructuredInputCheck] = []
         direct_dependencies: tuple[FHIRPackageDependency, ...] = ()
@@ -275,6 +299,191 @@ class StructuredInputClosureService:
             complete=not blockers and not issues,
             blockers=blockers,
         )
+        return await self._seal_and_record(
+            content,
+            source=source,
+            candidate_id=candidate_id,
+            trust_root=trust_root,
+            run_id=run_id,
+            completed_at=completed_at,
+        )
+
+    async def _result(
+        self, existing: StoredStructuredInputRun
+    ) -> StructuredInputResolutionResult:
+        return StructuredInputResolutionResult(
+            state=existing.state,
+            report=existing.report,
+            attestation=await self._attestations.get_reference(existing.attestation_id),
+            report_artifact_sha256=existing.report_artifact_sha256,
+        )
+
+
+    async def _resolve_narrative_anchored(
+        self,
+        *,
+        source: StructuredSourceContext,
+        candidate_id: str,
+        trust_root: TrustRootDefinition,
+        source_content: bytes,
+    ) -> StructuredInputResolutionResult:
+        """Resolve a closure whose source artifact *is* the controlling narrative.
+
+        No FHIR parse, no dependency graph, and above all **no refetch**: the narrative
+        artifact is synthesized from the bytes reconciliation already preserved and whose
+        digest was verified by the caller. Fetching the same document a second time under
+        a narrative asset kind would give one set of bytes two provenance stories, which
+        `SQLReconciliationLedger.record_artifacts` refuses by design.
+
+        The two checks the DAK path uses to gate promotion still appear, so a reader
+        comparing two closure reports sees the same vocabulary: `SOURCE_PACKAGE` passes on
+        the narrative document's own identity, and `DEPENDENCY_CLOSURE` passes vacuously
+        because a narrative document has no dependency graph to be incomplete.
+        """
+
+        issues: dict[tuple[str, str], StructuredInputIssue] = {}
+        checks: list[StructuredInputCheck] = []
+        item = source.inventory_item
+        reference = source.source_artifact
+        checks.append(
+            self._check(
+                StructuredInputCheckCode.SOURCE_PACKAGE,
+                StructuredInputCheckOutcome.PASS,
+                "Source artifact is the controlling clinical narrative; no package parse applies.",
+                {"topology": NARRATIVE_ANCHORED, "byte_size": len(source_content)},
+            )
+        )
+
+        # The two checks the DAK path runs before it will treat bytes as a controlling
+        # narrative. Skipping them here would let a trust root with no licensing entry, or
+        # a truncated or mistyped source artifact, still produce a *signed* RESOLVED
+        # closure asserting the bytes are the clinical authority.
+        narrative_failures: list[str] = []
+        try:
+            license_policy = trust_root.license_for_asset(item.item_id)
+        except ValueError as error:
+            license_policy = None
+            narrative_failures.append("NARRATIVE_LICENSE_POLICY_MISSING")
+            self._issue(
+                issues,
+                subject=item.item_id,
+                reason_code="NARRATIVE_LICENSE_POLICY_MISSING",
+                details=str(error),
+            )
+        if license_policy is not None and not license_policy.acquisition_allowed:
+            narrative_failures.append("NARRATIVE_ACQUISITION_FORBIDDEN")
+            self._issue(
+                issues,
+                subject=item.item_id,
+                reason_code="NARRATIVE_ACQUISITION_FORBIDDEN",
+                details="trust root forbids acquisition of this narrative asset",
+            )
+        try:
+            self._validate_narrative_content(reference.media_type, source_content)
+        except (ValueError, zipfile.BadZipFile) as error:
+            narrative_failures.append("NARRATIVE_CONTENT_INVALID")
+            self._issue(
+                issues,
+                subject=item.item_id,
+                reason_code="NARRATIVE_CONTENT_INVALID",
+                details=str(error),
+            )
+
+        narrative = ResolvedNarrativeArtifact(
+            # asset_id == item_id is the topology, not a shortcut: the licensing policy
+            # and scope_item_ids in a narrative-anchored trust root are keyed by the same
+            # publisher record identifier.
+            link_id=item.item_id,
+            asset_id=item.item_id,
+            title=item.title or item.item_id,
+            role=NarrativeAssetRole.PRIMARY,
+            configured_url=reference.requested_url,
+            final_url=reference.final_url,
+            media_type=reference.media_type,
+            artifact_sha256=reference.artifact_sha256,
+            byte_size=reference.byte_size,
+            fetched_at=reference.fetched_at,
+            etag=reference.etag,
+            last_modified=reference.last_modified,
+        )
+        narrative_ok = not narrative_failures
+        checks.append(
+            self._check(
+                StructuredInputCheckCode.NARRATIVE_ASSETS,
+                (
+                    StructuredInputCheckOutcome.PASS
+                    if narrative_ok
+                    else StructuredInputCheckOutcome.BLOCK
+                ),
+                (
+                    "The controlling narrative is the preserved source artifact."
+                    if narrative_ok
+                    else "The preserved source artifact is not usable as a controlling narrative."
+                ),
+                {
+                    "expected_count": 1,
+                    "resolved_count": 1 if narrative_ok else 0,
+                    "failures": sorted(set(narrative_failures)),
+                },
+            )
+        )
+        checks.append(
+            self._check(
+                StructuredInputCheckCode.DEPENDENCY_CLOSURE,
+                StructuredInputCheckOutcome.PASS,
+                "A narrative document declares no FHIR dependency graph.",
+                {"direct_dependency_count": 0, "requirement_count": 0,
+                 "resolved_package_count": 0},
+            )
+        )
+
+        blockers = self._blockers(checks, issues.values())
+        completed_at = utc_now()
+        run_id = self._run_id(candidate_id, item.item_id)
+        narrative_payload = [narrative.model_dump(mode="json")]
+        content = StructuredInputClosureContent(
+            input_run_id=run_id,
+            reconciliation_candidate_id=candidate_id,
+            trust_root_id=trust_root.trust_root_id,
+            trust_root_sha256=trust_root.sha256,
+            inventory_item_id=item.item_id,
+            source_artifact_sha256=reference.artifact_sha256,
+            completed_at=completed_at,
+            expected_narrative_asset_ids=(narrative.asset_id,),
+            narrative_artifacts=(narrative,),
+            narrative_inventory_sha256=canonical_sha256({"narratives": narrative_payload}),
+            issues=tuple(issues.values()),
+            checks=tuple(checks),
+            complete=not blockers and not issues,
+            blockers=blockers,
+        )
+        return await self._seal_and_record(
+            content,
+            source=source,
+            candidate_id=candidate_id,
+            trust_root=trust_root,
+            run_id=run_id,
+            completed_at=completed_at,
+        )
+
+    async def _seal_and_record(
+        self,
+        content: StructuredInputClosureContent,
+        *,
+        source: StructuredSourceContext,
+        candidate_id: str,
+        trust_root: TrustRootDefinition,
+        run_id: str,
+        completed_at: datetime,
+    ) -> StructuredInputResolutionResult:
+        """Seal, attest, and persist a closure report.
+
+        Shared by both topologies deliberately. Duplicating a signing and persistence path
+        is how two paths quietly stop agreeing about what a signed closure means, and the
+        narrative topology has to produce a closure indistinguishable in kind from the DAK
+        one - same predicate, same artifact kind, same conflict handling.
+        """
+
         report = StructuredInputClosureReport.seal(content)
         report_artifact = self._artifacts.put(
             canonical_json_bytes(report),
@@ -327,16 +536,6 @@ class StructuredInputClosureService:
             report_artifact_sha256=report_artifact.sha256,
         )
 
-    async def _result(
-        self, existing: StoredStructuredInputRun
-    ) -> StructuredInputResolutionResult:
-        return StructuredInputResolutionResult(
-            state=existing.state,
-            report=existing.report,
-            attestation=await self._attestations.get_reference(existing.attestation_id),
-            report_artifact_sha256=existing.report_artifact_sha256,
-        )
-
     async def _acquire_narratives(
         self,
         trust_root: TrustRootDefinition,
@@ -361,7 +560,7 @@ class StructuredInputClosureService:
                     ConnectorRequest(url=asset.url, accept=asset.media_type),
                     allowed_domains=trust_root.allowed_domains,
                 )
-                self._validate_narrative_content(asset, response.body)
+                self._validate_narrative_content(asset.media_type, response.body)
                 digest = hashlib.sha256(response.body).hexdigest()
                 if asset.expected_sha256 is not None and digest != asset.expected_sha256:
                     raise StructuredInputAcquisitionError(
@@ -726,14 +925,19 @@ class StructuredInputClosureService:
         return max(matching)[1]
 
     @staticmethod
-    def _validate_narrative_content(
-        asset: NarrativeAssetDefinition, content: bytes
-    ) -> None:
-        if asset.media_type == "application/pdf":
+    def _validate_narrative_content(media_type: str, content: bytes) -> None:
+        """Structural validation of narrative bytes, by media type.
+
+        Takes the media type rather than an asset definition so both topologies can call
+        it: a narrative-anchored candidate has no `NarrativeAssetDefinition`, because its
+        narrative is the inventory source artifact itself.
+        """
+
+        if media_type == "application/pdf":
             if not content.startswith(b"%PDF-") or b"%%EOF" not in content[-2048:]:
                 raise ValueError("narrative PDF signature or terminator is invalid")
             return
-        if asset.media_type == (
+        if media_type == (
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         ):
             if not content.startswith(b"PK\x03\x04"):
@@ -763,7 +967,7 @@ class StructuredInputClosureService:
                 if not {"[Content_Types].xml", "xl/workbook.xml"} <= names:
                     raise ValueError("narrative XLSX is missing required workbook members")
             return
-        raise ValueError(f"unsupported narrative media type: {asset.media_type}")
+        raise ValueError(f"unsupported narrative media type: {media_type}")
 
     @classmethod
     def _json_depth(cls, value: Any) -> int:
@@ -799,11 +1003,36 @@ class StructuredInputClosureService:
         return any(visit(node) for node in tuple(graph))
 
     @staticmethod
+    def _topology(trust_root: TrustRootDefinition) -> str:
+        """Which acquisition topology this publisher uses.
+
+        Absent means today's DAK behaviour, so every existing signed trust root keeps
+        resolving exactly as before. ``NARRATIVE_ANCHORED`` is the inverse topology: the
+        inventory source artifact *is* the controlling clinical narrative, rather than a
+        FHIR package with narratives hanging off it as side-channel assets.
+        """
+
+        declared = trust_root.connector_config.get("source_topology", DAK_STRUCTURED)
+        if declared not in (DAK_STRUCTURED, NARRATIVE_ANCHORED):
+            raise ValueError(f"unknown source_topology: {declared!r}")
+        return str(declared)
+
+    @staticmethod
     def _policy(
         trust_root: TrustRootDefinition,
     ) -> tuple[
-        tuple[NarrativeAuthorityDefinition, ...], DependencyRegistryPolicy
+        tuple[NarrativeAuthorityDefinition, ...], DependencyRegistryPolicy | None
     ]:
+        # A narrative-anchored publisher declares neither block: there is no FHIR package
+        # to have dependencies, and the narrative is the source artifact itself, resolved
+        # per item through its own handle rather than statically bound here.
+        if StructuredInputClosureService._topology(trust_root) == NARRATIVE_ANCHORED:
+            for forbidden in ("controlling_narratives", "dependency_registry"):
+                if trust_root.connector_config.get(forbidden):
+                    raise ValueError(
+                        f"a NARRATIVE_ANCHORED trust root must not declare {forbidden}"
+                    )
+            return ((), None)
         raw_narratives = trust_root.connector_config.get("controlling_narratives")
         if not isinstance(raw_narratives, list) or not raw_narratives:
             raise ValueError("trust root requires controlling narrative definitions")
