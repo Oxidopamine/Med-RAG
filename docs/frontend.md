@@ -107,13 +107,15 @@ viewer's status line; it is never used for emphasis.
 something is withheld, red means it failed. Selection is black - a cursor, not a status -
 so a selected claim, citation chip or rail item takes an ink border rather than a tint.
 
-**Type.** Inter Tight for the interface, JetBrains Mono for anything a reader compares: a
-page number, an evidence ID, a run identifier, a manifest hash, a locator. The scale
-floors at `--t-2xs` (12px) and that tier is chrome - uppercase kickers, status pills,
-keycaps. Values a reader acts on sit at `--t-xs` or above. Inside the source sheet, `em`
-is used only for the passage and its immediate framing, because that is what the
-`Text size` control exists to scale; nested metadata uses fixed tokens, since compounding
-`em` had put anchor fields at 7.5px.
+**Type.** Public Sans for the interface, JetBrains Mono for anything a reader compares: a
+page number, an evidence ID, a run identifier, a manifest hash, a locator. The interface
+face is a text cut rather than a display one: the largest tier by count is `--t-xs` (13px)
+metadata, and a tightened cut serves that size worst. The scale floors at `--t-2xs`
+(12px) and that tier is chrome - uppercase kickers, status pills, keycaps. Values a reader
+acts on sit at `--t-xs` or above. Inside the source sheet, `em` is used only for the
+passage and its immediate framing, because that is what the `Text size` control exists to
+scale; nested metadata uses fixed tokens, since compounding `em` had put anchor
+fields at 7.5px.
 
 `--control-min` (44px) is the smallest an interactive control may be. `--control-sm`
 (36px) is the compact pointer variant, and it resolves to `--control-min` below 860px, so

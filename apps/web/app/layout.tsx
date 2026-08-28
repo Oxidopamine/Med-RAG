@@ -1,9 +1,9 @@
 import type { Metadata, Viewport } from "next";
-import { Inter_Tight, JetBrains_Mono } from "next/font/google";
+import { JetBrains_Mono, Public_Sans } from "next/font/google";
 
 import "./globals.css";
 
-const sans = Inter_Tight({
+const sans = Public_Sans({
   variable: "--font-sans",
   subsets: ["latin"],
   display: "swap",
