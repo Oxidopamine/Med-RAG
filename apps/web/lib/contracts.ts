@@ -6,6 +6,7 @@ import type {
   ProgressEvent,
   QuestionAccepted,
   QuestionResult,
+  TableRowNeighbourhood,
 } from "@/lib/types";
 
 const questionStatusSchema = z.enum([
@@ -208,6 +209,54 @@ const evidenceDetailSchema = z
         message: "Restricted evidence cannot expose exact highlights",
         path: ["locators"],
       });
+    }
+  });
+
+/**
+ * The window of rows around a cited one.
+ *
+ * A neighbour is validated as a full evidence record, not as a looser row shape. The
+ * point of the window is that a reader can judge a neighbour by the same provenance
+ * standard as the citation, so a payload that cannot meet that standard should fail to
+ * parse here rather than render as an unlabelled row of text beside a verified one.
+ */
+export const tableRowNeighbourhoodSchema: z.ZodType<TableRowNeighbourhood> = z
+  .strictObject({
+    source_id: z.string().trim().min(1),
+    table_id: z.string().trim().min(1),
+    anchor_row_index: z.number().int().nonnegative(),
+    radius: z.number().int().nonnegative(),
+    rows: z
+      .array(
+        z.strictObject({
+          row_index: z.number().int().nonnegative(),
+          row_number: z.number().int().min(1),
+          is_anchor_row: z.boolean(),
+          evidence: evidenceDetailSchema,
+        }),
+      )
+      .max(64)
+      .default([]),
+  })
+  .superRefine((neighbourhood, issue) => {
+    // The two numberings have to agree, because they are what a reader uses to find the
+    // row in the original. A payload where they disagree has an off-by-one somewhere
+    // upstream, and rendering it would put a citation on the wrong row of a real table.
+    for (const row of neighbourhood.rows) {
+      if (row.row_number !== row.row_index + 1) {
+        issue.addIssue({
+          code: "custom",
+          message: "A row's one-based number must match its zero-based index",
+          path: ["rows"],
+        });
+      }
+      if (row.is_anchor_row && row.row_index !== neighbourhood.anchor_row_index) {
+        issue.addIssue({
+          code: "custom",
+          message: "Only the anchored row index may be marked as the anchor row",
+          path: ["rows"],
+        });
+      }
     }
   });
 

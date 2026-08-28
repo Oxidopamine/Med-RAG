@@ -89,6 +89,12 @@
   --ink-active: #000000;
   --ink-on: var(--n-0);
   --ink-ring: rgba(10, 10, 10, 0.16);
+  /* Text and hairlines *on* an ink surface. Held as alphas rather than as ramp steps so a
+     chip and a rule over black stay related to the text above them; --ink-on-muted lands at
+     roughly 8.8:1 over --ink, so it is safe for body copy and not only for decoration. */
+  --ink-on-muted: rgba(255, 255, 255, 0.68);
+  --ink-line: rgba(255, 255, 255, 0.16);
+  --ink-raised: rgba(255, 255, 255, 0.08);
 
   /* ---- accent: links, selection, focus ---- */
   --accent: var(--b-600);

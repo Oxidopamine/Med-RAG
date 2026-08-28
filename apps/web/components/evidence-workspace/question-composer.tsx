@@ -109,6 +109,16 @@ const SOURCE_BODIES = [
 ];
 
 interface QuestionComposerProps {
+  /**
+   * True while the run has been accepted by this browser but not yet by the server.
+   *
+   * Derived from the run rather than tracked here. This component used to hold its own
+   * `isSubmitting` flag around the submit call, which meant a request that never settled
+   * left the composer locked with no way out: cancelling ends the *run*, and nothing could
+   * end a promise. Every busy state now reads from the one place that knows, so stopping a
+   * run releases the controls whatever the in-flight request does afterwards.
+   */
+  isStarting?: boolean;
   isRunning: boolean;
   onChange: (question: string) => void;
   onSourceFiltersChange: (filters: SourceFilters) => void;
@@ -120,6 +130,7 @@ interface QuestionComposerProps {
 }
 
 export function QuestionComposer({
+  isStarting: isStartingRun = false,
   isRunning,
   onChange,
   onSourceFiltersChange,
@@ -132,7 +143,6 @@ export function QuestionComposer({
   const [questionError, setQuestionError] = useState("");
   const [organizationInput, setOrganizationInput] = useState("");
   const [identifiersDismissed, setIdentifiersDismissed] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const scopeDetailsRef = useRef<HTMLDetailsElement>(null);
   const scopeSummaryRef = useRef<HTMLElement>(null);
@@ -144,7 +154,18 @@ export function QuestionComposer({
   const scopeHelpId = useId();
   const organizationId = useId();
   const organizationHelpId = useId();
-  const isBusy = isRunning || isSubmitting;
+  /*
+   * Busy is the run's state, and only the run's state.
+   *
+   * This used to be `isRunning || isSubmitting`, where `isSubmitting` was local state held
+   * across the submit promise. That made the composer impossible to release: a request
+   * that never settled left the controls disabled and the textarea read-only with no way
+   * out but a reload, because "Stop waiting" ends a *run* and nothing can end a promise.
+   * The workspace marks the run live synchronously inside `onSubmit`, before its first
+   * await, so reading the run here locks just as promptly and unlocks the moment the run
+   * stops - however it stops.
+   */
+  const isBusy = isRunning;
 
   useEffect(() => {
     const textarea = textareaRef.current;
@@ -202,14 +223,25 @@ export function QuestionComposer({
 
     const submittedFilters = filtersWithOrganizationDraft();
     submittingRef.current = true;
-    setIsSubmitting(true);
     try {
       const accepted = await onSubmit(trimmedQuestion, submittedFilters);
       if (accepted && scopeDetailsRef.current) scopeDetailsRef.current.open = false;
     } finally {
       submittingRef.current = false;
-      setIsSubmitting(false);
     }
+  }
+
+  /**
+   * Stop watching the run, and stop treating a submission as in flight.
+   *
+   * `handleSubmit`'s `finally` clears the guard on every path where the request settles.
+   * This is the path where it might not: the reader has decided the run is over, and a
+   * guard still held by a promise nobody can cancel would let them type a new question and
+   * then silently swallow the submit.
+   */
+  function handleStopWaiting() {
+    submittingRef.current = false;
+    onStopWaiting();
   }
 
   function handleQuestionKeyDown(event: ReactKeyboardEvent<HTMLTextAreaElement>) {
@@ -300,82 +332,69 @@ export function QuestionComposer({
       aria-busy={isBusy}
     >
       <form className={styles["question-form"]} id="ask" onSubmit={handleSubmit} noValidate>
-        <div className={styles["composer-heading-row"]}>
+        <div className={styles["composer-intro"]}>
           <h1 id="composer-heading">What guideline decision are you reviewing?</h1>
           {/* Visual cues only. The same guidance reaches assistive technology as prose in
               the field description below, so announcing three bare nouns here would
-              repeat it worse. `aria-label` on a plain div is dropped anyway. */}
-          <div className={styles["question-anatomy"]} aria-hidden="true">
+              repeat it worse. `aria-label` on a plain div is dropped anyway.
+
+              Set as a legend under the heading rather than as three filled chips beside
+              it. Filled, they sat at the weight of the source control below and read as
+              something to press; as small caps directly above the field they read as what
+              they are - the shape of a question worth asking. */}
+          <p className={styles["question-anatomy"]} aria-hidden="true">
             <span>Population</span>
             <span>Condition</span>
             <span>Decision</span>
-          </div>
+          </p>
         </div>
         <p className={styles.srOnly} id={questionHelpId}>
           Ask one focused guideline question. Include the population, condition, and clinical
           decision. Do not include names or patient identifiers.
         </p>
 
-        <div className={styles["question-bar"]}>
-          <div
-            className={`${styles["question-field"]} ${questionError ? styles["question-field-error"] : ""}`}
-          >
-            <Search className={styles["question-leading-icon"]} size={21} aria-hidden="true" />
-            <label className={styles.srOnly} htmlFor={questionId}>
-              Guideline question
-            </label>
-            <textarea
-              ref={textareaRef}
-              id={questionId}
-              value={question}
-              onChange={(event) => {
+        {/* The field takes the full width and the submit sits in the control row below it.
+            Side by side, the button was pinned to a box that grows as the question does,
+            and a long question squeezed the one input this whole screen exists to serve. */}
+        <div
+          className={`${styles["question-field"]} ${questionError ? styles["question-field-error"] : ""}`}
+        >
+          <Search className={styles["question-leading-icon"]} size={21} aria-hidden="true" />
+          <label className={styles.srOnly} htmlFor={questionId}>
+            Guideline question
+          </label>
+          <textarea
+            ref={textareaRef}
+            id={questionId}
+            value={question}
+            onChange={(event) => {
+              setQuestionError("");
+              setIdentifiersDismissed(false);
+              onChange(event.target.value);
+            }}
+            onKeyDown={handleQuestionKeyDown}
+            maxLength={4000}
+            rows={1}
+            placeholder="e.g., For an adult on first-line ART with a viral load of 1200 copies/mL, what do guidelines recommend?"
+            aria-describedby={describedBy}
+            aria-invalid={Boolean(questionError)}
+            aria-keyshortcuts="Control+Enter Meta+Enter"
+            readOnly={isBusy}
+          />
+          {question && !isBusy ? (
+            <button
+              className={styles["clear-question"]}
+              type="button"
+              onClick={() => {
                 setQuestionError("");
-                setIdentifiersDismissed(false);
-                onChange(event.target.value);
+                onChange("");
+                textareaRef.current?.focus();
               }}
-              onKeyDown={handleQuestionKeyDown}
-              maxLength={4000}
-              rows={1}
-              placeholder="e.g., For an adult on first-line ART with a viral load of 1200 copies/mL, what do guidelines recommend?"
-              aria-describedby={describedBy}
-              aria-invalid={Boolean(questionError)}
-              aria-keyshortcuts="Control+Enter Meta+Enter"
-              readOnly={isBusy}
-            />
-            {question && !isBusy ? (
-              <button
-                className={styles["clear-question"]}
-                type="button"
-                onClick={() => {
-                  setQuestionError("");
-                  onChange("");
-                  textareaRef.current?.focus();
-                }}
-                aria-label="Clear question"
-              >
-                <X size={18} aria-hidden="true" />
-              </button>
-            ) : null}
-          </div>
-
-          {/* `aria-disabled` rather than `disabled`, for the same reason the textarea
-              beside it uses `readOnly`: a disabled control loses focus, and this one is
-              disabled at the exact moment it is holding it - the click that starts the
-              run. The browser would drop focus to <body> for the length of the review.
-              `handleSubmit` already rejects an empty or in-flight submission, so the
-              button stays focusable and does nothing. */}
-          <button
-            className={styles["ask-button"]}
-            type="submit"
-            aria-disabled={!question.trim() || isBusy}
-          >
-            {isBusy ? (
-              <CircleDashed className={styles.spin} size={18} aria-hidden="true" />
-            ) : (
-              <Search size={18} aria-hidden="true" />
-            )}
-            {isRunning ? "Reviewing..." : isSubmitting ? "Starting..." : "Review evidence"}
-          </button>
+              aria-label="Clear question"
+            >
+              <X size={18} aria-hidden="true" />
+            </button>
+          ) : null}
         </div>
 
         {questionError ? (
@@ -424,7 +443,12 @@ export function QuestionComposer({
           </div>
         ) : null}
 
-        <div className={styles["composer-options"]}>
+        {/* One control row: what the review will read, what it must not be given, and the
+            action that starts it. These were split across two rows at three different
+            weights - an outlined pill, a green tick, and the black button - which is what
+            made the panel read as a pile of unrelated controls. Ink now means one thing
+            here: press this. Everything informational is grey. */}
+        <div className={styles["composer-actions"]}>
           <details className={styles["scope-details"]} ref={scopeDetailsRef}>
             <summary ref={scopeSummaryRef}>
               <span className={styles["scope-summary-icon"]} aria-hidden="true">
@@ -540,34 +564,54 @@ export function QuestionComposer({
             {isBusy ? (
               <span className={styles["composer-run-note"]} role="status">
                 <CircleDashed className={styles.spin} size={15} aria-hidden="true" />
-                {isRunning ? "Question and sources locked to this review" : "Starting review"}
+                {isStartingRun ? "Starting review" : "Question and sources locked to this review"}
               </span>
             ) : (
+              /* Grey, not green. Green in this workspace means a gate passed, and nothing
+                 has been checked here - this is an instruction to the reader, not a
+                 result. A tick that claims a verification it did not do is worse than no
+                 tick at all. */
               <span className={styles["privacy-cue"]}>
                 <ShieldCheck size={15} aria-hidden="true" />
                 No patient identifiers
               </span>
             )}
 
+            {/* The Ctrl/Cmd+Enter shortcut still works and is still announced through
+                `aria-keyshortcuts` on the textarea; it is no longer drawn here. A key cap
+                sitting under the composer at all times spent the reader's attention on
+                something they learn once, next to a boundary notice they must not learn to
+                ignore. Where the shortcut is written down is the menu. */}
             {isRunning ? (
               <button
                 className={styles["stop-waiting-link"]}
                 type="button"
-                onClick={onStopWaiting}
+                onClick={handleStopWaiting}
               >
                 <Square size={13} fill="currentColor" aria-hidden="true" />
                 Stop waiting
               </button>
-            ) : (
-              <span className={styles["keyboard-hint"]} aria-hidden="true">
-                <kbd>Ctrl</kbd>
-                <span>/</span>
-                <kbd>⌘</kbd>
-                <span>+</span>
-                <kbd>Enter</kbd>
-              </span>
-            )}
+            ) : null}
           </div>
+
+          {/* `aria-disabled` rather than `disabled`, for the same reason the textarea
+              above it uses `readOnly`: a disabled control loses focus, and this one is
+              disabled at the exact moment it is holding it - the click that starts the
+              run. The browser would drop focus to <body> for the length of the review.
+              `handleSubmit` already rejects an empty or in-flight submission, so the
+              button stays focusable and does nothing. */}
+          <button
+            className={styles["ask-button"]}
+            type="submit"
+            aria-disabled={!question.trim() || isBusy}
+          >
+            {isBusy ? (
+              <CircleDashed className={styles.spin} size={18} aria-hidden="true" />
+            ) : (
+              <Search size={18} aria-hidden="true" />
+            )}
+            {isStartingRun ? "Starting..." : isRunning ? "Reviewing..." : "Review evidence"}
+          </button>
         </div>
       </form>
 

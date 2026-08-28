@@ -17,7 +17,22 @@ from app.schemas.corpus import SHA256_PATTERN, SourceAnchor, canonical_sha256
 from app.schemas.domain import CanonicalModel, SourceStatus
 
 MATERIALIZER_NAME = "authority-evidence-materializer"
-MATERIALIZER_VERSION = "1.0.0"
+# 1.1.0 does not describe a change in what this materializer does. Its extraction, its
+# anchoring and its ID derivation are byte-for-byte those of 1.0.0. The bump exists to
+# force a re-run under a changed licence policy, because nothing else can: the run ID is
+# hash(candidate:name:version) with no timestamp, and repository.existing() keys on that
+# same triple, so at a fixed version a re-materialization short-circuits to the stored run
+# and never re-reads the trust root. Re-materializing the WHO SMART HIV release under the
+# branch A excerpt grant (docs/rendering-licence.md#decision) therefore required moving the
+# version. Do not read this number as a statement about the materializer's logic.
+MATERIALIZER_VERSION = "1.1.0"
+# Every version this materializer has signed reports under, newest first. Bumping the
+# version above does not retract the reports below it: those artifacts are immutable,
+# still digest-addressed in the artifact store, and still back a release being served, so
+# the schema has to keep parsing them. Widen by union rather than replace - the same
+# precedent `evidence` set when compact entries arrived.
+PRIOR_MATERIALIZER_VERSION = "1.0.0"
+MATERIALIZER_VERSIONS = (MATERIALIZER_VERSION, PRIOR_MATERIALIZER_VERSION)
 
 # The narrative path is a separate materializer, not a mode of the structured one. It
 # derives its run ID from the inventory item as well as the candidate, so a multi-item
@@ -370,9 +385,13 @@ class MaterializationReportContent(CanonicalModel):
     materializer_name: Literal[MATERIALIZER_NAME, NARRATIVE_MATERIALIZER_NAME] = (
         MATERIALIZER_NAME
     )
-    materializer_version: Literal[MATERIALIZER_VERSION, NARRATIVE_MATERIALIZER_VERSION] = (
-        MATERIALIZER_VERSION
-    )
+    # Spelled through MATERIALIZER_VERSIONS rather than the current constant alone, so a
+    # signed 1.0.0 report keeps parsing. Naming NARRATIVE_MATERIALIZER_VERSION here would
+    # admit "1.0.0" too, but only by coincidence of the two paths sharing a number today;
+    # `verify_one_topology` is what actually holds a name and a version together.
+    materializer_version: Literal[
+        MATERIALIZER_VERSION, PRIOR_MATERIALIZER_VERSION, NARRATIVE_MATERIALIZER_VERSION
+    ] = MATERIALIZER_VERSION
     authority_binding: AnyAuthorityBinding
     structural_mapping: AnySourceAnalysisAttachment
     evidence: tuple[MaterializedEvidenceArtifactEntry | MaterializedEvidenceRecord, ...]
@@ -440,10 +459,16 @@ class MaterializationReportContent(CanonicalModel):
         """
 
         narrative_materializer = self.materializer_name == NARRATIVE_MATERIALIZER_NAME
-        expected_version = (
-            NARRATIVE_MATERIALIZER_VERSION if narrative_materializer else MATERIALIZER_VERSION
+        # Membership, not equality against the current constant. What this guards is that a
+        # name and a version identify the *same* materializer; pinning the authority path to
+        # whatever version happens to be current would additionally make every previously
+        # signed report unreadable the moment the version moves, which is a different and
+        # unwanted claim - the reports are immutable and one of them still backs a served
+        # release.
+        expected_versions = (
+            (NARRATIVE_MATERIALIZER_VERSION,) if narrative_materializer else MATERIALIZER_VERSIONS
         )
-        if self.materializer_version != expected_version:
+        if self.materializer_version not in expected_versions:
             raise ValueError("materializer name and version identify different materializers")
         narrative_binding = isinstance(self.authority_binding, SignedNarrativeAuthorityBinding)
         narrative_analysis = isinstance(self.structural_mapping, NarrativeAnalysisAttachment)

@@ -28,11 +28,14 @@ from app.corpus_steward.structured_repository import StructuredSourceContext
 from app.schemas.corpus import LocatorKind
 from app.schemas.domain import SourceStatus
 
+# Tracks MATERIALIZER_VERSION, so it moves whenever that does. The 1.0.0 document stays
+# checked in beside it: it is the contract the already-signed release was built under, and
+# nothing about bumping the version retracts it.
 MATERIALIZATION_SCHEMA = (
     Path(__file__).resolve().parents[4]
     / "packages"
     / "schemas"
-    / "corpus-materialization-result-1.0.0.schema.json"
+    / "corpus-materialization-result-1.1.0.schema.json"
 )
 FIXED_TIME = datetime(2026, 8, 27, 12, 0, 0, tzinfo=timezone.utc)
 def test_xlsx_extraction_accounts_for_rows_and_cell_anchors() -> None:

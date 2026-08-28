@@ -245,4 +245,78 @@ describe("useEvidenceRun", () => {
     expect(result.current.result).toEqual(terminalResult);
     expect(apiMocks.getQuestion).toHaveBeenCalledTimes(1);
   });
+
+  /*
+   * A stream that connects and then says nothing used to be the one unbounded path in the
+   * hook: no event to finish the run, no error to trigger the polling fallback, and the
+   * five-minute deadline living inside the fallback that was never entered. The run stayed
+   * `running` forever and every control bound to it stayed locked.
+   */
+  it("abandons a stream that has gone silent and finishes the run by polling", async () => {
+    vi.useFakeTimers();
+    try {
+      apiMocks.submitQuestion.mockResolvedValue({
+        question_id: "question-1",
+        status: "QUEUED",
+      });
+      apiMocks.getQuestion.mockResolvedValue(terminalResult);
+      const { result } = renderHook(() => useEvidenceRun());
+
+      await act(async () => {
+        await result.current.submit("A question");
+      });
+
+      const source = MockEventSource.instances[0];
+      expect(source.closed).toBe(false);
+      expect(result.current.lifecycle).toBe("running");
+
+      // Neither an event nor an error: the connection is open and simply silent.
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(120_000);
+      });
+
+      expect(source.closed).toBe(true);
+      expect(result.current.lifecycle).toBe("abstained");
+      expect(result.current.result).toEqual(terminalResult);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("keeps waiting on a slow run for as long as the stream is still reporting", async () => {
+    vi.useFakeTimers();
+    try {
+      apiMocks.submitQuestion.mockResolvedValue({
+        question_id: "question-1",
+        status: "QUEUED",
+      });
+      const { result } = renderHook(() => useEvidenceRun());
+
+      await act(async () => {
+        await result.current.submit("A question");
+      });
+      const source = MockEventSource.instances[0];
+
+      // Each event restarts the deadline, so a phase-by-phase run that takes longer than
+      // the watchdog window in total is never mistaken for a dead one.
+      for (const [sequence, status] of [
+        [1, "CONTEXT_EXTRACTED"],
+        [2, "RETRIEVING"],
+      ] as const) {
+        await act(async () => {
+          await vi.advanceTimersByTimeAsync(90_000);
+        });
+        act(() => source.emitProgress(progress(sequence, status)));
+      }
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(90_000);
+      });
+
+      expect(source.closed).toBe(false);
+      expect(result.current.lifecycle).toBe("running");
+      expect(apiMocks.getQuestion).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });

@@ -24,7 +24,9 @@ so a lane failure never blocks an answer by itself.
 """
 
 import asyncio
+from asyncio import shield
 from collections.abc import AsyncIterator, Awaitable, Callable
+from contextlib import suppress
 from dataclasses import dataclass, field
 from datetime import datetime
 from uuid import uuid4
@@ -174,7 +176,18 @@ class QuestionService:
             updated_at=record.updated_at,
         )
 
-    async def events(self, question_id: str, after: int = 0) -> AsyncIterator[ProgressEvent]:
+    async def events(
+        self, question_id: str, after: int = 0
+    ) -> AsyncIterator[ProgressEvent | None]:
+        """Every progress event for a run, then nothing once it is terminal.
+
+        ``None`` is a keep-alive, not an event: it says the run is still live and this
+        stream is still attached, and the transport is expected to turn it into whatever
+        its protocol uses to say so. Without it a run whose phases are minutes apart is
+        indistinguishable, on both ends, from a connection that died silently - and a
+        connection nobody writes to is exactly the one a proxy drops without either side
+        noticing.
+        """
         record = self._require(question_id)
         cursor = max(after, 0)
         while True:
@@ -184,11 +197,18 @@ class QuestionService:
                 yield event
             if record.status in TERMINAL_STATUSES:
                 return
+            # The keep-alive is yielded after the lock is released, never inside it: an
+            # async generator suspended at a `yield` holds whatever it acquired until the
+            # consumer asks for the next item, and holding this condition would block the
+            # `_emit` that is trying to publish the very event we are waiting for.
+            timed_out = False
             async with record.condition:
                 try:
                     await asyncio.wait_for(record.condition.wait(), timeout=15)
                 except TimeoutError:
-                    continue
+                    timed_out = True
+            if timed_out:
+                yield None
 
     async def close(self) -> None:
         if not self._tasks:
@@ -277,20 +297,57 @@ class QuestionService:
             record.abstention = None
             await self._emit(record, QuestionStatus.ANSWER_READY)
         except asyncio.CancelledError:
+            # A cancelled run used to leave the record wherever it stopped, and `events()`
+            # holds every attached stream open until a record is terminal - so a shutdown,
+            # a worker recycle or a dev-server reload stranded every watching browser on a
+            # spinner that nothing would ever resolve. The run really did stop; the record
+            # says so before the cancellation continues on its way.
+            #
+            # `_fail_closed` is shielded because we are already being cancelled: without it
+            # the first await inside would re-raise and the record would stay non-terminal,
+            # which is the whole failure being fixed here.
+            with suppress(BaseException):
+                await shield(
+                    self._fail_closed(
+                        record,
+                        reason_code="RUN_CANCELLED",
+                        message=(
+                            "The run was cancelled before it finished and did not render a "
+                            "clinical claim."
+                        ),
+                    )
+                )
             raise
         except Exception:
-            # Nothing partial survives a failure: a half-composed answer is the shape
-            # of an answer without the checks that make one safe.
-            record.claims = []
-            record.evidence_details = []
-            record.retrieval_candidates = []
-            record.conflicts = []
-            record.verification_summary = VerificationSummary()
-            record.abstention = AbstentionDetail(
+            await self._fail_closed(
+                record,
                 reason_code="PIPELINE_FAILURE",
-                message="The evidence pipeline failed closed and did not render a clinical claim.",
+                message=(
+                    "The evidence pipeline failed closed and did not render a clinical claim."
+                ),
             )
-            await self._emit(record, QuestionStatus.FAILED)
+
+    async def _fail_closed(
+        self,
+        record: QuestionRecord,
+        *,
+        reason_code: str,
+        message: str,
+    ) -> None:
+        """Drop every partial result and mark the record terminal.
+
+        Nothing partial survives a failure: a half-composed answer is the shape of an
+        answer without the checks that make one safe. Emitting ``FAILED`` is what releases
+        the readers blocked in :meth:`events`, so every path out of ``_run`` that is not an
+        answer or an abstention has to come through here.
+        """
+        record.claims = []
+        record.evidence_details = []
+        record.retrieval_candidates = []
+        record.conflicts = []
+        record.verification_summary = VerificationSummary()
+        record.abstention = AbstentionDetail(reason_code=reason_code, message=message)
+        await self._emit(record, QuestionStatus.FAILED)
 
     async def _abstain_unconfigured(self, record: QuestionRecord) -> None:
         reason_code = (

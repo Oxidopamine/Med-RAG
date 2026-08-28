@@ -7,6 +7,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from sqlalchemy import func, select
 
 from app.corpus.releases import (
+    MAX_TABLE_NEIGHBOUR_RADIUS,
     RELEASABLE_SOURCE_STATES,
     CorpusReleaseConflictError,
     CorpusReleaseGateError,
@@ -39,18 +40,23 @@ from app.persistence.models import (
     ArtifactRow,
     BenchmarkAcceptanceRow,
     CanonicalEvidenceRow,
+    CorpusReleaseEvidenceRow,
     CorpusReleaseRow,
     OutboxEventRow,
     PublisherRow,
     SourceRow,
     SourceVersionRow,
+    StewardArtifactRow,
 )
 from app.schemas.corpus import (
     ActivationDecisionContent,
+    CorpusEvidenceRecord,
     CorpusReleaseBundle,
     CorpusReleaseManifestContent,
+    LocatorKind,
     ReleaseState,
     SignedActivationDecision,
+    SourceAnchor,
     canonical_json_bytes,
     canonical_sha256,
 )
@@ -694,3 +700,352 @@ def test_retrieval_and_detail_resolution_share_one_definition() -> None:
     )
 
     assert {status.value for status in retrieval_states} == set(SERVABLE_LIFECYCLE_VALUES)
+
+
+async def seed_page_artifact(database: Database) -> None:
+    """The steward-store row `source_page_artifact` resolves the PDF bytes through."""
+
+    async with database.session() as session:
+        session.add(
+            StewardArtifactRow(
+                sha256="a" * 64,
+                kind="NARRATIVE_SOURCE",
+                byte_size=1,
+                media_type="application/pdf",
+                storage_key="sha256/aa/fixture.pdf",
+                created_at=utc_now(),
+            )
+        )
+
+
+async def test_source_page_artifact_is_withheld_until_the_page_licence_permits(
+    tmp_path,
+) -> None:
+    """Page reproduction is refused under branch A and granted only by its own flag.
+
+    This is the whole gate for the one route that reproduces a region of a source page,
+    so it is asserted in both directions: that the excerpt permission alone does not open
+    it, and that the page permission does.
+    """
+
+    database = Database(f"sqlite+aiosqlite:///{tmp_path / 'page-artifact.sqlite3'}")
+    await database.create_schema_for_tests()
+    await seed_fixture_source(database)
+    await seed_page_artifact(database)
+    repository = SQLCorpusReleaseRepository(database)
+    bundle = load_fixture_bundle()
+    registered = await repository.register_candidate(bundle)
+
+    # Branch A exactly: quoting permitted, page reproduction withheld.
+    async with database.session() as session:
+        source = await session.get(SourceRow, "SRC_FIXTURE_001")
+        assert source is not None
+        source.license_excerpt_allowed = True
+        source.license_render_allowed = False
+
+    assert (
+        await repository.source_page_artifact(
+            registered.corpus_release_id, "SRC_FIXTURE_001"
+        )
+        is None
+    )
+
+    async with database.session() as session:
+        source = await session.get(SourceRow, "SRC_FIXTURE_001")
+        assert source is not None
+        source.license_render_allowed = True
+
+    granted = await repository.source_page_artifact(
+        registered.corpus_release_id, "SRC_FIXTURE_001"
+    )
+    assert granted is not None
+    assert granted.source_id == "SRC_FIXTURE_001"
+    assert granted.artifact_sha256 == "a" * 64
+    assert granted.storage_key == "sha256/aa/fixture.pdf"
+
+    # A source that is licensed but contributes nothing to this release still has no page
+    # here: membership is established through servable approved evidence, not the registry.
+    assert (
+        await repository.source_page_artifact(
+            registered.corpus_release_id, "SRC_NOT_IN_RELEASE"
+        )
+        is None
+    )
+    assert await repository.source_page_artifact("CR_UNKNOWN", "SRC_FIXTURE_001") is None
+    await database.close()
+
+
+async def test_only_a_pdf_source_has_a_page_view(tmp_path) -> None:
+    """A spreadsheet has no pages, and inventing some would misplace every citation.
+
+    The renderer does not refuse a non-PDF - it rasterises one into hundreds of pages at a
+    size and numbering that exist nowhere in the document. The DAK annexes are XLSX and are
+    cited by table and cell, so a reader shown "page 12 of Annex B" would be reading a page
+    number this system made up.
+    """
+
+    database = Database(f"sqlite+aiosqlite:///{tmp_path / 'page-media-type.sqlite3'}")
+    await database.create_schema_for_tests()
+    await seed_fixture_source(database)
+    repository = SQLCorpusReleaseRepository(database)
+    bundle = load_fixture_bundle()
+    registered = await repository.register_candidate(bundle)
+
+    async with database.session() as session:
+        source = await session.get(SourceRow, "SRC_FIXTURE_001")
+        assert source is not None
+        source.license_render_allowed = True
+        session.add(
+            StewardArtifactRow(
+                sha256="a" * 64,
+                kind="NARRATIVE_SOURCE",
+                byte_size=1,
+                media_type=(
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                ),
+                storage_key="sha256/aa/fixture.xlsx",
+                created_at=utc_now(),
+            )
+        )
+
+    assert (
+        await repository.source_page_artifact(
+            registered.corpus_release_id, "SRC_FIXTURE_001"
+        )
+        is None
+    )
+    await database.close()
+
+
+async def seed_table_rows(
+    database: Database,
+    corpus_release_id: str,
+    rows: dict[int, str],
+    *,
+    table_id: str = "HIV.D",
+) -> None:
+    """Add workbook-row evidence to an already-registered release.
+
+    The signed fixture bundle is a PDF source, and the corpus this serves is mostly
+    spreadsheets, so the table cases need records the fixture does not contain. Building a
+    second signed bundle to get them would test the release-registration path over again;
+    what is under test here is the projection and the neighbourhood query, so the records
+    are written the same way `register_candidate` writes them - digest included, which is
+    what `_safe_evidence_detail` re-checks before serving any of them.
+    """
+
+    template = CorpusEvidenceRecord.model_validate(load_fixture_bundle().evidence[0])
+    now = utc_now()
+    async with database.session() as session:
+        for row_index, text in rows.items():
+            record = template.model_copy(
+                update={
+                    "evidence_id": f"EV_ROW_{row_index:03d}",
+                    "corpus_release_id": corpus_release_id,
+                    "content_exact": text,
+                    "content_search": text.lower(),
+                    "anchors": tuple(
+                        SourceAnchor(
+                            kind=LocatorKind.TABLE_CELL,
+                            source_uri="source://SV_FIXTURE_2026/annex/B",
+                            table_id=table_id,
+                            row_index=row_index,
+                            column_index=column_index,
+                        )
+                        for column_index in (0, 4)
+                    ),
+                }
+            )
+            session.add(
+                CanonicalEvidenceRow(
+                    evidence_id=record.evidence_id,
+                    evidence_sha256=record.sha256,
+                    source_id=record.source_id,
+                    source_version_id=record.source_version_id,
+                    approval_status=record.verification.approval_status.value,
+                    payload=record.model_dump(mode="json"),
+                    created_at=now,
+                )
+            )
+            session.add(
+                CorpusReleaseEvidenceRow(
+                    corpus_release_id=corpus_release_id,
+                    evidence_id=record.evidence_id,
+                )
+            )
+
+
+async def registered_release_with_rows(tmp_path, name: str, rows: dict[int, str]):
+    database = Database(f"sqlite+aiosqlite:///{tmp_path / name}")
+    await database.create_schema_for_tests()
+    await seed_fixture_source(database)
+    repository = SQLCorpusReleaseRepository(database)
+    registered = await repository.register_candidate(load_fixture_bundle())
+    await seed_table_rows(database, registered.corpus_release_id, rows)
+    return database, repository, registered.corpus_release_id
+
+
+async def test_section_path_is_derived_from_the_worksheet_an_anchor_names(tmp_path) -> None:
+    """A workbook anchor already names its sheet, so the section is read, not invented.
+
+    The canonical contract carries no section hierarchy, and the projection used to send an
+    empty list for every record - which the interface displayed as "Section: not supplied",
+    reading as data loss rather than as a field the corpus does not have. A `TABLE_CELL`
+    anchor's `table_id` is the worksheet its row belongs to, which is what a reader means
+    by the section of a spreadsheet source, and it is already sealed into the record.
+    """
+
+    database, repository, release_id = await registered_release_with_rows(
+        tmp_path, "section-path.sqlite3", {145: "A146=HIV.D.DE12\nE146=Detectable"}
+    )
+
+    details = await repository.research_evidence_details(release_id, {"EV_ROW_145"})
+    assert [detail.section_path for detail in details] == [["HIV.D"]]
+
+    # A page number is not a section. Promoting one would manufacture a hierarchy the
+    # document does not have, so a PDF record still reports none.
+    pdf_details = await repository.research_evidence_details(
+        release_id, {"EV_FIXTURE_PRIMARY_001"}
+    )
+    assert [detail.section_path for detail in pdf_details] == [[]]
+    await database.close()
+
+
+async def test_table_row_neighbourhood_returns_the_rows_around_a_cited_one(tmp_path) -> None:
+    """A decision table is not decidable one row at a time.
+
+    The row above opens the condition and the row below carries the exception, so a reader
+    checking a citation against the published table is really checking whether the
+    neighbours change what the cited row means.
+    """
+
+    database, repository, release_id = await registered_release_with_rows(
+        tmp_path,
+        "neighbourhood.sqlite3",
+        {index: f"A{index + 1}=HIV.D.DE{index}" for index in range(140, 152)},
+    )
+
+    neighbours = await repository.table_row_neighbourhood(
+        release_id, "SRC_FIXTURE_001", "HIV.D", 145, radius=2
+    )
+
+    # Reading order, which for a table is the row order the document has.
+    assert [item.row_index for item in neighbours] == [143, 144, 145, 146, 147]
+    assert [item.is_anchor_row for item in neighbours] == [False, False, True, False, False]
+    # A neighbour is an evidence record like any other, projected through the same path as
+    # a citation - so it carries its provenance and its licence answer, not bare text.
+    anchored = neighbours[2]
+    assert anchored.detail.evidence_id == "EV_ROW_145"
+    assert anchored.detail.exact_text == "A146=HIV.D.DE145"
+    assert anchored.detail.source_version_label == "2026"
+    assert anchored.detail.section_path == ["HIV.D"]
+    await database.close()
+
+
+async def test_table_row_neighbourhood_clamps_the_window_at_the_start_of_a_table(
+    tmp_path,
+) -> None:
+    database, repository, release_id = await registered_release_with_rows(
+        tmp_path,
+        "neighbourhood-start.sqlite3",
+        {index: f"A{index + 1}=value" for index in range(0, 4)},
+    )
+
+    neighbours = await repository.table_row_neighbourhood(
+        release_id, "SRC_FIXTURE_001", "HIV.D", 1, radius=3
+    )
+
+    assert [item.row_index for item in neighbours] == [0, 1, 2, 3]
+    await database.close()
+
+
+async def test_table_row_neighbourhood_carries_the_licence_the_answer_carried(
+    tmp_path,
+) -> None:
+    """The window performs no licence act the answer did not already perform.
+
+    A source whose licence withholds excerpts yields neighbours with their addresses - not
+    a copyright act - and no text. That is the same answer the cited row itself gets, which
+    is the point: a reader must not be able to reach through the neighbourhood for text the
+    citation withheld.
+    """
+
+    database, repository, release_id = await registered_release_with_rows(
+        tmp_path, "neighbourhood-licence.sqlite3", {145: "A146=Detectable"}
+    )
+    async with database.session() as session:
+        source = await session.get(SourceRow, "SRC_FIXTURE_001")
+        assert source is not None
+        source.license_excerpt_allowed = False
+
+    neighbours = await repository.table_row_neighbourhood(
+        release_id, "SRC_FIXTURE_001", "HIV.D", 145, radius=1
+    )
+
+    assert len(neighbours) == 1
+    assert neighbours[0].detail.exact_text is None
+    assert neighbours[0].detail.render_allowed is False
+    # The address survives, because a coordinate is not a reproduction.
+    assert neighbours[0].detail.locators[0].table_id == "HIV.D"
+    await database.close()
+
+
+async def test_table_row_neighbourhood_answers_empty_for_what_it_will_not_serve(
+    tmp_path,
+) -> None:
+    """One answer for every refusal: there is nothing here.
+
+    Which rows a release does not contain is a fact about a corpus the caller has not been
+    granted, so an unknown release, an unknown table, a source that is not in the release
+    and a radius outside the permitted range are all the same empty window.
+    """
+
+    database, repository, release_id = await registered_release_with_rows(
+        tmp_path, "neighbourhood-empty.sqlite3", {145: "A146=Detectable"}
+    )
+
+    async def window(**kwargs):
+        arguments = {
+            "corpus_release_id": release_id,
+            "source_id": "SRC_FIXTURE_001",
+            "table_id": "HIV.D",
+            "row_index": 145,
+            "radius": 1,
+            **kwargs,
+        }
+        return await repository.table_row_neighbourhood(
+            arguments["corpus_release_id"],
+            arguments["source_id"],
+            arguments["table_id"],
+            arguments["row_index"],
+            radius=arguments["radius"],
+        )
+
+    assert await window() != []
+    assert await window(corpus_release_id="CR_UNKNOWN") == []
+    assert await window(source_id="SRC_NOT_IN_RELEASE") == []
+    assert await window(table_id="HIV.X") == []
+    assert await window(row_index=900) == []
+    assert await window(radius=-1) == []
+    assert await window(radius=MAX_TABLE_NEIGHBOUR_RADIUS + 1) == []
+    await database.close()
+
+
+async def test_table_row_neighbourhood_will_not_serve_an_unservable_release(tmp_path) -> None:
+    """Research serving lowers the activation bar, not the validation one."""
+
+    database, repository, release_id = await registered_release_with_rows(
+        tmp_path, "neighbourhood-state.sqlite3", {145: "A146=Detectable"}
+    )
+    async with database.session() as session:
+        release = await session.get(CorpusReleaseRow, release_id)
+        assert release is not None
+        release.state = ReleaseState.CANDIDATE.value
+
+    assert (
+        await repository.table_row_neighbourhood(
+            release_id, "SRC_FIXTURE_001", "HIV.D", 145, radius=1
+        )
+        == []
+    )
+    await database.close()

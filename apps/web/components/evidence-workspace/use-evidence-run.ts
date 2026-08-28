@@ -21,6 +21,22 @@ import type {
 const POLL_TIMEOUT_MS = 5 * 60_000;
 const POLL_INTERVAL_MS = 1_500;
 
+/**
+ * How long a connected progress stream may say nothing before it is not believed.
+ *
+ * A live `EventSource` that has stopped delivering is the one failure this hook could not
+ * see: `POLL_TIMEOUT_MS` bounds the polling fallback, but a stream that connects and then
+ * goes quiet enters no timed path at all, so the run stayed `running` forever and every
+ * control stayed locked behind it. The watchdog gives silence a deadline, after which the
+ * stream is abandoned for polling - which is bounded, and which resolves the run either
+ * way.
+ *
+ * Well clear of the server's 15-second keep-alive, and of any single pipeline phase: this
+ * is not a timeout on the run, only on hearing nothing at all about it. Falling back is
+ * cheap and correct, so erring long costs a slower recovery rather than a wrong one.
+ */
+const STREAM_SILENCE_TIMEOUT_MS = 120_000;
+
 function delay(milliseconds: number) {
   return new Promise((resolve) => window.setTimeout(resolve, milliseconds));
 }
@@ -116,12 +132,22 @@ export function useEvidenceRun(): EvidenceRunState {
   const lastEventSequenceRef = useRef(0);
   const lastRequestRef = useRef<LastRequest | null>(null);
   const resultRef = useRef<QuestionResult | null>(null);
+  const streamWatchdogRef = useRef<number | null>(null);
 
+  const clearStreamWatchdog = useCallback(() => {
+    if (streamWatchdogRef.current === null) return;
+    window.clearTimeout(streamWatchdogRef.current);
+    streamWatchdogRef.current = null;
+  }, []);
+
+  // Closing the stream and disarming its watchdog are one act: a timer left running past
+  // the stream it was watching would fire against a connection nobody is listening to.
   const closeProgressStream = useCallback(() => {
+    clearStreamWatchdog();
     const source = eventSourceRef.current;
     eventSourceRef.current = null;
     source?.close();
-  }, []);
+  }, [clearStreamWatchdog]);
 
   useEffect(() => {
     return () => {
@@ -219,6 +245,44 @@ export function useEvidenceRun(): EvidenceRunState {
       let terminalObserved = false;
       eventSourceRef.current = source;
 
+      /**
+       * Give up on the stream and finish the run by polling instead.
+       *
+       * The one exit both stream failures share. Polling is bounded by
+       * `POLL_TIMEOUT_MS` and ends in a result or a stated failure either way, so
+       * whatever went wrong with the stream, the run stops being open-ended here.
+       */
+      const fallBackToPolling = (fallback: string) => {
+        if (
+          terminalObserved ||
+          fallbackStarted ||
+          generation !== generationRef.current ||
+          eventSourceRef.current !== source
+        ) {
+          return;
+        }
+        fallbackStarted = true;
+        closeProgressStream();
+        void pollUntilTerminal(id, generation).catch((runError: unknown) => {
+          failMonitoring(runError, fallback, generation);
+        });
+      };
+
+      // Restarted by anything that proves the stream is still delivering. Keep-alives
+      // arrive as SSE comments, which the parser drops without telling us, so what this
+      // actually measures is silence about the *run* - hence a deadline generous enough
+      // that no real phase reaches it.
+      const armWatchdog = () => {
+        clearStreamWatchdog();
+        if (eventSourceRef.current !== source) return;
+        streamWatchdogRef.current = window.setTimeout(() => {
+          streamWatchdogRef.current = null;
+          fallBackToPolling(
+            "The progress stream stopped reporting, and the run could not be followed to a result.",
+          );
+        }, STREAM_SILENCE_TIMEOUT_MS);
+      };
+
       source.addEventListener("progress", (message) => {
         if (
           generation !== generationRef.current ||
@@ -226,6 +290,11 @@ export function useEvidenceRun(): EvidenceRunState {
         ) {
           return;
         }
+
+        // Before parsing, and regardless of what the event turns out to say: a message
+        // that arrives at all is proof the stream is alive, which is the only thing the
+        // watchdog is asking about.
+        armWatchdog();
 
         try {
           const event = parseContract(
@@ -258,23 +327,18 @@ export function useEvidenceRun(): EvidenceRunState {
         }
       });
 
-      source.onerror = () => {
-        if (
-          terminalObserved ||
-          fallbackStarted ||
-          generation !== generationRef.current ||
-          eventSourceRef.current !== source
-        ) {
-          return;
-        }
-        fallbackStarted = true;
-        closeProgressStream();
-        void pollUntilTerminal(id, generation).catch((runError: unknown) => {
-          failMonitoring(runError, "Connection to the API failed.", generation);
-        });
-      };
+      source.onopen = armWatchdog;
+      source.onerror = () => fallBackToPolling("Connection to the API failed.");
+      armWatchdog();
     },
-    [closeProgressStream, failMonitoring, finishRun, pollUntilTerminal, recordStatus],
+    [
+      clearStreamWatchdog,
+      closeProgressStream,
+      failMonitoring,
+      finishRun,
+      pollUntilTerminal,
+      recordStatus,
+    ],
   );
 
   const beginRun = useCallback(

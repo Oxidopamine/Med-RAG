@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import health, ingestion, questions
+from app.api.routes import health, ingestion, questions, sources
 from app.core.config import get_settings
 from app.corpus.releases import SQLCorpusReleaseRepository
 from app.ingestion.downloader import AsyncPDFDownloader
@@ -91,10 +91,19 @@ def create_app() -> FastAPI:
         allow_credentials=True,
         allow_methods=["GET", "POST", "PATCH", "OPTIONS"],
         allow_headers=["*"],
+        # Response headers are not readable from script unless named here, and the page
+        # viewer needs the point-space page box to place anchor highlights on the image.
+        expose_headers=[
+            "X-Page-Width",
+            "X-Page-Height",
+            "X-Page-Count",
+            "X-Page-Label",
+        ],
     )
     application.include_router(health.router)
     application.include_router(questions.router, prefix=settings.api_prefix)
     application.include_router(ingestion.router, prefix=settings.api_prefix)
+    application.include_router(sources.router, prefix=settings.api_prefix)
     return application
 
 

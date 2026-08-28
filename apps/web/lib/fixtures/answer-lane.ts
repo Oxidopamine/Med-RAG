@@ -20,6 +20,9 @@ import type {
  * Each helper returns a fresh object so a test can amend one without disturbing another.
  */
 
+/** Exactly what the PDF extractor joins a page's text blocks with. */
+const BLOCK_JOIN = "\n\n";
+
 const QUESTION =
   "For an adult with newly diagnosed hypertension, what do current guidelines recommend about starting pharmacological treatment?";
 
@@ -153,6 +156,75 @@ export function tableCellEvidence(overrides: Partial<EvidenceDetail> = {}): Evid
         column_index: 2,
       },
     ],
+    ...overrides,
+  });
+}
+
+/**
+ * A workbook row as the DAK annexes actually materialise.
+ *
+ * This is the shape most of the release is in, and the one the interface was worst at:
+ * `content_exact` is the extractor's serialisation of a whole row - one `E146=value` line
+ * per populated cell - with a `TABLE_CELL` anchor for each. Printed verbatim it shows the
+ * reader the pipeline; parsed back it is the publisher's row.
+ */
+export function spreadsheetRowEvidence(
+  overrides: Partial<EvidenceDetail> = {},
+): EvidenceDetail {
+  return licensedWhoEvidence({
+    evidence_id: "EV_WHO_HIV_DAK_146",
+    source_id: "WHO_HIV_DAK_2_ANNEX_B",
+    exact_text: [
+      "A146=HIV.D.DE12",
+      "C146=Viral load test result",
+      "E146=Detectable (>= 1000 copies/mL)",
+      "F146=Repeat viral load after enhanced adherence counselling",
+    ].join("\n"),
+    locators: [0, 2, 4, 5].map((columnIndex) => ({
+      kind: "TABLE_CELL",
+      source_uri: "source://SV_WHO_HIV_DAK_2/annex/B",
+      pdf_page: null,
+      printed_page: null,
+      bbox: null,
+      exact_highlight_available: false,
+      table_id: "HIV.D",
+      row_index: 145,
+      column_index: columnIndex,
+    })),
+    ...overrides,
+  });
+}
+
+/**
+ * A PDF page as the extractor materialises one.
+ *
+ * The unit is the whole page: `content_exact` is its text blocks joined by a blank line,
+ * with one anchor per block carrying that block's box. Both halves are needed for the
+ * passage and the figure to point at each other, and a record where they disagree in count
+ * is the case where they must not.
+ */
+export function pageBlocksEvidence(
+  overrides: Partial<EvidenceDetail> = {},
+): EvidenceDetail {
+  return licensedWhoEvidence({
+    evidence_id: "EV_WHO_HTN_PAGE_19",
+    exact_text: [
+      "Recommendation 3. Pharmacological treatment is recommended for adults with confirmed hypertension.",
+      "Remarks. The threshold applies to repeated office measurements taken on separate days.",
+      "Evidence certainty was rated moderate for this recommendation.",
+    ].join(BLOCK_JOIN),
+    locators: [
+      [0.1, 0.12, 0.9, 0.24],
+      [0.1, 0.3, 0.9, 0.41],
+      [0.1, 0.47, 0.62, 0.55],
+    ].map((bbox) => ({
+      kind: "PDF",
+      source_uri: "source://SV_WHO_HTN_2021/page/19",
+      pdf_page: 19,
+      printed_page: "11",
+      bbox: bbox as [number, number, number, number],
+      exact_highlight_available: true,
+    })),
     ...overrides,
   });
 }

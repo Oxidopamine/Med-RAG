@@ -544,7 +544,7 @@ test("connects verified claims to exact and restricted source evidence", async (
   await expect(page.locator("mark")).toHaveText(
     "Viral load should be measured at six months and twelve months after starting antiretroviral therapy, and every twelve months thereafter once suppressed.",
   );
-  await expect(page.getByText("Evidence 1 of 2", { exact: true })).toBeVisible();
+  await expect(page.getByText("Record 1 of 3", { exact: true })).toBeVisible();
   // A licensed record states its anchor precision, which exact highlighting will use.
   await expect(page.getByText("Exact region").first()).toBeVisible();
   await expect(
@@ -561,7 +561,9 @@ test("connects verified claims to exact and restricted source evidence", async (
   // the version identity is part of the location, not a footnote beside it.
   const anchorViewer = sourceInspector.getByRole("region", { name: "Location in source" });
   await expect(anchorViewer.getByText("source-who-hiv-2021")).toBeVisible();
-  await expect(anchorViewer.getByText("Printed page 231, PDF page 47 of 2021 edition")).toBeVisible();
+  await expect(
+    anchorViewer.getByText("Printed page 231 · PDF page 47 of 2021 edition").first(),
+  ).toBeVisible();
   await expect(
     anchorViewer.getByText("10.0%, 20.0% to 90.0%, 35.0% of the page"),
   ).toBeVisible();
@@ -572,7 +574,7 @@ test("connects verified claims to exact and restricted source evidence", async (
   ).toBeVisible();
 
   await page.getByRole("button", { name: "Next ranked result" }).click();
-  await expect(page.getByText("Evidence 2 of 2", { exact: true })).toBeVisible();
+  await expect(page.getByText("Record 2 of 3", { exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Evidence provenance" })).toBeVisible();
   // The same licence decision governs the claim-linked panel and the source inspector.
   await expect(
@@ -591,7 +593,7 @@ test("connects verified claims to exact and restricted source evidence", async (
   ).toBeVisible();
 
   await page.getByRole("button", { name: "Next ranked result" }).click();
-  await expect(page.getByText("Ranked passage 1 of 1, uncited", { exact: true })).toBeVisible();
+  await expect(page.getByText("Record 3 of 3", { exact: true })).toBeVisible();
   await expect(page.getByText("Retrieved, not cited", { exact: true })).toBeVisible();
   await expect(page.getByText("Retrieved at rank 4. No claim cites it.")).toBeVisible();
   // A table-cell anchor resolves to the address the source document itself uses.
@@ -742,9 +744,11 @@ test("keeps the verified workflow ordered, operable, and accessible on mobile", 
   );
   expect(positions).toEqual([...positions].sort((left, right) => left - right));
 
-  await page.getByText("Source details", { exact: true }).click();
-  const mobileMetadata = page.locator("details").filter({ hasText: "Source details" });
-  await expect(mobileMetadata.getByText("World Health Organization", { exact: true }).first()).toBeVisible();
+  // The record's provenance is part of the record now, at the foot of the sheet, rather
+  // than a separate narrow-screen disclosure repeating the column beside the document.
+  const record = page.getByRole("complementary", { name: "Record provenance" });
+  await expect(record.getByRole("heading", { name: "About this record" })).toBeVisible();
+  await expect(record.getByText("World Health Organization", { exact: true }).first()).toBeVisible();
   const overflow = await page.evaluate(
     () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
   );

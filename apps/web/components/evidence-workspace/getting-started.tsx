@@ -3,10 +3,19 @@ import {
   CheckCircle2,
   CircleDashed,
   FlaskConical,
+  History,
   ShieldCheck,
   TriangleAlert,
+  Trash2,
 } from "lucide-react";
-import type { ReactNode } from "react";
+import { useSyncExternalStore, type ReactNode } from "react";
+
+import {
+  forgetRuns,
+  runsSnapshot,
+  serverRunsSnapshot,
+  subscribeRuns,
+} from "@/lib/run-history";
 
 import styles from "./workspace.module.css";
 
@@ -55,7 +64,67 @@ export function GettingStarted({ corpusStatus }: { corpusStatus: CorpusStatus })
           </span>
         </div>
       </div>
+
+      <RecentRuns />
     </section>
+  );
+}
+
+/**
+ * The reviews this browser has opened.
+ *
+ * A run takes minutes and has always had an address; nothing wrote it down, so keeping the
+ * tab open was the only way back to one. Subscribed rather than read on mount: the list
+ * exists only in one browser, so the server renders none and hydration crosses to the real
+ * one exactly once - and a run recorded while this panel is on screen, in this tab or
+ * another, arrives without anything having to remount.
+ */
+function RecentRuns() {
+  const runs = useSyncExternalStore(subscribeRuns, runsSnapshot, serverRunsSnapshot);
+
+  if (!runs.length) return null;
+
+  return (
+    <div className={styles["recent-runs"]}>
+      <div className={styles["recent-runs-heading"]}>
+        <h3>
+          <History size={15} aria-hidden="true" />
+          Recent reviews
+        </h3>
+        <button onClick={forgetRuns} type="button">
+          <Trash2 size={14} aria-hidden="true" />
+          Clear
+        </button>
+      </div>
+      <ul>
+        {runs.map((run) => (
+          <li key={run.questionId}>
+            <a href={`/r/${encodeURIComponent(run.questionId)}`}>
+              <span>{run.question || "Question not recorded"}</span>
+              <small>
+                <time dateTime={run.openedAt}>{formatOpened(run.openedAt)}</time>
+                {" · "}
+                {run.questionId}
+              </small>
+            </a>
+          </li>
+        ))}
+      </ul>
+      <p>
+        {/* Said plainly, because a list of clinical questions in a browser invites the
+            assumption that the answers are there too. They are not: this is a list of
+            addresses, and every result is fetched from the server when one is opened. */}
+        Kept in this browser only. Opening one fetches the review from the server again.
+      </p>
+    </div>
+  );
+}
+
+function formatOpened(value: string): string {
+  const opened = new Date(value);
+  if (Number.isNaN(opened.getTime())) return "date not recorded";
+  return new Intl.DateTimeFormat("en", { dateStyle: "medium", timeStyle: "short" }).format(
+    opened,
   );
 }
 

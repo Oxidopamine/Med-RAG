@@ -173,26 +173,129 @@ item 3 with it.
   `corpus-steward set-source-licence --excerpt --no-page-render`, which requires both
   flags explicitly so one can never be set while the other drifts.
 
-**Not yet in effect, and why.** Every one of the 5,145 evidence records carries its own
-`render_allowed: false`, written at materialization from the trust root's licence policy
+**Why the source-level grant was not enough.** Every materialized evidence record carries
+its own `render_allowed`, written at materialization from the trust root's licence policy
 and sealed into the record's digest. The serving projection is a conjunction, so the
-build-time copy vetoes the source-level grant and passages still render blank. Making
-branch A visible therefore requires re-materializing the release under a licence policy
-that permits rendering.
+build-time copy vetoed the source-level grant and passages rendered blank. Note where that
+copy comes from: `materialization_service.py` writes it from
+`licensing_root.license_for_asset(asset_id)`, and `AssetLicensingPolicy` has a single
+`render_allowed` boolean with no excerpt/page split. **The trust root is the thing that had
+to change**, not the `sources` table — `set-source-licence` had already been run and was
+already correct.
 
-That is cheaper than it sounds and is still not free. `evidence_id` derives from
-`run_id:asset_id:unit_id` and not from `render_allowed`, so a re-materialization at the
-same materializer version reproduces **every evidence ID unchanged**, and `content_exact`
-is untouched — so the embeddings remain valid and nothing needs re-encoding. What does
-change is each record's digest, and therefore the release manifest and the release ID:
-the work is a re-materialize, re-register, re-validate, re-seal of the existing vectors
-under the new release ID, re-index, and re-attest.
+### The cost model this section first published was wrong
 
-[mvp-definition.md](mvp-definition.md) already says to batch that re-release behind the
-coverage decision, because everything binding to this corpus is work done twice if stage
-2 condemns it. So the flag flip rides that re-release rather than being taken on its own,
-and the code is ready for it. **A reader today gets locators and citations; passage text
-arrives with the next release.**
+It claimed that "a re-materialization at the same materializer version reproduces every
+evidence ID unchanged... the embeddings remain valid and nothing needs re-encoding." That
+is not what happens, and the error mattered: it made the remaining work look like a
+re-seal when it was a full re-encode.
+
+At the same materializer version **there is no re-run at all.** `_run_id` is
+`sha256(candidate:name:version)` with no timestamp, and `repository.existing()` keys on
+that same triple, so a second `materialize` finds the stored run and returns it as a
+success without ever re-reading the licence. The naive sequence silently changes nothing.
+
+Defeating that short-circuit is what forces the cost. The only lever is the version, so
+`MATERIALIZER_VERSION` moved `1.0.0` → `1.1.0` — a number that records a forced re-run
+under a changed licence policy, not a change in what the materializer does. A new version
+means a new `run_id`, and since `evidence_id` is `sha256(run_id:asset_id:unit_id)`, **every
+evidence ID changes.** The existing vectors key on those IDs and cannot be reused;
+`qdrant_index.py` rejects the mismatch outright with `VECTOR_BATCH_EVIDENCE_SET_MISMATCH`.
+So the real work was re-materialize, re-QA, **re-embed all 5,145 approved records from
+scratch**, re-seal, re-index, re-attest.
+
+### A stale conflation in the QA gate, found on the way
+
+`qa_repository.py` asserted `sources.license_render_allowed == evidence.render_allowed`
+when registering canonical sources. That equation predates migration
+`0015_licence_excerpt_permission` and was not updated with it: the evidence flag is the
+*excerpt* permission, which is how `corpus/releases.py` reads it, while
+`license_render_allowed` is the page-image permission this document holds shut. Under
+branch A the two necessarily disagree, so QA refused every WHO source outright — and on a
+source it had to *insert*, it would have granted page reproduction while denying excerpts,
+inverted on both axes. The check now asserts `license_excerpt_allowed`, and says nothing
+about the page permission: nothing about a piece of evidence licenses reproducing the page
+it came from, and that decision is left to `set-source-licence` and its fail-closed
+default.
+
+### What shipped
+
+Release `CR_6c5f7e503ea9382fd77356de226fd4bc`, from
+`MAT_96aa943935b28a8ef0da9b902ee1cb70` via `CRC_d2993bdf4f7a007b882108bebe81d2d6`, with
+5,145 approved records — the same count as the release it replaces, which is the evidence
+that only the licence flag moved. `WHO_HIV_DAK_2_ANNEX_D` was deliberately left at
+`render_allowed: false`; it has no `sources` row and its records have never reached a
+release. Like its predecessor the release ends at `VALIDATED` and is served as
+`RESEARCH_UNACTIVATED` — activation is a separate signed gate and this was not it.
+
+**A reader now gets locators, citations, and passage text.** What stays withheld is the
+page image: `license_render_allowed` is still `false` on all four sources, so
+`exact_highlight_available` is false everywhere. That is branch A holding exactly where it
+was drawn.
+
+## What the excerpt permission was then used for, 2026-08-28
+
+Two surfaces were added on top of the branch A grant. Neither reaches item 3, and both are
+recorded here so the excerpt permission's actual footprint is written down rather than
+inferred from the code.
+
+**The row, rather than its serialisation.** `content_exact` for a workbook record is the
+extractor's `A146=…\nE146=…` line-per-cell form of one spreadsheet row, and the interface
+printed it verbatim. It is now parsed back and laid out as addresses and values. This
+reproduces exactly the same bytes the excerpt permission already covered — the parse is
+presentational, and it falls back to printing the text unchanged whenever the shape does
+not hold completely.
+
+**The rows either side of a cited one.** `GET /v1/sources/{id}/tables/{table_id}/rows`
+answers with the evidence records anchored within three rows of a cited one, bounded at
+ten. This *is* a wider disclosure than a single citation: a reader who opens it sees up to
+seven rows where they previously saw one. It is judged to sit inside branch A on three
+grounds, and if any of them is wrong this is the surface to withdraw first:
+
+- Every row is projected through `_safe_evidence_detail`, the same path a citation takes,
+  so a source without `license_excerpt_allowed` yields addresses and no text. The window
+  cannot be used to reach text a citation withheld.
+- Seven rows of a decision table is still a short excerpt of a 5,145-record release, and
+  the request is per-citation and reader-initiated rather than a bulk route.
+- It reproduces no figure, table image, or map, so WHO's carve-out — the thing that
+  actually blocks item 3 — is not engaged. What is reproduced is text.
+
+The page permission is untouched by both. `license_render_allowed` remains `false` on all
+four sources, and the expanded page viewer, page turning, and higher-resolution rendering
+that were built alongside these are all reachable only through the route that reads it.
+
+### The serving path was never moved onto it, 2026-08-28
+
+"What shipped" above records the release and stops there, which left the decision
+invisible to anyone using the product. The release was built, but the serving stack was
+still pinned to its predecessor, so every passage in the workspace continued to render
+"Licence does not permit showing this passage" — correct code reporting a stale release.
+
+Three pins in `.env` and one missing index were the whole of it:
+
+- `SERVING_RELEASE_BUNDLE_PATH` -> `data/local/validated-who-smart-hiv-release-v2.json`
+- `SERVING_VECTORS_PATH` -> `data/local/benchmark-source-derived/qwen3-0.6b-release-vectors-v2.json`
+- `SERVING_QDRANT_COLLECTION` -> `corpus_cr_6c5f7e503ea9382fd77356de226fd4bc--vp-ba7b034759c3753db76951da`
+
+The bundle and the vectors already existed; only the Qdrant collection had never been
+built. `qdrant-build` against the conflict-aware Qwen3-0.6B + BM25 candidate indexed all
+5,145 approved points and validated clean.
+
+**The vector-profile suffix changes with the release even when the models do not.**
+`candidate_vector_profile_sha256` digests `corpus_release_id` and `manifest_sha256`
+alongside the dense and sparse model pins, so the same candidate yields `vp-ba7b0347...`
+here against `vp-7d236ba6...` on `CR_b6155a25`. A differing suffix is not evidence of a
+differing candidate, and reading it as one would send someone rebuilding a profile they
+already have.
+
+Verified end-to-end: a question against the running API returns ten evidence records, all
+`render_allowed: true` and all carrying `exact_text`. Page images remain withheld —
+branch C is still unfiled, and nothing here changes that.
+
+**The general point.** A licence decision is not applied when the release embodying it
+exists; it is applied when the thing serving requests is the release embodying it. This
+document twice recorded the former as done. The serving pins belong in the "What shipped"
+checklist, not in a follow-up section written after someone hit the wall.
 
 ## Sources
 

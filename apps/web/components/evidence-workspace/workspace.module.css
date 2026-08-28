@@ -117,63 +117,6 @@
   white-space: nowrap;
 }
 
-/*
- * The active release, in the space the one-item nav used to occupy.
- *
- * Not a control - availability follows an approved release, not a preference - so it is
- * a statement with a status dot rather than a button.
- */
-.release-chip {
-  min-height: 30px;
-  margin-right: auto;
-  padding: 0 var(--s-3);
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  color: var(--text-secondary);
-  background: var(--bg-sunk);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md);
-  font-size: var(--t-xs);
-  white-space: nowrap;
-}
-
-.release-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: var(--radius-pill);
-  background: var(--ok-mark);
-}
-
-.release-name {
-  color: var(--text-primary);
-  font-weight: var(--w-semibold);
-}
-
-.release-detail {
-  color: var(--text-muted);
-  font-family: var(--font-mono), monospace;
-  font-size: var(--t-2xs);
-}
-
-.release-none {
-  color: var(--warn-text);
-  background: var(--warn-wash);
-  border-color: var(--warn-border);
-}
-
-.release-none .release-name {
-  color: var(--warn-text);
-}
-
-.release-chip svg {
-  color: var(--text-faint);
-}
-
-.release-none svg {
-  color: var(--warn-mark);
-}
-
 .primary-nav {
   display: flex;
   align-items: center;
@@ -204,10 +147,186 @@
   background: var(--bg-sunk);
 }
 
+/* Pushed to the far edge: the brand has no nav beside it on this screen, so without this
+   the menu control would sit against the wordmark. */
 .header-status {
+  margin-left: auto;
   display: flex;
   align-items: center;
   gap: var(--s-2);
+}
+
+/* ---------------- menu ---------------- */
+
+.app-menu {
+  position: relative;
+}
+
+.menu-trigger {
+  width: var(--control-min);
+  height: var(--control-min);
+  display: grid;
+  place-items: center;
+  color: var(--text-secondary);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+}
+
+.menu-trigger:hover {
+  color: var(--text-strong);
+  background: var(--bg-sunk);
+  border-color: var(--border-subtle);
+}
+
+.menu-trigger[aria-expanded="true"] {
+  color: var(--ink-on);
+  background: var(--ink);
+  border-color: var(--ink);
+}
+
+/*
+ * Anchored to the trigger and capped at the viewport, so a long panel scrolls inside itself
+ * rather than running off the bottom of a short window.
+ */
+.menu-panel {
+  position: absolute;
+  top: calc(100% + var(--s-2));
+  right: 0;
+  z-index: 40;
+  width: min(360px, calc(100vw - var(--s-6) * 2));
+  max-height: min(72dvh, 640px);
+  overflow-y: auto;
+  padding: var(--s-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-4);
+  background: var(--bg-overlay);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+}
+
+.menu-panel section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+}
+
+.menu-panel h2 {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-muted);
+  font-size: var(--t-2xs);
+  font-weight: var(--w-semibold);
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+}
+
+.menu-panel h2 svg {
+  color: var(--text-faint);
+}
+
+.menu-panel p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: var(--t-xs);
+  line-height: 1.55;
+}
+
+.menu-steps {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  counter-reset: menu-step;
+}
+
+.menu-steps li {
+  padding-left: var(--s-5);
+  position: relative;
+  color: var(--text-secondary);
+  font-size: var(--t-xs);
+  line-height: 1.55;
+}
+
+.menu-steps li::before {
+  counter-increment: menu-step;
+  content: counter(menu-step);
+  position: absolute;
+  top: 2px;
+  left: 0;
+  width: 16px;
+  height: 16px;
+  display: grid;
+  place-items: center;
+  color: var(--ink-on);
+  background: var(--ink);
+  border-radius: var(--radius-pill);
+  font-size: 10px;
+  font-weight: var(--w-semibold);
+  font-variant-numeric: tabular-nums;
+}
+
+.menu-steps li span {
+  color: var(--text-strong);
+  font-weight: var(--w-semibold);
+}
+
+.menu-author {
+  padding-top: var(--s-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  border-top: 1px solid var(--border-subtle);
+}
+
+.menu-author p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--t-2xs);
+}
+
+.menu-author p span {
+  color: var(--text-strong);
+  font-weight: var(--w-semibold);
+}
+
+.menu-author div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* Square target, round frame. Sized from --control-sm so it takes the full 44px touch
+   target on a coarse pointer, like every other compact control on the page. */
+.menu-author a,
+.footer-links a {
+  width: var(--control-sm);
+  height: var(--control-sm);
+  display: inline-grid;
+  place-items: center;
+  color: var(--text-secondary);
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  text-decoration: none;
+}
+
+.menu-author a:hover,
+.footer-links a:hover {
+  color: var(--text-strong);
+  border-color: var(--border-strong);
+  text-decoration: none;
+}
+
+.menu-author a svg,
+.footer-links a svg {
+  color: var(--text-faint);
 }
 
 .environment-badge {
@@ -309,7 +428,6 @@
 .secondary-button,
 .answer-actions button,
 .abstention-actions button,
-.provenance-strip > button,
 .run-progress > button,
 .claim-footer button,
 .evidence-identity a,
@@ -340,7 +458,6 @@
 .secondary-button:hover:not(:disabled),
 .answer-actions button:hover:not(:disabled),
 .abstention-actions button:hover:not(:disabled),
-.provenance-strip > button:hover,
 .run-progress > button:hover,
 .claim-footer button:hover,
 .evidence-identity a:hover,
@@ -457,15 +574,17 @@
   padding: var(--s-5);
 }
 
-.composer-heading-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--s-4);
-  margin-bottom: var(--s-4);
+/*
+ * Heading, then the shape of a question, then the field. One column, in reading order.
+ * The heading and the cues used to sit on one line pushed to opposite ends, which put the
+ * guidance furthest from the input it describes and left the h1 competing for width with
+ * three lozenges.
+ */
+.composer-intro {
+  margin-bottom: var(--s-3);
 }
 
-.composer-heading-row h1 {
+.composer-intro h1 {
   margin: 0;
   color: var(--text-strong);
   font-size: var(--t-lg);
@@ -475,34 +594,35 @@
 }
 
 /* Population / Condition / Decision. Teaching cues, hidden from assistive technology
-   because the same guidance reaches it as prose on the field. */
+   because the same guidance reaches it as prose on the field. Set as a hairline-separated
+   legend: filled chips read as controls, and this row cannot be pressed. */
 .question-anatomy {
+  margin: 6px 0 0;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 5px;
-}
-
-.question-anatomy span {
-  padding: 3px var(--s-2);
+  gap: var(--s-2);
   color: var(--text-muted);
-  background: var(--bg-sunk);
-  border-radius: var(--radius-sm);
   font-size: var(--t-2xs);
   font-weight: var(--w-medium);
   letter-spacing: var(--track-label);
   text-transform: uppercase;
-  white-space: nowrap;
 }
 
-.question-bar {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: var(--s-2);
-  align-items: stretch;
+.question-anatomy span + span::before {
+  content: "";
+  margin-right: var(--s-2);
+  display: inline-block;
+  width: 3px;
+  height: 3px;
+  vertical-align: middle;
+  background: var(--border-strong);
+  border-radius: var(--radius-pill);
 }
 
 .question-field {
   position: relative;
+  width: 100%;
   min-width: 0;
   display: flex;
   align-items: center;
@@ -657,12 +777,28 @@
   border-color: transparent;
 }
 
-.composer-options {
+/*
+ * Scope and status on the left, the one action on the right. Wraps rather than compressing:
+ * at 320px the button drops to its own line at full width instead of squeezing the source
+ * summary into an ellipsis.
+ */
+.composer-actions {
   margin-top: var(--s-3);
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  justify-content: space-between;
   gap: var(--s-3);
+}
+
+.composer-actions .ask-button {
+  margin-left: auto;
+}
+
+@media (max-width: 560px) {
+  .composer-actions .ask-button {
+    margin-left: 0;
+    width: 100%;
+  }
 }
 
 /* ---------------- source scope disclosure ---------------- */
@@ -678,7 +814,7 @@
   align-items: center;
   gap: 7px;
   color: var(--text-secondary);
-  background: var(--bg-surface);
+  background: transparent;
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   font-size: var(--t-xs);
@@ -996,10 +1132,12 @@
   white-space: nowrap;
 }
 
+/* Grey, not green: this is a rule for the reader, not a check the system passed. Green is
+   reserved in this workspace for a gate that actually ran. */
 .privacy-cue svg {
   width: 13px;
   height: 13px;
-  color: var(--ok-mark);
+  color: var(--text-faint);
 }
 
 .composer-run-note {
@@ -1026,47 +1164,28 @@
   color: var(--danger-text);
 }
 
-.keyboard-hint {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  color: var(--text-faint);
-  font-size: var(--t-2xs);
-}
-
-.keyboard-hint kbd {
-  min-width: 20px;
-  height: 19px;
-  padding: 0 5px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--text-muted);
-  background: var(--bg-surface);
-  border: 1px solid var(--border);
-  border-bottom-width: 2px;
-  border-radius: 5px;
-  font-size: var(--t-2xs);
-}
-
 /* ---------------- examples ---------------- */
 
+/*
+ * Divided from the form by a rule, not by a fill. The sunk grey panel made the examples a
+ * third surface inside a card that already had a heading and a field, and stacked a second
+ * small-caps label under the one above the field. A hairline says "still the same card,
+ * different job" for the cost of one pixel.
+ */
 .example-questions {
-  padding: var(--s-3) var(--s-5);
+  padding: var(--s-4) var(--s-5);
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: var(--s-3);
-  background: var(--bg-sunk);
+  gap: var(--s-2) var(--s-3);
   border-top: 1px solid var(--border-subtle);
   border-radius: 0 0 var(--radius-xl) var(--radius-xl);
 }
 
 .example-questions > span {
   color: var(--text-muted);
-  font-size: var(--t-2xs);
+  font-size: var(--t-xs);
   font-weight: var(--w-medium);
-  letter-spacing: var(--track-label);
-  text-transform: uppercase;
   white-space: nowrap;
 }
 
@@ -1076,30 +1195,48 @@
   gap: 6px;
 }
 
+/*
+ * Solid ink rather than the outlined chip these were. On an empty workspace the examples
+ * are the one thing a first reader is meant to press, and a hairline pill next to the
+ * black Review control read as secondary chrome. They carry --ink-on text on --ink, which
+ * is the same pairing the primary action is held to, so contrast is already checked.
+ */
 .example-questions button {
   min-height: var(--control-sm);
   padding: 0 var(--s-3);
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  color: var(--text-secondary);
-  background: var(--bg-surface);
-  border: 1px solid var(--border);
+  color: var(--ink-on);
+  background: var(--ink);
+  border: 1px solid var(--ink);
   border-radius: var(--radius-pill);
   font-size: var(--t-xs);
   font-weight: var(--w-medium);
 }
 
 .example-questions button:hover:not(:disabled) {
-  color: var(--text-strong);
-  border-color: var(--border-strong);
+  background: var(--ink-hover);
+  border-color: var(--ink-hover);
   box-shadow: var(--shadow-xs);
+}
+
+.example-questions button:active:not(:disabled) {
+  background: var(--ink-active);
+  border-color: var(--ink-active);
+}
+
+/* Disabled while a review runs. Ink at reduced opacity keeps the shape of the control
+   readable without pretending it is still pressable. */
+.example-questions button:disabled {
+  opacity: 0.45;
 }
 
 .example-questions button svg {
   width: 13px;
   height: 13px;
-  color: var(--text-faint);
+  color: currentColor;
+  opacity: 0.7;
 }
 
 /* ============================================================ feedback */
@@ -1386,147 +1523,250 @@
 /* ============================================================ provenance strip */
 
 /*
- * Pinned while the workspace is read.
+ * Scrolls away with the rest of the page.
  *
- * Which release produced the passage on screen should never require a scroll to recover,
- * and in a two-pane layout that scrolls internally it did. Sits directly under the header.
+ * What it says is fixed for the whole run - which release answered, and under what
+ * authority - so it is read once at the top and does not earn a permanent band of the
+ * viewport underneath a header that is already pinned.
+ *
+ * The serving state is declared once, here, as four tokens the pill and the rail both
+ * read. Colour is the fastest way to see which of the three states you are in from across
+ * the room, and it is assigned by meaning: green passed the activation gate, amber is
+ * served for research without it, red has no release at all. Nothing in this strip takes
+ * a status colour for emphasis.
  */
 .provenance-strip {
-  position: sticky;
-  top: var(--header-h);
-  z-index: 20;
+  --state-text: var(--text-secondary);
+  --state-wash: var(--bg-sunk);
+  --state-border: var(--border);
+  --state-mark: var(--border-strong);
+
   margin-top: var(--s-4);
-  background: var(--veil-surface-strong);
-  backdrop-filter: saturate(180%) blur(12px);
   padding: var(--s-3) var(--s-4);
-  display: flex;
-  align-items: center;
-  gap: var(--s-3);
   background: var(--bg-surface);
   border: 1px solid var(--border);
+  border-left: 3px solid var(--state-mark);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-xs);
 }
 
-.provenance-primary {
-  min-width: 0;
-  flex: 1;
-  display: flex;
-  align-items: center;
-  gap: var(--s-3);
+.provenance-approved {
+  --state-text: var(--ok-text);
+  --state-wash: var(--ok-wash);
+  --state-border: var(--ok-border);
+  --state-mark: var(--ok-mark);
 }
 
-.provenance-primary > svg {
-  flex: 0 0 auto;
-  width: 17px;
-  height: 17px;
-  color: var(--ok-mark);
+.provenance-research {
+  --state-text: var(--warn-text);
+  --state-wash: var(--warn-wash);
+  --state-border: var(--warn-border);
+  --state-mark: var(--warn-mark);
 }
 
-.provenance-primary > div {
-  min-width: 0;
+/* Harder than research serving, and it has to look it: research serving answers, this
+   state means the gate had nothing accepted to answer from. */
+.provenance-unreleased {
+  --state-text: var(--danger-text);
+  --state-wash: var(--danger-wash);
+  --state-border: var(--danger-border);
+  --state-mark: var(--danger-mark);
+}
+
+/* Three zones on one line while there is room for three: the claim, the identifiers, the
+   actions. `flex-wrap` plus the flex-basis on each zone is what turns that into two rows
+   and then three as the strip narrows, in that order - claim first, actions last. */
+.provenance-bar {
   display: flex;
   flex-wrap: wrap;
-  align-items: baseline;
-  gap: var(--s-2);
+  align-items: center;
+  gap: var(--s-3) var(--s-4);
 }
 
-.provenance-primary strong {
-  color: var(--text-strong);
-  font-size: var(--t-sm);
+.provenance-claim {
+  flex: 1 1 300px;
+  min-width: 0;
+  display: grid;
+  justify-items: start;
+  gap: 3px;
+}
+
+.provenance-status {
+  max-width: 100%;
+  padding: 3px var(--s-2);
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--state-text);
+  background: var(--state-wash);
+  border: 1px solid var(--state-border);
+  border-radius: var(--radius-pill);
+  font-size: var(--t-2xs);
   font-weight: var(--w-semibold);
 }
 
-.provenance-primary span {
+.provenance-status svg {
+  flex: 0 0 auto;
+  width: 13px;
+  height: 13px;
+}
+
+.provenance-note {
+  margin: 0;
   color: var(--text-muted);
   font-size: var(--t-xs);
+  overflow-wrap: anywhere;
+}
+
+.provenance-ids {
+  flex: 0 1 auto;
+  min-width: 0;
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--s-2) var(--s-4);
+}
+
+.provenance-ids > div {
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.provenance-ids dt {
+  color: var(--text-faint);
+  font-size: var(--t-2xs);
+  font-weight: var(--w-medium);
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+}
+
+.provenance-ids dd {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: var(--t-2xs);
   font-family: var(--font-mono), monospace;
+  white-space: nowrap;
 }
 
-.provenance-run {
-  font-family: var(--font-mono), monospace;
+/*
+ * One control, three segments.
+ *
+ * These were three separate pills - two buttons and a `summary` wearing a button's
+ * clothes - sitting in the same row as the text with nothing to say they belonged
+ * together or that they ranked equally. A shared border and hairline dividers say both,
+ * and cost less width than three sets of rounded ends. No `overflow: hidden` here: the
+ * focus ring is drawn outside the segment and clipping it would take the keyboard
+ * affordance with it.
+ */
+.provenance-actions {
+  flex: 0 0 auto;
+  margin-left: auto;
+  display: flex;
+  align-items: stretch;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-xs);
 }
 
-.provenance-unreleased > svg {
-  color: var(--warn-mark);
-}
-
-.provenance-strip details {
-  position: relative;
-}
-
-.provenance-strip summary {
+.provenance-actions button {
   min-height: var(--control-sm);
   padding: 0 var(--s-3);
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
   color: var(--text-secondary);
-  background: var(--bg-surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
+  background: none;
+  border: 0;
+  border-left: 1px solid var(--border);
+  border-radius: 0;
   font-size: var(--t-xs);
   font-weight: var(--w-medium);
   white-space: nowrap;
-  list-style: none;
   cursor: pointer;
 }
 
-.provenance-strip summary::-webkit-details-marker {
-  display: none;
+.provenance-actions button:first-child {
+  border-left: 0;
+  border-radius: var(--radius-md) 0 0 var(--radius-md);
 }
 
-.provenance-strip summary:hover {
+.provenance-actions button:last-child {
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+}
+
+.provenance-actions button:hover,
+.provenance-actions button[aria-expanded="true"] {
+  color: var(--text-primary);
   background: var(--bg-sunk);
-  border-color: var(--border-strong);
 }
 
-.provenance-strip summary svg {
-  width: 13px;
-  height: 13px;
+.provenance-actions svg {
+  width: 14px;
+  height: 14px;
   color: var(--text-faint);
 }
 
-.provenance-strip dl {
-  position: absolute;
-  top: calc(100% + 6px);
-  right: 0;
-  z-index: 20;
-  width: 320px;
-  margin: 0;
-  padding: var(--s-3);
-  display: grid;
-  gap: var(--s-2);
-  background: var(--bg-overlay);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-xl);
+.provenance-actions button:hover svg,
+.provenance-actions button[aria-expanded="true"] svg {
+  color: var(--text-secondary);
 }
 
-.provenance-strip dl > div {
-  display: grid;
-  grid-template-columns: 84px minmax(0, 1fr);
-  gap: var(--s-2);
-  align-items: baseline;
+.provenance-caret {
+  transition: transform 140ms ease;
 }
 
-.provenance-strip dt {
+.provenance-actions button[aria-expanded="true"] .provenance-caret {
+  transform: rotate(180deg);
+}
+
+/* The full record, in flow under the bar it belongs to. `auto-fit` gives the three short
+   fields a column each while there is room and folds them into one as there stops being;
+   the digest takes the full row at every width because it is the one value that cannot
+   be read at a glance anyway. */
+.provenance-record {
+  margin: var(--s-3) 0 0;
+  padding-top: var(--s-3);
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: var(--s-3) var(--s-5);
+  border-top: 1px dashed var(--border);
+}
+
+/* Kept in the DOM and hidden, not unmounted: `[hidden]` is a UA `display: none` and the
+   grid above would otherwise win on specificity and show it anyway. */
+.provenance-record[hidden] {
+  display: none;
+}
+
+.provenance-record > div {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.provenance-record-wide {
+  grid-column: 1 / -1;
+}
+
+.provenance-record dt {
   color: var(--text-muted);
-  font-size: var(--t-xs);
+  font-size: var(--t-2xs);
+  font-weight: var(--w-medium);
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
 }
 
-.provenance-strip dd {
+.provenance-record dd {
   margin: 0;
   overflow-wrap: anywhere;
   color: var(--text-primary);
   font-size: var(--t-xs);
   font-family: var(--font-mono), monospace;
-}
-
-.provenance-strip > button {
-  flex: 0 0 auto;
-  min-height: var(--control-sm);
-  font-size: var(--t-xs);
 }
 
 /* ============================================================ workspace grid */
@@ -1549,12 +1789,30 @@
 .workspace-grid {
   margin-top: var(--s-4);
   display: grid;
-  grid-template-columns: minmax(460px, 0.92fr) minmax(560px, 1fr);
+  /* The answer is prose with a natural measure and stops benefiting from width around
+     60ch; the inspector is a document viewer and does not. Splitting the row evenly gave
+     the reading column slack it could not use and the viewer 377px of sheet. */
+  grid-template-columns: minmax(400px, 0.78fr) minmax(620px, 1.22fr);
   gap: var(--s-4);
   align-items: start;
 }
 
-.result-column,
+/*
+ * One pinned column, not two, and no third inside it.
+ *
+ * The page scrolled, both columns scrolled, and the document stage inside the right one
+ * scrolled again - four places a wheel could land, three of which looked identical. The
+ * answer column now flows with the page, which is how prose read top to bottom wants to
+ * behave; the inspector stays pinned because it is the surface a reader keeps returning
+ * to; and the stage inside it no longer scrolls on its own (see `.document-stage`).
+ */
+.result-column {
+  min-width: 0;
+  display: grid;
+  gap: var(--s-3);
+  align-self: start;
+}
+
 .source-column {
   min-width: 0;
   display: grid;
@@ -1565,6 +1823,13 @@
   max-height: calc(100dvh - var(--header-h) - var(--s-6));
   overflow-y: auto;
   scrollbar-width: thin;
+}
+
+/* One panel, sized to the column rather than to a fraction of the viewport, so the
+   inspector's own panes do the scrolling and the column never scrolls them again. */
+.source-column {
+  align-content: start;
+  grid-auto-rows: minmax(0, auto);
 }
 
 .support-grid {
@@ -1609,7 +1874,6 @@
 .coverage-badge,
 .candidate-count,
 .conflict-count,
-.no-conflict,
 .verified-source-label,
 .uncited-source-label,
 .signal {
@@ -2453,6 +2717,50 @@
   padding: var(--s-5);
 }
 
+/*
+ * The cleared state: one row, at list-item weight rather than panel weight. It is a
+ * receipt, not a section - the check ran and returned nothing to read - so it is sized
+ * like a status line and gets out of the way of the panels that do carry findings.
+ */
+.conflict-clear {
+  padding: var(--s-3) var(--s-4);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 7px;
+}
+
+.conflict-clear h2 {
+  font-size: var(--t-sm);
+}
+
+.conflict-clear > svg {
+  flex: 0 0 auto;
+  color: var(--text-faint);
+}
+
+/* Green only where a check actually ran and cleared. Nothing returned gets a neutral
+   mark, because there is no passed gate to report. */
+.conflict-clear-checked > svg {
+  color: var(--ok-mark);
+}
+
+.conflict-clear span {
+  color: var(--text-muted);
+  font-size: var(--t-xs);
+}
+
+.conflict-clear span::before {
+  content: "";
+  margin-right: 7px;
+  display: inline-block;
+  width: 3px;
+  height: 3px;
+  vertical-align: middle;
+  background: var(--border-strong);
+  border-radius: var(--radius-pill);
+}
+
 .conflict-heading-row {
   display: flex;
   align-items: flex-start;
@@ -2465,12 +2773,6 @@
   color: var(--warn-text);
   background: var(--warn-wash);
   border-color: var(--warn-border);
-}
-
-.no-conflict {
-  color: var(--ok-text);
-  background: var(--ok-wash);
-  border-color: var(--ok-border);
 }
 
 .conflict-list {
@@ -2599,31 +2901,6 @@
   border-color: var(--warn-mark);
 }
 
-.conflict-info {
-  margin: 0 0 var(--s-3);
-  display: grid;
-  gap: 5px;
-}
-
-.conflict-info > div {
-  display: grid;
-  grid-template-columns: minmax(0, 108px) minmax(0, 1fr);
-  gap: var(--s-3);
-  align-items: baseline;
-}
-
-.conflict-info dt {
-  color: var(--text-muted);
-  font-size: var(--t-xs);
-}
-
-.conflict-info dd {
-  margin: 0;
-  color: var(--text-secondary);
-  font-size: var(--t-xs);
-  line-height: 1.5;
-}
-
 .conflict-citations {
   margin: 0 0 var(--s-3);
   padding: 0;
@@ -2649,7 +2926,23 @@
 
 /* ============================================================ source inspector */
 
+/*
+ * The panel measures itself, not the window.
+ *
+ * It renders inside a grid column on wide screens and full-bleed on narrow ones, so a
+ * viewport media query was always answering a question about the wrong box: at 1100px
+ * the panel is 1050px wide and wants its rail, at 1300px it is 700px wide and cannot
+ * afford one. The internal split below is written against this container.
+ */
 .source-viewer {
+  container-type: inline-size;
+  container-name: inspector;
+  display: flex;
+  flex-direction: column;
+  /* No height of its own. The sticky column is the one scroll context, and the panel
+     grows to the record inside it - a fixed height here clips the sheet instead, because
+     nothing below it scrolls any more. `hidden` still clips to the panel's radius; with
+     no height set it never has anything to hide. */
   overflow: hidden;
 }
 
@@ -2676,25 +2969,31 @@
   line-height: 1.55;
 }
 
+/* Two clusters, not three. `space-between` across three groups left the text-size
+   control adrift mid-bar with ragged space either side of it. */
 .source-toolbar {
-  padding: var(--s-2) var(--s-4);
+  padding: var(--s-2) var(--s-3);
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  justify-content: space-between;
-  gap: var(--s-3);
+  gap: var(--s-2) var(--s-3);
   background: var(--bg-sunk);
   border-bottom: 1px solid var(--border-subtle);
 }
 
-.toolbar-group,
-.toolbar-center {
+.toolbar-group {
   display: flex;
   align-items: center;
   gap: 5px;
   color: var(--text-secondary);
 }
 
-.toolbar-center {
+.toolbar-end {
+  margin-left: auto;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-2) var(--s-3);
   font-size: var(--t-xs);
 }
 
@@ -2710,85 +3009,179 @@
   font-family: var(--font-mono), monospace;
 }
 
+/*
+ * Two panes: the records, and the document.
+ *
+ * The third pane - a fixed 232px of provenance table - was most of the width the
+ * document was missing, and every fact in it was either repeated in the sheet's own
+ * heading or better read at the foot of the sheet. It moved there; the stage took the
+ * space.
+ */
 .viewer-layout {
-  min-height: 340px;
-  height: clamp(340px, 52vh, 620px);
+  min-height: 0;
+  flex: 1;
   display: grid;
-  grid-template-columns: 66px minmax(0, 1fr) 232px;
+  grid-template-rows: auto minmax(0, 1fr);
   background: var(--bg-sunk);
 }
 
+/* Narrow: a strip of records across the top, scrolled sideways. A 66px column cannot
+   name a document, and a rail beside a phone-width sheet leaves room for neither. */
 .evidence-rail {
   padding: var(--s-2);
-  display: grid;
-  align-content: start;
+  display: flex;
   gap: 5px;
-  overflow-y: auto;
-  border-right: 1px solid var(--border-subtle);
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  border-bottom: 1px solid var(--border-subtle);
+  scrollbar-width: thin;
 }
 
+@container inspector (min-width: 620px) {
+  .viewer-layout {
+    grid-template-rows: minmax(0, 1fr);
+    grid-template-columns: 168px minmax(0, 1fr);
+  }
+
+  .evidence-rail {
+    position: sticky;
+    top: 0;
+    align-self: start;
+    max-height: calc(100dvh - var(--header-h) - var(--s-6));
+    display: grid;
+    align-content: start;
+    overflow-x: hidden;
+    overflow-y: auto;
+    border-right: 1px solid var(--border-subtle);
+    border-bottom: 0;
+  }
+}
+
+@container inspector (min-width: 960px) {
+  .viewer-layout {
+    grid-template-columns: 200px minmax(0, 1fr);
+  }
+}
+
+/*
+ * A row says which record it is, where in its document, and which document.
+ *
+ * Those are the three facts that differ between rows. The rail used to print the rank
+ * over the word "cited" down ten identical rows, with "uncited" clipped to "unci..." on
+ * the rest: a column you have to click through rather than read.
+ */
 .rail-item {
-  min-height: 48px;
-  padding: 6px 4px;
+  min-height: 44px;
+  min-width: 132px;
+  padding: 7px var(--s-2);
   display: grid;
-  place-items: center;
-  gap: 3px;
-  color: var(--text-muted);
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: var(--s-2);
+  color: var(--text-secondary);
   background: var(--bg-surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   font-size: var(--t-2xs);
-  font-family: var(--font-mono), monospace;
+  text-align: left;
 }
 
-/* Rank is the identity of a rail entry; the locator sits under it as secondary text. */
+@container inspector (min-width: 620px) {
+  .rail-item {
+    min-width: 0;
+  }
+}
+
 .rail-rank {
-  font-size: var(--t-xs);
+  min-width: 19px;
+  height: 19px;
+  display: grid;
+  place-items: center;
+  color: var(--text-muted);
+  background: var(--bg-inset);
+  border-radius: var(--radius-sm);
+  font-size: var(--t-2xs);
   font-weight: var(--w-medium);
+  font-family: var(--font-mono), monospace;
   line-height: 1;
 }
 
-.rail-locator {
-  max-width: 100%;
+.rail-copy {
+  min-width: 0;
+  display: grid;
+  gap: 1px;
+}
+
+.rail-locator,
+.rail-source {
   overflow: hidden;
-  color: var(--text-muted);
-  font-size: var(--t-2xs);
-  line-height: 1.2;
+  line-height: 1.35;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.rail-item.selected .rail-locator {
+.rail-locator {
+  color: var(--text-primary);
+  font-family: var(--font-mono), monospace;
+}
+
+.rail-source {
+  color: var(--text-muted);
+}
+
+/* Where the gate stopped citing, said once instead of on every row below it. */
+.rail-divider {
+  margin: var(--s-2) 0 var(--s-1);
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  color: var(--warn-text);
+  font-size: var(--t-2xs);
+  font-weight: var(--w-medium);
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.rail-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--warn-border);
+}
+
+@container inspector (max-width: 619.98px) {
+  .toolbar-end {
+    margin-left: 0;
+  }
+
+}
+
+/* Sideways, the same boundary is a rule between two runs of chips. */
+@container inspector (max-width: 619.98px) {
+  .rail-divider {
+    margin: 0 var(--s-1);
+    flex-direction: column;
+    align-self: stretch;
+  }
+
+  .rail-divider::after {
+    width: 1px;
+    height: auto;
+  }
+}
+
+.rail-item.selected .rail-locator,
+.rail-item.selected .rail-source {
   color: var(--ink-on);
+}
+
+.rail-item.selected .rail-source {
   opacity: 0.72;
 }
 
 .rail-item.candidate .rail-locator {
   color: var(--warn-text);
-}
-
-.rail-item.candidate.selected .rail-locator {
-  color: var(--ink-on);
-  opacity: 0.8;
-}
-
-.rail-shortcut {
-  display: inline-flex;
-  gap: 3px;
-  margin-left: 3px;
-}
-
-.rail-shortcut kbd {
-  min-width: 18px;
-  height: 18px;
-  display: inline-grid;
-  place-items: center;
-  color: var(--text-muted);
-  background: var(--bg-surface);
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  font-family: var(--font-mono), monospace;
-  font-size: var(--t-2xs);
 }
 
 .rail-item:hover {
@@ -2799,6 +3192,11 @@
   color: var(--ink-on);
   background: var(--ink);
   border-color: var(--ink);
+}
+
+.rail-item.selected .rail-rank {
+  color: var(--ink);
+  background: var(--ink-on);
 }
 
 .rail-item.selected svg {
@@ -2826,18 +3224,38 @@
   display: flex;
   align-items: flex-start;
   justify-content: center;
-  overflow: auto;
 }
 
-.document-stage:focus-visible {
-  outline: 2px solid var(--focus-ring);
-  outline-offset: -2px;
+/* Two sheets that wrap rather than one row that overflows: a horizontal scrollbar here
+   would be the fourth scroll context this layout just removed. */
+.stage-comparing {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: var(--s-4);
+  align-items: start;
+}
+
+.compare-sheet {
+  width: 100%;
+  min-height: 0;
+  padding-bottom: var(--s-12);
+}
+
+.compare-close {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-secondary);
+  background: none;
+  border: 0;
+  font-size: var(--t-2xs);
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 .excerpt-sheet {
   position: relative;
-  width: min(100%, 66ch);
-  min-height: 100%;
+  width: min(100%, 68ch);
   padding: var(--s-6) var(--s-6) var(--s-16);
   color: var(--text-primary);
   background: var(--bg-surface);
@@ -2898,6 +3316,27 @@
   box-decoration-break: clone;
   font-size: 0.98em;
   line-height: 1.8;
+  /* The extractor preserves the document's own line breaks inside a block. HTML collapses
+     them, which turned a page of guideline text into one unbroken slab - the structure was
+     in the payload the whole way and was being dropped on the last step to the screen. */
+  white-space: pre-wrap;
+}
+
+.row-table td {
+  white-space: pre-wrap;
+}
+
+.paper-heading > span,
+.paper-footer > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.paper-heading > span:last-child,
+.paper-footer > span:last-child {
+  text-align: right;
 }
 
 .paper-footer {
@@ -2935,82 +3374,107 @@
   font-weight: var(--w-semibold);
 }
 
+/*
+ * The record's colophon, at the foot of the sheet.
+ *
+ * Sized in `em` so it tracks the reader's text-size setting with the rest of the sheet;
+ * as a separate column it was set in absolute rem and the control silently skipped it.
+ */
 .document-metadata {
-  padding: var(--s-4);
-  overflow-y: auto;
-  background: var(--bg-surface);
-  border-left: 1px solid var(--border-subtle);
+  margin-top: var(--s-6);
+  padding-top: var(--s-5);
+  border-top: 1px solid var(--border-subtle);
 }
 
 .document-metadata h3,
 .document-metadata h4 {
-  margin: 0 0 5px;
+  margin: 0 0 var(--s-2);
   color: var(--text-muted);
-  font-size: var(--t-2xs);
+  font-size: 0.75em;
   font-weight: var(--w-medium);
   letter-spacing: var(--track-label);
   text-transform: uppercase;
 }
 
-.document-metadata > p {
-  margin: 0 0 var(--s-4);
-  color: var(--text-primary);
-  font-size: var(--t-xs);
-  font-weight: var(--w-medium);
-  line-height: 1.45;
-}
-
+/* Facts across the sheet rather than down a 100px column, where a jurisdiction code and
+   a version identifier both wrapped to four lines. Ruled by whitespace rather than boxed:
+   ten facts never divide evenly into an auto-fitting row count, and a boxed table ends
+   every record on two empty grey cells. */
 .document-metadata dl {
-  margin: 0 0 var(--s-4);
+  margin: 0;
   display: grid;
-  gap: 1px;
-  overflow: hidden;
-  background: var(--border-subtle);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md);
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 172px), 1fr));
+  gap: var(--s-3) var(--s-5);
 }
 
 .document-metadata dl > div {
-  padding: 6px var(--s-2);
   display: grid;
-  grid-template-columns: minmax(0, 78px) minmax(0, 1fr);
-  gap: var(--s-2);
-  align-items: baseline;
-  background: var(--bg-surface);
+  gap: 2px;
+  align-content: start;
 }
 
 .document-metadata dt {
   color: var(--text-muted);
-  font-size: var(--t-xs);
+  font-size: 0.7em;
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
 }
 
 .document-metadata dd {
   margin: 0;
-  overflow-wrap: break-word;
+  min-width: 0;
+  overflow-wrap: anywhere;
   color: var(--text-primary);
-  font-size: var(--t-xs);
+  font-size: 0.8em;
+  line-height: 1.45;
+}
+
+/* "Not supplied" is a finding, not a blank - it stays, one step quieter than the facts
+   beside it, so the eye lands on what the release did carry. */
+.document-metadata dd.value-missing {
+  color: var(--text-muted);
+}
+
+.document-metadata dd.value-identifier {
+  overflow-wrap: anywhere;
+  word-break: break-all;
+  font-family: var(--font-mono), monospace;
+  font-size: 0.72em;
 }
 
 .document-metadata > a {
-  width: 100%;
   min-height: var(--control-sm);
-  margin-top: var(--s-3);
-  font-size: var(--t-xs);
-}
-
-.metadata-mobile {
-  padding: var(--s-4) 0 0;
-  border-left: 0;
-}
-
-.mobile-source-metadata {
-  display: none;
+  margin-top: var(--s-4);
+  font-size: 0.8em;
 }
 
 /* ============================================================ anchors */
 
 .anchor-block {
   margin-top: var(--s-4);
+}
+
+/* Folded, the heading is the control: the count sits with it so the reader knows what
+   opening it costs before they open it. */
+.anchor-block-folded > summary {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s-3);
+  margin-bottom: 6px;
+  color: var(--text-muted);
+  font-size: var(--t-2xs);
+  font-weight: var(--w-medium);
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.anchor-block-folded > summary > span {
+  letter-spacing: normal;
+  text-transform: none;
+  font-family: var(--font-mono), monospace;
+  font-weight: var(--w-regular);
 }
 
 .anchor-block h3,
@@ -3092,6 +3556,18 @@
   font-family: var(--font-mono), monospace;
 }
 
+/* What is known about this anchor's region, as a word. It used to carry the style of the
+   rectangle drawn on a page, which put an amber-ruled box around plain text on every row
+   of the list. */
+.anchor-status {
+  flex: 0 0 auto;
+  align-self: center;
+  color: var(--text-muted);
+  font-size: var(--t-2xs);
+  text-align: right;
+  white-space: nowrap;
+}
+
 .anchor-empty {
   padding: var(--s-3);
   color: var(--text-muted);
@@ -3168,6 +3644,15 @@
   line-height: 1.4;
 }
 
+.anchor-version-title small {
+  display: block;
+  margin-top: 2px;
+  overflow-wrap: anywhere;
+  color: var(--text-muted);
+  font-size: var(--t-2xs);
+  font-weight: var(--w-regular);
+}
+
 .anchor-version dl {
   margin: 5px 0 0;
   display: grid;
@@ -3227,6 +3712,29 @@
   box-shadow: var(--shadow-xs);
 }
 
+/* An actual page is behind the region, so the frame takes the page's own aspect ratio
+   (set inline from the rendered page box) instead of the nominal one, and drops the
+   surface fill that stood in for paper. */
+.page-frame-rendered {
+  aspect-ratio: auto;
+  background: var(--bg-canvas, #fff);
+}
+
+.page-frame-image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+/* Over a rendered page the fill would hide the words the box is pointing at, so only the
+   border marks the region. Without a page it stays tinted - there is nothing underneath
+   to obscure, and the tint is what makes an empty frame legible as a location. */
+.page-frame-rendered .page-region {
+  background: transparent;
+  box-shadow: 0 0 0 1px var(--bg-canvas, #fff);
+}
+
 .page-frame-note {
   position: absolute;
   top: 10px;
@@ -3274,10 +3782,7 @@
   white-space: nowrap;
 }
 
-.anchor-highlight {
-  background: var(--highlight-bg);
-  border: 1.5px solid var(--warn-mark);
-}
+
 
 .cell-frame {
   padding: var(--s-2);
@@ -3443,6 +3948,9 @@
 }
 
 .verification-details > summary {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
   color: var(--text-primary);
   font-size: var(--t-xs);
   font-weight: var(--w-medium);
@@ -3454,111 +3962,120 @@
   display: none;
 }
 
+/* The disclosure carried no marker of any kind, so nothing on screen said the log could
+   be closed again. A caret that turns is the whole affordance. */
+.summary-caret {
+  color: var(--text-muted);
+  font-size: var(--t-2xs);
+  font-family: var(--font-mono), monospace;
+  transition: transform 120ms ease;
+}
+
+.verification-details:not([open]) .summary-caret {
+  transform: rotate(-90deg);
+}
+
+/*
+ * The audit reads as machine output.
+ *
+ * One line per gate, in the order the run walks them: a fixed status column, the gate's
+ * own words, and what the step cost on the right. The five-column stepper this replaces
+ * implied a progress bar - evenly spaced nodes, each the same size - when what the panel
+ * actually holds is a log of five named checks and what each one concluded. Monospace on
+ * a sunk surface says that without adding a word.
+ */
 .verification-timeline {
-  margin: var(--s-4) 0 0;
-  padding: 0;
+  margin: var(--s-3) 0 0;
+  padding: var(--s-3);
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: var(--s-2);
+  gap: 2px;
   list-style: none;
+  background: var(--bg-sunk);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
 }
 
 .verification-timeline li {
-  position: relative;
+  /* 3ch holds the bracketed marker in every state, so a fallback glyph for the tick
+     cannot shift the column of gate names beside it. */
   display: grid;
-  justify-items: center;
-  gap: 5px;
-  text-align: center;
-}
-
-.verification-timeline li > strong {
-  display: none;
-}
-
-.step-track {
-  position: relative;
-  width: 100%;
-  display: grid;
-  place-items: center;
-}
-
-/* The rail between nodes, drawn on the track rather than between list items, so it cannot
-   drift out of alignment when a label wraps. */
-.step-track::before {
-  content: "";
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: calc(100% + var(--s-2));
-  height: 1px;
-  background: var(--border);
-}
-
-.verification-timeline li:last-child .step-track::before {
-  display: none;
-}
-
-.step-node {
-  position: relative;
-  z-index: 1;
-  width: 24px;
-  height: 24px;
-  display: grid;
-  place-items: center;
-  color: var(--text-muted);
-  background: var(--bg-surface);
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-pill);
+  grid-template-columns: 3ch minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: var(--s-2);
   font-size: var(--t-2xs);
   font-family: var(--font-mono), monospace;
+  line-height: 1.65;
 }
 
-.step-node svg {
-  width: 13px;
-  height: 13px;
+.step-marker {
+  color: var(--text-muted);
+  white-space: pre;
 }
 
-.verification-timeline li > span {
+.step-name {
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  gap: var(--s-2);
   color: var(--text-secondary);
-  font-size: var(--t-xs);
-  line-height: 1.35;
+}
+
+/* A leader to the timing column, so the eye crosses the gap without a rule per row. */
+.step-name::after {
+  content: "";
+  flex: 1 1 auto;
+  min-width: var(--s-4);
+  transform: translateY(-4px);
+  border-bottom: 1px dotted var(--border-strong);
 }
 
 .verification-timeline li > small {
-  color: var(--text-faint);
-  font-size: var(--t-xs);
-  font-family: var(--font-mono), monospace;
+  color: var(--text-muted);
+  font-size: var(--t-2xs);
+  white-space: nowrap;
 }
 
-.complete .step-node {
-  color: var(--ink-on);
-  background: var(--ok-text);
-  border-color: var(--ok-text);
+.complete .step-marker {
+  color: var(--ok-text);
 }
 
-.complete .step-track::before {
-  background: var(--ok-text);
+.complete .step-name {
+  color: var(--text-primary);
 }
 
-.currentStep .step-node {
-  color: var(--ink-on);
-  background: var(--ink);
-  border-color: var(--ink);
+/* The line the run is on, marked the way a terminal marks the line it is waiting on. */
+.currentStep .step-marker {
+  color: var(--text-strong);
+  animation: caret-blink 1.1s steps(1, end) infinite;
 }
 
-.blockedStep .step-node {
-  color: var(--ink-on);
-  background: var(--warn-text);
-  border-color: var(--warn-text);
+.currentStep .step-name {
+  color: var(--text-primary);
+  font-weight: var(--w-medium);
 }
 
-.skippedStep .step-node {
-  color: var(--text-faint);
-  border-style: dashed;
+.blockedStep .step-marker,
+.blockedStep .step-name {
+  color: var(--warn-text);
 }
 
-.pendingStep .step-node {
-  color: var(--text-faint);
+.pendingStep .step-name,
+.skippedStep .step-name {
+  color: var(--text-muted);
+}
+
+/* Ends on the lit frame: the global reduced-motion rule cuts this to a single 0.01ms
+   pass, and a cursor that stopped on the dim half would simply look missing. */
+@keyframes caret-blink {
+  0%,
+  45% {
+    opacity: 0.3;
+  }
+
+  50%,
+  100% {
+    opacity: 1;
+  }
 }
 
 .run-metadata {
@@ -3586,13 +4103,962 @@
 
 /* ============================================================ responsive */
 
-@media (max-width: 1240px) {
-  .workspace-grid {
-    grid-template-columns: minmax(400px, 0.95fr) minmax(480px, 1fr);
+/* ============================================================ reading a document */
+
+/* ---- finding a word in a page-sized passage ---- */
+
+.toolbar-find {
+  /* No `min-width: 0` here on purpose: the automatic min-content floor is what stops this
+     cluster shrinking under the count and steppers that appear with a search and
+     overlapping them. The field inside it is the part allowed to give. */
+  display: flex;
+  /* The elastic member of the row: it takes whatever the fixed controls leave and gives
+     it back as the row tightens, so a field sized for its own placeholder does not push
+     the text-size and source controls onto a second line.
+     
+     It stays on one line itself. Once something is typed this cluster gains a count, three
+     steppers and a record filter, and letting it wrap internally shredded them into a
+     four-row stack beside a single-row remainder; the toolbar wraps it whole instead. */
+  flex: 1 1 14ch;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-muted);
+}
+
+/* The magnifier sits inside the field it belongs to, the way the composer's does, with
+   the input padded to clear it. As a flex sibling it floated in the row between the
+   record position and the box, reading as a control of its own. */
+.find-field {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+}
+
+.find-field > svg {
+  position: absolute;
+  left: var(--s-2);
+  width: 15px;
+  height: 15px;
+  color: var(--text-faint);
+  pointer-events: none;
+}
+
+.toolbar-find input {
+  /* Fills the field, capped where a find box stops being a find box. The icon's
+     clearance is inside this width, which is why the floor is not narrower: below about
+     14ch the placeholder clips to "Find in passag". */
+  width: 100%;
+  min-width: 8ch;
+  max-width: 26ch;
+  min-height: var(--control-min);
+  padding: 0 var(--s-2) 0 calc(var(--s-2) + 15px + 6px);
+  color: var(--text-primary);
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  font-size: var(--t-sm);
+}
+
+/* `type="search"` earns the semantics and the Escape-to-clear behaviour, but Chrome also
+   draws its own clear cross inside the field - beside the panel's own clear button, which
+   is the one that resets the match position with it. One control, not two. */
+.toolbar-find input::-webkit-search-cancel-button {
+  appearance: none;
+  display: none;
+}
+
+/* On a phone the cluster is wider than the panel, so there it wraps - one boundary,
+   decided by the panel's own width rather than by whether a search is running. It has to
+   sit below the base rule: a container query has the same weight as the bare selector and
+   above it would simply lose on source order. */
+@container inspector (max-width: 619.98px) {
+  .toolbar-find {
+    /* A line of its own, wrapping left to right inside it. The cluster's min-content is
+       wider than a phone-width panel, so sharing a line with the record stepper left it
+       ragged and right-aligned against the edge. */
+    flex: 1 1 100%;
+    min-width: 0;
+    flex-wrap: wrap;
+  }
+}
+
+.toolbar-find input:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 1px;
+}
+
+.find-count {
+  min-width: 8ch;
+  color: var(--text-muted);
+  font-size: var(--t-xs);
+  font-family: var(--font-mono), monospace;
+  white-space: nowrap;
+}
+
+/*
+ * Two marks that must not read alike.
+ *
+ * A term hit is the system saying "your question and this passage meet here", so it is
+ * quiet - weight and a rule under the word, no fill, because it appears many times on a
+ * page and a page of filled words is a page nobody can read. A find hit is the reader
+ * asking for something specific, so it is filled, and the current one is filled hardest.
+ * Both sit inside the passage's own `mark`, so neither may rely on background alone.
+ */
+.term-hit {
+  font-weight: var(--w-semibold);
+  text-decoration: underline;
+  text-decoration-color: var(--accent-border-strong);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 2px;
+}
+
+.find-hit {
+  padding: 1px 2px;
+  color: var(--text-strong);
+  background: var(--accent-wash);
+  border: 1px solid var(--accent-border);
+  border-radius: 2px;
+  box-decoration-break: clone;
+  font-weight: var(--w-medium);
+}
+
+.find-hit-current {
+  color: var(--accent-on);
+  background: var(--accent);
+  border-color: var(--accent-strong);
+}
+
+/* ---- a workbook row, as the document has it ---- */
+
+/*
+ * Cell per line rather than in the sheet's own horizontal orientation. A DAK row runs to
+ * twenty populated cells of sentence-length text; across the page that is unreadable in a
+ * panel this wide, and the addresses printed against every value keep any cell of it
+ * findable in the original.
+ */
+.row-table {
+  width: 100%;
+  margin: 6px 0 0;
+  border-collapse: collapse;
+  font-size: 0.95em;
+  text-align: left;
+}
+
+.row-table thead th {
+  padding: 0 var(--s-2) 4px;
+  color: var(--text-muted);
+  font-size: var(--t-2xs);
+  font-weight: var(--w-medium);
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+}
+
+.row-table tbody th,
+.row-table tbody td {
+  padding: 5px var(--s-2);
+  border-top: 1px solid var(--border-subtle);
+  vertical-align: top;
+}
+
+.row-table tbody th {
+  width: 1%;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  color: var(--text-muted);
+  font-weight: var(--w-medium);
+  font-family: var(--font-mono), monospace;
+  font-size: var(--t-2xs);
+  white-space: nowrap;
+}
+
+.row-table tbody td {
+  color: var(--text-primary);
+  line-height: 1.6;
+}
+
+/* The cells the citation actually anchors, marked where the eye lands rather than only in
+   the address column. Border and weight carry it as well as the wash, because this is the
+   distinction the whole row view exists to make. */
+.row-table tbody tr.addressed th,
+.row-table tbody tr.addressed td {
+  background: var(--highlight-bg);
+  color: var(--highlight-text);
+}
+
+.row-table tbody tr.addressed th {
+  box-shadow: inset 2px 0 0 var(--warn-mark);
+  font-weight: var(--w-semibold);
+}
+
+/* The addressed cell on the location grid was never actually marked - only its crosshair
+   was drawn, over a cell styled exactly like its neighbours. */
+.cell.addressed {
+  background: var(--highlight-bg);
+  border-color: var(--warn-mark);
+  box-shadow: 0 0 0 1px var(--warn-mark);
+  color: var(--warn-text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cell-heading.addressed {
+  color: var(--warn-text);
+  background: var(--warn-wash);
+  font-weight: var(--w-semibold);
+}
+
+/* ---- the page, in place and at reading size ---- */
+
+.page-frame-error {
+  position: absolute;
+  top: 50%;
+  right: var(--s-3);
+  left: var(--s-3);
+  padding: var(--s-3);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  transform: translateY(-50%);
+  color: var(--danger-text);
+  background: var(--bg-surface);
+  border: 1px solid var(--danger-border);
+  border-radius: var(--radius-md);
+  font-size: var(--t-2xs);
+  line-height: 1.45;
+  text-align: center;
+}
+
+.page-frame-error button {
+  min-height: var(--control-min);
+  padding: 0 var(--s-2);
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--text-primary);
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  font-size: var(--t-2xs);
+}
+
+.page-controls {
+  margin-top: 6px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-muted);
+  font-size: var(--t-2xs);
+}
+
+.page-controls > span {
+  min-width: 9ch;
+  font-family: var(--font-mono), monospace;
+  text-align: center;
+}
+
+.page-controls button {
+  min-height: 26px;
+  padding: 0 var(--s-2);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-primary);
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: var(--t-2xs);
+}
+
+.page-controls button:hover:not(:disabled) {
+  background: var(--bg-sunk);
+  border-color: var(--border-strong);
+}
+
+.page-controls button:disabled {
+  color: var(--text-faint);
+  border-color: var(--border-subtle);
+  cursor: not-allowed;
+}
+
+.page-expand {
+  margin-left: auto;
+}
+
+.anchor-region-list {
+  margin-top: 6px;
+  color: var(--text-muted);
+  font-size: var(--t-2xs);
+}
+
+.anchor-region-list summary {
+  cursor: pointer;
+}
+
+.anchor-region-list ol {
+  margin: 5px 0 0;
+  padding-left: var(--s-5);
+  display: grid;
+  gap: 2px;
+  font-family: var(--font-mono), monospace;
+}
+
+/* ---- the expanded page viewer ---- */
+
+.viewer-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background: var(--scrim);
+  backdrop-filter: blur(3px);
+}
+
+.viewer-dialog {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  z-index: 41;
+  width: min(1180px, calc(100% - var(--s-6)));
+  height: min(940px, calc(100dvh - var(--s-6)));
+  display: flex;
+  flex-direction: column;
+  transform: translate(-50%, -50%);
+  color: var(--text-primary);
+  background: var(--bg-overlay);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-xl);
+  overflow: hidden;
+}
+
+.viewer-heading {
+  padding: var(--s-4) var(--s-5);
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--s-3);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.viewer-heading h2 {
+  margin: 2px 0 0;
+  color: var(--text-strong);
+  font-size: var(--t-md);
+  font-weight: var(--w-semibold);
+  line-height: 1.3;
+}
+
+.viewer-heading button {
+  min-width: var(--control-min);
+  min-height: var(--control-min);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+.viewer-toolbar {
+  padding: var(--s-2) var(--s-5);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-2) var(--s-3);
+  background: var(--bg-sunk);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.viewer-toolbar button {
+  min-width: var(--control-min);
+  min-height: var(--control-min);
+  padding: 0 var(--s-2);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  color: var(--text-primary);
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  font-size: var(--t-xs);
+  white-space: nowrap;
+}
+
+.viewer-toolbar button:hover:not(:disabled) {
+  background: var(--bg-inset);
+  border-color: var(--border-strong);
+}
+
+.viewer-toolbar button:disabled {
+  color: var(--text-faint);
+  border-color: var(--border-subtle);
+  cursor: not-allowed;
+}
+
+.viewer-page-label,
+.viewer-zoom-label {
+  color: var(--text-muted);
+  font-size: var(--t-xs);
+  font-family: var(--font-mono), monospace;
+  white-space: nowrap;
+}
+
+.viewer-page-label {
+  min-width: 22ch;
+  text-align: center;
+}
+
+.viewer-zoom-label {
+  min-width: 5ch;
+  text-align: center;
+}
+
+/*
+ * The stage is the whole point of the dialog: room for a page at a size it can be read
+ * at. It scrolls in both directions because a zoomed page is wider than the viewport, and
+ * it takes focus so a keyboard can drive that scroll.
+ */
+.viewer-stage {
+  flex: 1;
+  min-height: 0;
+  padding: var(--s-4);
+  overflow: auto;
+  background: var(--bg-sunk);
+}
+
+.viewer-stage:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
+}
+
+.viewer-sheet {
+  margin: 0 auto;
+}
+
+.viewer-footer {
+  padding: var(--s-3) var(--s-5);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-2) var(--s-4);
+  border-top: 1px solid var(--border-subtle);
+  color: var(--text-muted);
+  font-size: var(--t-2xs);
+}
+
+/* ---- the rows a cited row sits between ---- */
+
+.neighbourhood {
+  margin-top: var(--s-4);
+  padding-top: var(--s-3);
+  border-top: 1px solid var(--border-subtle);
+  font-size: var(--t-xs);
+}
+
+.neighbourhood summary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-secondary);
+  font-weight: var(--w-medium);
+  cursor: pointer;
+}
+
+.neighbourhood-note {
+  margin: var(--s-2) 0 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-muted);
+  font-size: var(--t-2xs);
+  line-height: 1.5;
+}
+
+.neighbourhood-note button {
+  min-height: 26px;
+  padding: 0 var(--s-2);
+  color: var(--text-primary);
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: var(--t-2xs);
+}
+
+.neighbourhood-rows {
+  margin: var(--s-3) 0 0;
+  padding: 0;
+  max-height: 360px;
+  display: grid;
+  gap: 4px;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.neighbourhood-rows > li {
+  padding: var(--s-2);
+  display: flex;
+  gap: var(--s-2);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+}
+
+/* The cited row, kept obvious in a window that otherwise reads as a list of equals. */
+.neighbour-anchored {
+  border-color: var(--warn-mark);
+  box-shadow: inset 3px 0 0 var(--warn-mark);
+}
+
+.neighbour-rank {
+  min-width: 4ch;
+  color: var(--text-muted);
+  font-family: var(--font-mono), monospace;
+  font-size: var(--t-2xs);
+}
+
+.neighbour-body {
+  min-width: 0;
+  flex: 1;
+}
+
+.neighbour-body dl {
+  margin: 0;
+  display: grid;
+  grid-template-columns: minmax(0, max-content) minmax(0, 1fr);
+  gap: 2px var(--s-2);
+}
+
+.neighbour-body dl > div {
+  display: contents;
+}
+
+.neighbour-body dt {
+  color: var(--text-muted);
+  font-family: var(--font-mono), monospace;
+  font-size: var(--t-2xs);
+}
+
+.neighbour-body dd {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: var(--t-2xs);
+  line-height: 1.5;
+}
+
+.neighbour-body > p {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: var(--t-2xs);
+  line-height: 1.5;
+}
+
+.neighbour-body > small {
+  margin-top: 3px;
+  display: block;
+  color: var(--text-faint);
+  font-family: var(--font-mono), monospace;
+  font-size: var(--t-2xs);
+}
+
+.neighbour-restricted {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--text-muted);
+}
+
+@media (max-width: 860px) {
+  .viewer-dialog {
+    width: 100%;
+    height: 100dvh;
+    border-radius: 0;
   }
 
-  .viewer-layout {
-    grid-template-columns: 60px minmax(0, 1fr) 200px;
+  .toolbar-find input {
+    width: 100%;
+  }
+}
+
+/* ============================================================ a page, as paragraphs */
+
+.passage-blocks {
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--s-2);
+  list-style: none;
+}
+
+.passage-blocks > li {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr);
+  gap: 4px;
+  align-items: start;
+}
+
+/* The locate control is quiet until it is wanted: one crosshair per paragraph, at full
+   strength, would compete with the passage it is pointing into. */
+.passage-locate {
+  min-width: 20px;
+  min-height: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-faint);
+  background: none;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  opacity: 0.5;
+}
+
+.passage-blocks > li:hover .passage-locate,
+.passage-locate:focus-visible {
+  color: var(--text-secondary);
+  border-color: var(--border);
+  opacity: 1;
+}
+
+.passage-block-active .passage-locate {
+  color: var(--warn-text);
+  background: var(--warn-wash);
+  border-color: var(--warn-mark);
+  opacity: 1;
+}
+
+.passage-block-active > mark {
+  box-shadow: inset 3px 0 0 var(--warn-mark);
+}
+
+/* The gutter is held open on unpairable blocks so the paragraphs still line up. */
+.passage-locate-empty {
+  display: block;
+  min-width: 20px;
+}
+
+/* The region the reader's paragraph sits in, told apart from its neighbours on the page. */
+.page-region-active {
+  border-width: 2.5px;
+  border-color: var(--accent-border-strong);
+  z-index: 1;
+}
+
+.page-frame button.page-region {
+  padding: 0;
+  background: var(--highlight-bg);
+}
+
+.page-frame-rendered button.page-region {
+  background: transparent;
+}
+
+.page-frame button.page-region:hover {
+  border-color: var(--accent-border-strong);
+}
+
+/* ============================================================ the rail, doing more */
+
+.rail-flags {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-muted);
+  font-size: var(--t-2xs);
+  font-family: var(--font-mono), monospace;
+}
+
+.rail-superseded {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0 3px;
+  color: var(--warn-text);
+  background: var(--warn-wash);
+  border-radius: 2px;
+  font-family: inherit;
+}
+
+.rail-match {
+  min-width: 18px;
+  padding: 1px 4px;
+  align-self: center;
+  color: var(--accent-on);
+  background: var(--accent);
+  border-radius: 999px;
+  font-size: var(--t-2xs);
+  font-family: var(--font-mono), monospace;
+  text-align: center;
+}
+
+.rail-match.empty {
+  color: var(--text-faint);
+  background: var(--bg-inset);
+}
+
+/* ============================================================ answer provenance */
+
+.answer-provenance {
+  margin-top: var(--s-2);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.provenance-fact {
+  padding: 3px var(--s-2);
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--text-secondary);
+  background: var(--bg-sunk);
+  border: 1px solid var(--border-subtle);
+  border-radius: 999px;
+  font-size: var(--t-2xs);
+  font-weight: var(--w-medium);
+}
+
+button.provenance-fact:hover {
+  border-color: var(--border-strong);
+}
+
+.provenance-fact.warning {
+  color: var(--warn-text);
+  background: var(--warn-wash);
+  border-color: var(--warn-border);
+}
+
+.conflict-compare-open {
+  margin-top: var(--s-2);
+  padding: 4px var(--s-2);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-primary);
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  font-size: var(--t-2xs);
+  font-weight: var(--w-medium);
+}
+
+.conflict-compare-open:hover {
+  background: var(--bg-sunk);
+  border-color: var(--border-strong);
+}
+
+/* ============================================================ focus mode */
+
+/* One column, and the answer column hidden rather than shrunk: reading a guideline page is
+   limited by width, and half a workspace of empty gutter is not a reading surface. */
+.workspace-focused {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.workspace-focused .source-column {
+  position: static;
+  max-height: none;
+  overflow: visible;
+}
+
+/* ============================================================ recent reviews */
+
+.recent-runs {
+  margin-top: var(--s-4);
+  padding-top: var(--s-4);
+  border-top: 1px solid var(--border-subtle);
+}
+
+.recent-runs-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-3);
+}
+
+.recent-runs-heading h3 {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-secondary);
+  font-size: var(--t-xs);
+  font-weight: var(--w-medium);
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+}
+
+.recent-runs-heading button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-muted);
+  background: none;
+  border: 0;
+  font-size: var(--t-2xs);
+}
+
+.recent-runs-heading button:hover {
+  color: var(--text-primary);
+}
+
+.recent-runs ul {
+  margin: var(--s-2) 0 0;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+  list-style: none;
+}
+
+.recent-runs a {
+  padding: 7px var(--s-2);
+  display: grid;
+  gap: 2px;
+  color: var(--text-primary);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  font-size: var(--t-xs);
+  text-decoration: none;
+}
+
+.recent-runs a:hover {
+  background: var(--bg-sunk);
+  border-color: var(--border);
+}
+
+.recent-runs a > span {
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-height: 1.45;
+}
+
+.recent-runs a > small {
+  color: var(--text-faint);
+  font-size: var(--t-2xs);
+  font-family: var(--font-mono), monospace;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.recent-runs > p {
+  margin: var(--s-2) 0 0;
+  color: var(--text-faint);
+  font-size: var(--t-2xs);
+  line-height: 1.5;
+}
+
+/* ============================================================ a worksheet row */
+
+/*
+ * The workbook counterpart of the page image: the row laid out as the sheet lays it out,
+ * so a reader can see which column a value sits under before opening the workbook to
+ * check it.
+ */
+/* Sideways rather than wrapped. A row that wraps is no longer a row, and the column a
+   value sits under is the whole reason for drawing it this way. */
+.sheet-scroll {
+  margin-top: 6px;
+  overflow-x: auto;
+}
+
+/* Where the location figure used to draw an empty grid for a row whose values are shown
+   above it. A sentence saying where to look beats a picture that is not one. */
+.anchor-drawn-above {
+  margin: 0;
+  padding: var(--s-2);
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  color: var(--text-muted);
+  background: var(--bg-sunk);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  font-size: var(--t-2xs);
+  line-height: 1.5;
+}
+
+.sheet-row {
+  border-collapse: collapse;
+  font-size: var(--t-2xs);
+  text-align: left;
+}
+
+.sheet-row th,
+.sheet-row td {
+  max-width: 28ch;
+  padding: 5px 7px;
+  border: 1px solid var(--border-subtle);
+  vertical-align: top;
+  white-space: pre-wrap;
+}
+
+.sheet-row thead th {
+  color: var(--text-muted);
+  background: var(--bg-inset);
+  font-weight: var(--w-medium);
+  font-family: var(--font-mono), monospace;
+  text-align: center;
+}
+
+.sheet-row tbody td {
+  min-width: 12ch;
+  color: var(--text-primary);
+  line-height: 1.5;
+}
+
+.sheet-corner {
+  color: var(--text-muted);
+  background: var(--bg-inset);
+  font-family: var(--font-mono), monospace;
+  text-align: center;
+}
+
+/* The cells this citation actually anchors, marked where the eye lands: the wash carries
+   it, and the weight and the crosshair carry it where colour alone would not. */
+.sheet-row thead th.addressed {
+  color: var(--warn-text);
+  background: var(--warn-wash);
+  font-weight: var(--w-semibold);
+}
+
+.sheet-row tbody td.addressed {
+  color: var(--highlight-text);
+  background: var(--highlight-bg);
+  border-color: var(--warn-mark);
+  box-shadow: inset 0 0 0 1px var(--warn-mark);
+  font-weight: var(--w-medium);
+}
+
+.sheet-mark {
+  margin-right: 4px;
+  color: var(--warn-text);
+  vertical-align: -1px;
+}
+
+/* Arrived at by "Inspect evidence" rather than by tabbing, so the ring would mark a place
+   the reader is already looking at. Same treatment as the answer heading. */
+.source-viewer h2:focus,
+.source-viewer h2:focus-visible {
+  outline: none;
+}
+
+@media (max-width: 1240px) {
+  .workspace-grid {
+    grid-template-columns: minmax(360px, 0.8fr) minmax(560px, 1.2fr);
   }
 }
 
@@ -3615,6 +5081,28 @@
     position: static;
     max-height: none;
     overflow-y: visible;
+  }
+
+  /*
+   * Full-bleed and in page flow: the panel is as tall as the record, and the page does
+   * the scrolling. A bounded stage here would be a scroll region inside a scroll region
+   * on exactly the devices where that is worst.
+   *
+   * The rail is the one part that has to stay reachable through a document several
+   * screens long, so it pins itself instead of scrolling away at the top.
+   */
+  .source-viewer {
+    height: auto;
+  }
+
+  .evidence-rail {
+    position: sticky;
+    top: calc(var(--header-h) + var(--s-2));
+    align-self: start;
+    max-height: calc(100dvh - var(--header-h) - var(--s-5));
+    overflow-y: auto;
+    z-index: 1;
+    background: var(--bg-sunk);
   }
 
   .answer-panel {
@@ -3656,37 +5144,6 @@
     grid-template-columns: 1fr;
   }
 
-  .document-metadata {
-    display: none;
-  }
-
-  /* The mobile copy carries `.document-metadata` too, so it has to opt back in after the
-     rule above hides the rail. */
-  .metadata-mobile {
-    display: block;
-  }
-
-  .mobile-source-metadata {
-    display: block;
-    padding: var(--s-4);
-    border-top: 1px solid var(--border-subtle);
-  }
-
-  .mobile-source-metadata > summary {
-    color: var(--text-primary);
-    font-size: var(--t-xs);
-    font-weight: var(--w-medium);
-    list-style: none;
-    cursor: pointer;
-  }
-
-  .mobile-source-metadata > summary::-webkit-details-marker {
-    display: none;
-  }
-
-  .viewer-layout {
-    grid-template-columns: 60px minmax(0, 1fr);
-  }
 }
 
 @media (max-width: 860px) {
@@ -3698,22 +5155,8 @@
     display: none;
   }
 
-  .release-detail {
-    display: none;
-  }
-
   .brand-name {
     font-size: var(--t-sm);
-  }
-
-  .composer-heading-row {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: var(--s-2);
-  }
-
-  .question-bar {
-    grid-template-columns: 1fr;
   }
 
   .question-field textarea {
@@ -3722,46 +5165,15 @@
     font-size: var(--t-md);
   }
 
-  .composer-options {
-    flex-wrap: wrap;
-  }
-
   .example-questions {
-    flex-direction: column;
     align-items: flex-start;
-    gap: var(--s-2);
   }
 
-  .verification-timeline {
-    grid-template-columns: 1fr;
-    gap: 0;
-  }
-
-  .verification-timeline li {
-    grid-template-columns: 24px minmax(0, 1fr) auto;
-    justify-items: start;
-    align-items: center;
-    gap: var(--s-3);
-    padding: 7px 0;
-    text-align: left;
-  }
-
-  .step-track::before {
-    top: auto;
-    bottom: -8px;
-    left: 50%;
-    width: 1px;
-    height: 16px;
-  }
-
-  .provenance-strip {
-    flex-wrap: wrap;
-  }
-
-  .provenance-strip dl {
-    right: auto;
-    left: 0;
-    width: min(320px, calc(100vw - var(--s-8)));
+  /* Two rows: the claim owns the first, the identifiers and the action group share the
+     second. The group stays right-aligned against the strip edge so it does not float
+     mid-row with ragged space either side of it. */
+  .provenance-claim {
+    flex: 1 1 100%;
   }
 
   .run-metadata {
@@ -3772,6 +5184,18 @@
 @media (max-width: 560px) {
   .appShell main {
     padding: var(--s-3) var(--s-3) var(--s-8);
+  }
+
+  /* Third row of its own, and the segments split it evenly rather than trailing off one
+     edge. Labels stay, because an icon-only audit export is a guess. */
+  .provenance-actions {
+    flex: 1 1 100%;
+    margin-left: 0;
+  }
+
+  .provenance-actions button {
+    flex: 1 1 0;
+    padding: 0 var(--s-2);
   }
 
   .question-form,
@@ -3798,4 +5222,106 @@
        space above every result costs more than the shift it prevents. */
     min-height: 0;
   }
+}
+
+@media (max-width: 400px) {
+  /* Even at equal widths the three labels stop fitting across one line here, and a
+     segmented row that overflows the strip containing it is worse than a stack. Same
+     control, turned ninety degrees: the dividers and the outer radius move with it. */
+  .provenance-actions {
+    flex-direction: column;
+  }
+
+  .provenance-actions button {
+    border-top: 1px solid var(--border);
+    border-left: 0;
+  }
+
+  .provenance-actions button:first-child {
+    border-top: 0;
+    border-radius: var(--radius-md) var(--radius-md) 0 0;
+  }
+
+  .provenance-actions button:last-child {
+    border-radius: 0 0 var(--radius-md) var(--radius-md);
+  }
+}
+
+/* ============================================================ footer */
+
+/*
+ * The page's last line. `margin-top: auto` inside the column shell keeps it at the bottom
+ * of a short screen without pinning it over the workspace on a long one.
+ */
+/*
+ * Ink, full bleed. The page above it is a stack of pale surfaces separated by hairlines, so
+ * a white footer under a white workspace never actually ended anything - the black band is
+ * the only edge that reads as the bottom of the document. Everything inside it is set from
+ * the --ink-on* tokens rather than from the --text-* ramp, which is what keeps the contrast
+ * checkable: those are defined against --ink, the --text-* ones are not.
+ */
+.app-footer {
+  margin-top: auto;
+  color: var(--ink-on);
+  background: var(--ink);
+}
+
+.app-footer-inner {
+  width: min(1520px, 100%);
+  margin: 0 auto;
+  padding: var(--s-5) var(--s-6);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-3) var(--s-4);
+}
+
+/* The research-use badge keeps its shape but is re-grounded on ink: the light-surface
+   version of it disappeared into the black as a grey lozenge. */
+.app-footer .environment-badge {
+  color: var(--ink-on);
+  background: var(--ink-raised);
+  border-color: var(--ink-line);
+}
+
+.app-footer .environment-badge svg {
+  color: var(--ink-on-muted);
+}
+
+.footer-byline {
+  margin: 0 auto 0 0;
+  color: var(--ink-on-muted);
+  font-size: var(--t-xs);
+}
+
+.footer-byline span {
+  color: var(--ink-on);
+  font-weight: var(--w-semibold);
+}
+
+.footer-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.app-footer .footer-links a {
+  color: var(--ink-on);
+  background: transparent;
+  border-color: var(--ink-line);
+}
+
+.app-footer .footer-links a:hover {
+  color: var(--ink-on);
+  background: var(--ink-raised);
+  border-color: var(--ink-on-muted);
+}
+
+.app-footer .footer-links a svg {
+  color: var(--ink-on-muted);
+}
+
+/* The focus ring is tuned for dark text on light surfaces and vanishes against ink. */
+.app-footer a:focus-visible {
+  outline-color: var(--ink-on);
 }

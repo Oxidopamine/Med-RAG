@@ -29,6 +29,21 @@ export type EvidenceDetail = Omit<Required<ApiSchemas["EvidenceDetail"]>, "locat
   locators: EvidenceLocator[];
 };
 export type RetrievalCandidate = ApiSchemas["RetrievalCandidate"];
+/**
+ * A neighbouring row of the table a passage was cited from.
+ *
+ * `evidence` is re-typed for the same reason `QuestionResult.evidence_details` is: a
+ * neighbour is an ordinary evidence record, and every presentation helper is written
+ * against the refined `EvidenceDetail` rather than the generated one.
+ */
+export type TableRowNeighbour = Omit<
+  Required<ApiSchemas["TableRowNeighbour"]>,
+  "evidence"
+> & { evidence: EvidenceDetail };
+export type TableRowNeighbourhood = Omit<
+  Required<ApiSchemas["TableRowNeighbourhood"]>,
+  "rows"
+> & { rows: TableRowNeighbour[] };
 export type GuidelineConflict = Required<ApiSchemas["GuidelineConflict"]>;
 /**
  * `closest_evidence` is re-typed for the same reason `QuestionResult.evidence_details`

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Collection
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from uuid import uuid4
 
@@ -40,8 +41,10 @@ from app.schemas.corpus import (
     CorpusReleaseManifest,
     CorpusReleaseRecord,
     EvidenceApprovalStatus,
+    LocatorKind,
     ReleaseState,
     SignedActivationDecision,
+    SourceAnchor,
     canonical_sha256,
 )
 from app.schemas.domain import SERVABLE_LIFECYCLE_VALUES, SourceStatus, utc_now
@@ -84,6 +87,95 @@ class CorpusReleaseGateError(CorpusReleaseError):
 
 class ImmutableEvidenceConflictError(CorpusReleaseConflictError):
     pass
+
+
+PDF_MEDIA_TYPE = "application/pdf"
+
+
+@dataclass(frozen=True)
+class SourcePageArtifact:
+    """A source document a page image may legitimately be rendered from.
+
+    Only ever produced by `source_page_artifact`, which will not construct one unless the
+    source's licence permits page reproduction. Holding an instance therefore *is* the
+    permission; there is no flag on it to re-check and none to get wrong.
+    """
+
+    source_id: str
+    artifact_sha256: str
+    storage_key: str
+    byte_size: int
+    media_type: str
+    source_title: str
+
+
+@dataclass(frozen=True)
+class TableRowNeighbour:
+    """One row of a table, as a reader inspecting a neighbouring row is shown it."""
+
+    row_index: int
+    is_anchor_row: bool
+    detail: EvidenceDetail
+
+
+# How far either side of an anchored row a reader may look. A decision table is
+# disambiguated by its immediate neighbours - the row above that opens the condition, the
+# row below that carries the exception - not by a page of them, and an unbounded radius
+# would turn a provenance lookup into a corpus export.
+MAX_TABLE_NEIGHBOUR_RADIUS = 10
+
+
+def _section_path(anchors: Collection[SourceAnchor]) -> list[str]:
+    """The structural path this record sits on, from anchors that already record one.
+
+    The canonical evidence contract has no section hierarchy, so this is derived rather
+    than carried, and only from coordinates that name a structure themselves. A workbook
+    anchor's `table_id` is the worksheet its row belongs to - `HIV.D`, `Annex2Dosing` -
+    which is what a reader means by the section of a spreadsheet source, and it is
+    already sealed into the record's anchors, so reading it here invents nothing and
+    forces no re-materialization.
+
+    A page number is deliberately not turned into a section. It is reported as a page
+    everywhere a page belongs, and promoting it here would manufacture a hierarchy the
+    document does not have. Returning nothing is the honest answer for such a record.
+    """
+
+    seen: list[str] = []
+    for anchor in anchors:
+        if anchor.kind is not LocatorKind.TABLE_CELL:
+            continue
+        table_id = (anchor.table_id or "").strip()
+        if table_id and table_id not in seen:
+            seen.append(table_id)
+    return seen
+
+
+def _anchored_table_row(payload: object, table_id: str) -> int | None:
+    """The row a raw payload anchors in `table_id`, without validating the whole record.
+
+    A neighbourhood lookup scans every evidence record the source contributes to the
+    release, and validating each one to read a single integer would cost a full model
+    build per row for the many that are not neighbours. The records that survive this
+    filter are validated in full by `_safe_evidence_detail` before anything is served, so
+    this is a prefilter and never the thing that decides what a caller sees.
+    """
+
+    if not isinstance(payload, dict):
+        return None
+    anchors = payload.get("anchors")
+    if not isinstance(anchors, list):
+        return None
+    for anchor in anchors:
+        if not isinstance(anchor, dict):
+            continue
+        if anchor.get("kind") != LocatorKind.TABLE_CELL.value:
+            continue
+        if anchor.get("table_id") != table_id:
+            continue
+        row_index = anchor.get("row_index")
+        if isinstance(row_index, int) and not isinstance(row_index, bool) and row_index >= 0:
+            return row_index
+    return None
 
 
 def _new_id(prefix: str) -> str:
@@ -731,6 +823,200 @@ class SQLCorpusReleaseRepository:
             corpus_release_id, evidence_ids, require_activation=False
         )
 
+    async def source_page_artifact(
+        self,
+        corpus_release_id: str,
+        source_id: str,
+    ) -> SourcePageArtifact | None:
+        """Resolve the source PDF a page image may be rendered from, or None.
+
+        None is the answer to every failure - unknown release, unservable release, a
+        source that contributes no approved evidence to it, a source whose licence does
+        not permit page reproduction, an artifact the store no longer preserves. The
+        caller cannot distinguish them and should not: each one means "no page here", and
+        saying which would report on a corpus the caller has not been granted.
+
+        `license_render_allowed` is the whole gate, and it is read here rather than passed
+        in. Reproducing a region of a source page is the stricter of the two licence acts
+        - see docs/rendering-licence.md - and this is the only route that performs it, so
+        the check belongs at the point the bytes are found rather than anywhere a caller
+        could forget it. `license_excerpt_allowed` is not consulted: it licenses quoting
+        the text, which is a different act and is gated where the text is served.
+        """
+
+        async with self._database.session() as session:
+            release = await session.get(CorpusReleaseRow, corpus_release_id)
+            if release is None or release.state not in (
+                ReleaseState.VALIDATED.value,
+                ReleaseState.ACTIVE.value,
+            ):
+                return None
+            source = await session.get(SourceRow, source_id)
+            if source is None or not source.license_render_allowed:
+                return None
+            # Membership in the release, established through an approved evidence record
+            # that is itself servable. A source known to the registry but absent from -
+            # or quarantined out of - the release being served has no page here.
+            evidence_row = (
+                await session.execute(
+                    select(CanonicalEvidenceRow)
+                    .join(
+                        CorpusReleaseEvidenceRow,
+                        CorpusReleaseEvidenceRow.evidence_id
+                        == CanonicalEvidenceRow.evidence_id,
+                    )
+                    .join(
+                        SourceVersionRow,
+                        SourceVersionRow.source_version_id
+                        == CanonicalEvidenceRow.source_version_id,
+                    )
+                    .where(
+                        CorpusReleaseEvidenceRow.corpus_release_id == corpus_release_id,
+                        CanonicalEvidenceRow.source_id == source_id,
+                        CanonicalEvidenceRow.approval_status
+                        == EvidenceApprovalStatus.APPROVED.value,
+                        SourceVersionRow.approved_for_retrieval.is_(True),
+                        SourceVersionRow.status.in_(SERVABLE_LIFECYCLE_VALUES),
+                    )
+                    .limit(1)
+                )
+            ).scalars().first()
+            if evidence_row is None:
+                return None
+            try:
+                evidence = CorpusEvidenceRecord.model_validate(evidence_row.payload)
+            except (TypeError, ValueError):
+                return None
+            artifact = await session.scalar(
+                select(StewardArtifactRow).where(
+                    StewardArtifactRow.sha256 == evidence.source_artifact_sha256
+                )
+            )
+            if artifact is None or artifact.media_type != PDF_MEDIA_TYPE:
+                # Only a PDF has pages. The renderer will happily rasterise a spreadsheet
+                # into a few hundred invented ones, at a page size and a numbering that
+                # exist nowhere in the document and match no citation - a reader shown
+                # "page 12 of Annex B" would reasonably believe it. The DAK annexes are
+                # XLSX and are cited by table and cell, so they have no page view at all.
+                return None
+            return SourcePageArtifact(
+                source_id=source_id,
+                artifact_sha256=artifact.sha256,
+                storage_key=artifact.storage_key,
+                byte_size=artifact.byte_size,
+                media_type=artifact.media_type,
+                source_title=source.title,
+            )
+
+    async def table_row_neighbourhood(
+        self,
+        corpus_release_id: str,
+        source_id: str,
+        table_id: str,
+        row_index: int,
+        *,
+        radius: int,
+    ) -> list[TableRowNeighbour]:
+        """The rows around an anchored row of one table, as evidence records.
+
+        A spreadsheet row is the unit of evidence for this corpus, and one row read alone
+        is frequently not decidable: the row above opens the condition, the row below
+        carries the exception. This resolves the immediate neighbourhood so a reader can
+        check a cited row against the rows it sits between, without leaving the release
+        the answer was served from.
+
+        Nothing here is a new licence act. Every row comes back through
+        `_safe_evidence_detail`, so a source whose licence withholds excerpts yields
+        neighbours with no text - their addresses, which are not a copyright act, and
+        nothing else. Returning an empty list is the answer to every failure, for the
+        same reason `source_page_artifact` gives one.
+        """
+
+        if radius < 0 or radius > MAX_TABLE_NEIGHBOUR_RADIUS or row_index < 0:
+            return []
+        lower = max(0, row_index - radius)
+        upper = row_index + radius
+
+        async with self._database.session() as session:
+            release = await session.get(CorpusReleaseRow, corpus_release_id)
+            if release is None or release.state not in (
+                ReleaseState.VALIDATED.value,
+                ReleaseState.ACTIVE.value,
+            ):
+                return []
+
+            # Two passes, because the row this record anchors is inside its JSON payload
+            # and not a column: there is no portable way to ask the database for "the
+            # records anchored within seven rows of this one" without denormalising the
+            # anchor list into a table of its own.
+            #
+            # What the pass below does not do is hydrate. Selecting the joined
+            # `SourceVersionRow`, `SourceRow` and `PublisherRow` entities here built four
+            # ORM objects for every approved record the source contributes to the release -
+            # thousands, for a DAK annex - to keep the handful in range. The servability
+            # predicates still run in SQL, so the scan reads exactly the two scalars the
+            # filter needs and the joins stay semi-joins.
+            scanned = (
+                await session.execute(
+                    select(CanonicalEvidenceRow.evidence_id, CanonicalEvidenceRow.payload)
+                    .join(
+                        CorpusReleaseEvidenceRow,
+                        CorpusReleaseEvidenceRow.evidence_id == CanonicalEvidenceRow.evidence_id,
+                    )
+                    .join(
+                        SourceVersionRow,
+                        SourceVersionRow.source_version_id
+                        == CanonicalEvidenceRow.source_version_id,
+                    )
+                    .where(
+                        CorpusReleaseEvidenceRow.corpus_release_id == corpus_release_id,
+                        CanonicalEvidenceRow.source_id == source_id,
+                        CanonicalEvidenceRow.approval_status
+                        == EvidenceApprovalStatus.APPROVED.value,
+                        SourceVersionRow.approved_for_retrieval.is_(True),
+                        SourceVersionRow.status.in_(SERVABLE_LIFECYCLE_VALUES),
+                    )
+                )
+            ).all()
+
+        row_by_evidence_id: dict[str, int] = {}
+        for evidence_id, payload in scanned:
+            anchored = _anchored_table_row(payload, table_id)
+            if anchored is None or not lower <= anchored <= upper:
+                continue
+            row_by_evidence_id[evidence_id] = anchored
+
+        if not row_by_evidence_id:
+            return []
+
+        # Bounded before asking, not after: `_evidence_details` answers with nothing at all
+        # above its cap, and a row carrying an unusual number of records is a reason to
+        # show fewer neighbours rather than none. Truncated in reading order so which ones
+        # survive is the same on every request.
+        in_range = sorted(row_by_evidence_id.items(), key=lambda item: (item[1], item[0]))
+        wanted = dict(in_range[:MAX_EVIDENCE_DETAILS_PER_RESULT])
+
+        # Full validation happens here, on the survivors only, through the same path every
+        # other served record goes through. A neighbourhood is servable on the research bar
+        # for the same reason the passage it surrounds is.
+        details = await self._evidence_details(
+            corpus_release_id, wanted.keys(), require_activation=False
+        )
+
+        neighbours = [
+            TableRowNeighbour(
+                row_index=wanted[detail.evidence_id],
+                is_anchor_row=wanted[detail.evidence_id] == row_index,
+                detail=detail,
+            )
+            for detail in details
+            if detail.evidence_id in wanted
+        ]
+        # Reading order, which for a table is the row order the document has. The
+        # evidence ID breaks a tie so two records anchored to one row do not swap
+        # places between requests.
+        return sorted(neighbours, key=lambda item: (item.row_index, item.detail.evidence_id))
+
     async def _evidence_details(
         self,
         corpus_release_id: str,
@@ -880,11 +1166,13 @@ class SQLCorpusReleaseRepository:
         return EvidenceDetail(
             evidence_id=evidence.evidence_id,
             exact_text=evidence.content_exact if excerpt_allowed else None,
-            # The current canonical corpus contract has evidence roles, not a type or
-            # section hierarchy. Keep those fields truthful until ingestion supplies them.
+            # The canonical corpus contract has evidence roles and no evidence type, so
+            # that field stays null until ingestion supplies one. The section path is a
+            # different case: the anchors already name the worksheet a table row sits on,
+            # so it is derived from them rather than left empty. See `_section_path`.
             evidence_type=None,
             evidence_roles=[role.value for role in evidence.evidence_roles],
-            section_path=[],
+            section_path=_section_path(evidence.anchors),
             source_id=source.source_id,
             source_version_id=source_version.source_version_id,
             source_title=source.title,

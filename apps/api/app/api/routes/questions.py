@@ -60,6 +60,14 @@ async def question_events(
 
     async def stream():
         async for event in service.events(question_id, after=after):
+            # A keep-alive is sent as an SSE comment, which the EventSource parser is
+            # required to ignore: it carries no status and must never be mistaken for one.
+            # What it does is put bytes on a connection that would otherwise be silent for
+            # the whole of a slow phase, so a dropped connection actually fails a write and
+            # surfaces to the client as an error instead of hanging open forever.
+            if event is None:
+                yield ": keep-alive\n\n"
+                continue
             yield (
                 f"id: {event.sequence}\n"
                 "event: progress\n"

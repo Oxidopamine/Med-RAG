@@ -32,13 +32,31 @@ function ComposerHarness({
 }) {
   const [question, setQuestion] = useState("");
   const [filters, setFilters] = useState(initialFilters);
+  /*
+   * The workspace marks the run live synchronously inside `onSubmit`, before its first
+   * await, so the composer is locked in the same commit as the click that started it. The
+   * harness has to do the same: a parent that leaves `isRunning` false across an in-flight
+   * submission does not exist, and testing against one would only prove the composer keeps
+   * a second copy of the run state - which is the bug that let a hung request lock the
+   * controls with nothing able to release them.
+   */
+  const [started, setStarted] = useState(false);
+  async function submit(value: string, submittedFilters: SourceFilters) {
+    setStarted(true);
+    try {
+      return await onSubmit(value, submittedFilters);
+    } finally {
+      setStarted(false);
+    }
+  }
   return (
     <QuestionComposer
-      isRunning={isRunning}
+      isRunning={isRunning || started}
+      isStarting={started}
       onChange={setQuestion}
       onSourceFiltersChange={setFilters}
       onStopWaiting={onStopWaiting}
-      onSubmit={onSubmit}
+      onSubmit={submit}
       question={question}
       showExamples
       sourceFilters={filters}

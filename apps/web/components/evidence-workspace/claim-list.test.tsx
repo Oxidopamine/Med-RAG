@@ -98,3 +98,58 @@ describe("ClaimList", () => {
     ).toBeInTheDocument();
   });
 });
+
+describe("ClaimList, going to the evidence", () => {
+  /*
+   * A citation chip is already a click on the thing you want to read, so the inspector
+   * updating under it is the whole action. "Inspect evidence" is a request to go
+   * somewhere, and on a stacked layout that somewhere was several screens below the
+   * button - which left the reader looking at the button.
+   */
+  it("asks to be taken to the inspector, not merely to select", async () => {
+    const user = userEvent.setup();
+    const onInspectClaim = vi.fn();
+    const onSelectClaim = vi.fn();
+    const result = answerReadyResult();
+
+    render(
+      <ClaimList
+        citations={buildCitations(result)}
+        claims={result.claims}
+        onInspectClaim={onInspectClaim}
+        onSelectClaim={onSelectClaim}
+        onSelectEvidence={vi.fn()}
+        result={result}
+        selectedClaimId={null}
+        selectedEvidenceId={null}
+      />,
+    );
+
+    await user.click(screen.getAllByRole("button", { name: /Inspect evidence/ })[1]!);
+
+    expect(onInspectClaim).toHaveBeenCalledWith("CL_002");
+    expect(onSelectClaim).not.toHaveBeenCalled();
+  });
+
+  it("still selects where nothing offered to take the reader anywhere", async () => {
+    const user = userEvent.setup();
+    const onSelectClaim = vi.fn();
+    const result = answerReadyResult();
+
+    render(
+      <ClaimList
+        citations={buildCitations(result)}
+        claims={result.claims}
+        onSelectClaim={onSelectClaim}
+        onSelectEvidence={vi.fn()}
+        result={result}
+        selectedClaimId={null}
+        selectedEvidenceId={null}
+      />,
+    );
+
+    await user.click(screen.getAllByRole("button", { name: /Inspect evidence/ })[0]!);
+
+    expect(onSelectClaim).toHaveBeenCalledWith("CL_001");
+  });
+});

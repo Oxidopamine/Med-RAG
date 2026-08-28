@@ -1487,6 +1487,78 @@
         "title": "SourceVersionRecord",
         "type": "object"
       },
+      "TableRowNeighbour": {
+        "additionalProperties": false,
+        "description": "One row of a table, positioned relative to the row that was asked about.",
+        "properties": {
+          "evidence": {
+            "$ref": "#/components/schemas/EvidenceDetail"
+          },
+          "is_anchor_row": {
+            "title": "Is Anchor Row",
+            "type": "boolean"
+          },
+          "row_index": {
+            "minimum": 0.0,
+            "title": "Row Index",
+            "type": "integer"
+          },
+          "row_number": {
+            "minimum": 1.0,
+            "title": "Row Number",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "row_index",
+          "row_number",
+          "is_anchor_row",
+          "evidence"
+        ],
+        "title": "TableRowNeighbour",
+        "type": "object"
+      },
+      "TableRowNeighbourhood": {
+        "additionalProperties": false,
+        "description": "The rows immediately around an anchored row of one table.\n\nAn empty `rows` is an ordinary answer, not an error: the release may hold no\nneighbours, the table may not be in it, or the source may not be servable. The caller\nis told the same thing in each case, for the reason `sources.py` gives.",
+        "properties": {
+          "anchor_row_index": {
+            "minimum": 0.0,
+            "title": "Anchor Row Index",
+            "type": "integer"
+          },
+          "radius": {
+            "minimum": 0.0,
+            "title": "Radius",
+            "type": "integer"
+          },
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/TableRowNeighbour"
+            },
+            "title": "Rows",
+            "type": "array"
+          },
+          "source_id": {
+            "minLength": 1,
+            "title": "Source Id",
+            "type": "string"
+          },
+          "table_id": {
+            "minLength": 1,
+            "title": "Table Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source_id",
+          "table_id",
+          "anchor_row_index",
+          "radius"
+        ],
+        "title": "TableRowNeighbourhood",
+        "type": "object"
+      },
       "ValidationError": {
         "properties": {
           "ctx": {
@@ -2091,6 +2163,144 @@
         "summary": "Question Events",
         "tags": [
           "questions"
+        ]
+      }
+    },
+    "/v1/sources/{source_id}/pages/{page_number}": {
+      "get": {
+        "operationId": "get_source_page_v1_sources__source_id__pages__page_number__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "source_id",
+            "required": true,
+            "schema": {
+              "title": "Source Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "page_number",
+            "required": true,
+            "schema": {
+              "title": "Page Number",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "dpi",
+            "required": false,
+            "schema": {
+              "default": 144,
+              "maximum": 300,
+              "minimum": 72,
+              "title": "Dpi",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "image/png": {}
+            },
+            "description": "Rendered page image"
+          },
+          "404": {
+            "description": "No page image is available for this source"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Source Page",
+        "tags": [
+          "sources"
+        ]
+      }
+    },
+    "/v1/sources/{source_id}/tables/{table_id}/rows": {
+      "get": {
+        "description": "The rows around a cited row of one table.\n\nA spreadsheet row is this corpus's unit of evidence, and one row read alone is often\nnot decidable - the row above opens the condition, the row below carries the\nexception. This is the neighbourhood a reader needs to check a citation, served from\nthe same release the answer came from.\n\nIt performs no licence act the answer did not already perform: each row is projected\nthrough the same path as cited evidence, so a source that may not be excerpted yields\nneighbours with addresses and no text. Every failure answers with an empty window\nrather than a status, on the same grounds as the page route above: which rows a\nrelease does not contain is a fact about a corpus the caller has not been granted.",
+        "operationId": "get_table_row_neighbourhood_v1_sources__source_id__tables__table_id__rows_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "source_id",
+            "required": true,
+            "schema": {
+              "title": "Source Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "table_id",
+            "required": true,
+            "schema": {
+              "title": "Table Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Zero-based row index to centre the window on",
+            "in": "query",
+            "name": "row",
+            "required": true,
+            "schema": {
+              "description": "Zero-based row index to centre the window on",
+              "minimum": 0,
+              "title": "Row",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "radius",
+            "required": false,
+            "schema": {
+              "default": 3,
+              "maximum": 10,
+              "minimum": 0,
+              "title": "Radius",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TableRowNeighbourhood"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Table Row Neighbourhood",
+        "tags": [
+          "sources"
         ]
       }
     }

@@ -109,10 +109,10 @@
       "credential_reference": null,
       "evidence_materialization_allowed": true,
       "license_id": "CC-BY-NC-SA-3.0-IGO",
-      "notes": "Controlling clinical source. Evidence may be materialized; downstream rendering remains disabled pending deployment-specific licence review.",
+      "notes": "Controlling clinical source. Evidence may be materialized. Short attributed excerpts are permitted for non-commercial research use under the branch A decision recorded in docs/rendering-licence.md#decision; reproduction of the source page image remains prohibited.",
       "policy_url": "https://iris.who.int/handle/10665/375230",
       "redistribution_allowed": false,
-      "render_allowed": false
+      "render_allowed": true
     },
     {
       "acquisition_allowed": true,
@@ -121,10 +121,10 @@
       "credential_reference": null,
       "evidence_materialization_allowed": true,
       "license_id": "CC-BY-NC-SA-3.0-IGO",
-      "notes": "Controlling DAK annex; rendering remains disabled pending deployment-specific licence review.",
+      "notes": "Controlling DAK annex. Short attributed excerpts are permitted for non-commercial research use under the branch A decision recorded in docs/rendering-licence.md#decision; reproduction of the source page image remains prohibited.",
       "policy_url": "https://www.who.int/publications/i/item/9789240085138",
       "redistribution_allowed": false,
-      "render_allowed": false
+      "render_allowed": true
     },
     {
       "acquisition_allowed": true,
@@ -133,10 +133,10 @@
       "credential_reference": null,
       "evidence_materialization_allowed": true,
       "license_id": "CC-BY-NC-SA-3.0-IGO",
-      "notes": "Controlling DAK annex; rendering remains disabled pending deployment-specific licence review.",
+      "notes": "Controlling DAK annex. Short attributed excerpts are permitted for non-commercial research use under the branch A decision recorded in docs/rendering-licence.md#decision; reproduction of the source page image remains prohibited.",
       "policy_url": "https://www.who.int/publications/i/item/9789240085138",
       "redistribution_allowed": false,
-      "render_allowed": false
+      "render_allowed": true
     },
     {
       "acquisition_allowed": true,
@@ -145,10 +145,10 @@
       "credential_reference": null,
       "evidence_materialization_allowed": true,
       "license_id": "CC-BY-NC-SA-3.0-IGO",
-      "notes": "Controlling DAK annex; rendering remains disabled pending deployment-specific licence review.",
+      "notes": "Controlling DAK annex. Short attributed excerpts are permitted for non-commercial research use under the branch A decision recorded in docs/rendering-licence.md#decision; reproduction of the source page image remains prohibited.",
       "policy_url": "https://www.who.int/publications/i/item/9789240085138",
       "redistribution_allowed": false,
-      "render_allowed": false
+      "render_allowed": true
     },
     {
       "acquisition_allowed": true,

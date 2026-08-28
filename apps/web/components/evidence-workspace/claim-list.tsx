@@ -9,6 +9,15 @@ import styles from "./workspace.module.css";
 interface ClaimListProps {
   citations: CitationIndex;
   claims: RenderedClaim[];
+  /**
+   * Select a claim *and* take the reader to its evidence.
+   *
+   * Distinct from `onSelectClaim`, which the citation chips use: clicking a reference is
+   * already a click on the thing you want to read, so the inspector updating under it is
+   * the whole action. "Inspect evidence" is a request to go somewhere, and on a stacked
+   * layout that somewhere was several screens below the button.
+   */
+  onInspectClaim?: (claimId: string) => void;
   onSelectClaim: (claimId: string) => void;
   onSelectEvidence: (evidenceId: string) => void;
   result: QuestionResult;
@@ -27,6 +36,7 @@ interface ClaimListProps {
 export function ClaimList({
   citations,
   claims,
+  onInspectClaim,
   onSelectClaim,
   onSelectEvidence,
   result,
@@ -90,7 +100,10 @@ export function ClaimList({
             ) : null}
 
             <div className={styles["claim-footer"]}>
-              <button type="button" onClick={() => onSelectClaim(claim.claim_id)}>
+              <button
+                type="button"
+                onClick={() => (onInspectClaim ?? onSelectClaim)(claim.claim_id)}
+              >
                 <FileSearch size={16} aria-hidden="true" />
                 Inspect evidence
               </button>

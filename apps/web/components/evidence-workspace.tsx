@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { AnswerPanel } from "@/components/evidence-workspace/answer-panel";
+import { AppFooter } from "@/components/evidence-workspace/app-footer";
 import { AppHeader } from "@/components/evidence-workspace/app-header";
 import { ContextDialog } from "@/components/evidence-workspace/context-dialog";
 import {
@@ -26,11 +27,17 @@ import {
 } from "@/components/evidence-workspace/source-verification-column";
 import { useEvidenceRun } from "@/components/evidence-workspace/use-evidence-run";
 import { getCorpusReadiness } from "@/lib/api";
+import { recordRun } from "@/lib/run-history";
 import { buildCitations } from "@/lib/evidence-presentation";
 import type { CitationIndex } from "@/lib/evidence-presentation";
 import { rankedCandidates } from "@/lib/presentation";
 import type { RankedEvidence } from "@/lib/presentation";
-import type { ClinicalContext, QuestionResult, SourceFilters } from "@/lib/types";
+import type {
+  ClinicalContext,
+  EvidenceDetail,
+  QuestionResult,
+  SourceFilters,
+} from "@/lib/types";
 
 import styles from "./evidence-workspace/workspace.module.css";
 
@@ -72,6 +79,10 @@ export function EvidenceWorkspace({
   const [draftContext, setDraftContext] = useState<ClinicalContext | null>(null);
   const [selectedClaimId, setSelectedClaimId] = useState<string | null>(null);
   const [selectedEvidenceId, setSelectedEvidenceId] = useState<string | null>(null);
+  /** The record held beside the selected one for comparison, or null when not comparing. */
+  const [pinnedEvidenceId, setPinnedEvidenceId] = useState<string | null>(null);
+  /** Whether the inspector has been given the whole workspace to itself. */
+  const [focusMode, setFocusMode] = useState(false);
   const [corpusStatus, setCorpusStatus] = useState<CorpusStatus>(INITIAL_CORPUS_STATUS);
   const [transientFeedback, setTransientFeedback] = useState<TransientFeedback | null>(null);
   const feedbackTimerRef = useRef<number | null>(null);
@@ -119,6 +130,24 @@ export function EvidenceWorkspace({
       ? selectedEvidenceId
       : selectedClaim?.evidence_ids[0] ?? null;
 
+  /**
+   * The pinned record, resolved against everything the result carries.
+   *
+   * Not against the selected claim's evidence: a conflict routinely names a passage from
+   * another claim, and that is precisely the pair worth holding side by side. Resolution
+   * happens here rather than in the inspector because this is the only place that has the
+   * whole result to look in.
+   */
+  const pinnedEvidence = useMemo(
+    () =>
+      pinnedEvidenceId === null
+        ? null
+        : workspaceResult?.evidence_details.find(
+            (detail) => detail.evidence_id === pinnedEvidenceId,
+          ) ?? null,
+    [pinnedEvidenceId, workspaceResult],
+  );
+
   const showTransient = useCallback(
     (tone: FeedbackTone, title: string, message: string, duration = 4500) => {
       if (feedbackTimerRef.current !== null) window.clearTimeout(feedbackTimerRef.current);
@@ -147,6 +176,10 @@ export function EvidenceWorkspace({
   // Keep the address bar on the run being shown, so a reload or a shared link lands
   // back on it. `replaceState` rather than a router push: the workspace is already
   // mounted and a navigation would tear down the run it is monitoring.
+  //
+  // The same identifier goes into this browser's own history at the same moment. A run
+  // takes minutes and has always had an address; nothing wrote it down, so closing the
+  // tab was how a review got lost.
   useEffect(() => {
     const id = run.questionId;
     if (!id) return;
@@ -155,6 +188,26 @@ export function EvidenceWorkspace({
       window.history.replaceState(null, "", path);
     }
   }, [run.questionId]);
+
+  /*
+   * Write the run to the local history once, and again when its question is known.
+   *
+   * Keyed on the question text rather than on the result object it came from. `run.result`
+   * is a new object on every progress update, so depending on it ran a read-parse-write of
+   * localStorage per event and re-stamped `openedAt` each time - eight times for a run
+   * that reports eight stages.
+   *
+   * `previousResult` is deliberately not consulted. It holds the *last* run while a new
+   * one is in flight, so falling back to it labelled the new run's identifier with the
+   * previous run's question - a history entry pointing at one review under the name of
+   * another. An unnamed entry is recorded instead and named when the result lands, which
+   * is also what a run adopted from a shared link does.
+   */
+  const recordedQuestion = run.result?.question ?? "";
+  useEffect(() => {
+    if (!run.questionId) return;
+    recordRun(run.questionId, recordedQuestion);
+  }, [run.questionId, recordedQuestion]);
 
   useEffect(() => {
     let active = true;
@@ -250,10 +303,47 @@ export function EvidenceWorkspace({
     return accepted;
   }
 
+  /**
+   * Comparison is a two-record state, so it is set as one.
+   *
+   * The conflict panel is the caller that matters: it names two passages that disagree
+   * and, until now, could only open one of them. Opening the first and pinning the second
+   * is the whole gesture.
+   */
+  function compareEvidence(evidenceId: string, againstEvidenceId: string) {
+    setSelectedEvidenceId(evidenceId);
+    setPinnedEvidenceId(againstEvidenceId);
+  }
+
   function selectClaim(claimId: string) {
     setSelectedClaimId(claimId);
     const claim = workspaceResult?.claims.find((item) => item.claim_id === claimId);
     setSelectedEvidenceId(claim?.evidence_ids[0] ?? null);
+  }
+
+  /**
+   * Select a claim, and take the reader to the evidence they asked to inspect.
+   *
+   * Selecting alone was enough on a wide screen, where the inspector is pinned beside the
+   * claim and simply changes under the cursor. It was not enough anywhere the columns
+   * stack - "Inspect evidence" moved something several screens below the button and left
+   * the reader looking at the button. Focus moves with the view rather than after it,
+   * because a keyboard user pressing this has the same request and no scrollbar to notice.
+   *
+   * Deferred a frame so the panel has rendered the newly selected claim's evidence before
+   * it is scrolled to; scrolling to the old contents and repainting under the reader is
+   * the one thing worse than not scrolling at all.
+   */
+  function inspectClaim(claimId: string) {
+    selectClaim(claimId);
+    requestAnimationFrame(() => {
+      const heading = document.getElementById("source-heading");
+      if (!(heading instanceof HTMLElement)) return;
+      if (typeof heading.scrollIntoView === "function") {
+        heading.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+      heading.focus({ preventScroll: true });
+    });
   }
 
   async function copyText(value: string, successTitle: string, successMessage: string) {
@@ -359,11 +449,16 @@ export function EvidenceWorkspace({
 
   return (
     <div className={styles.appShell}>
-      <AppHeader corpusStatus={corpusStatus} />
+      <AppHeader />
 
       <main id="main-content">
         <QuestionComposer
           isRunning={run.isRunning}
+          // Accepted here, not yet by the server: the run is live but has no identifier
+          // back. The composer used to infer this from a local flag around its own submit
+          // promise, which is precisely the flag that could never be cleared if the
+          // request hung.
+          isStarting={run.isRunning && run.questionId === null}
           onChange={setQuestion}
           onSourceFiltersChange={setSourceFilters}
           onStopWaiting={run.stopWaiting}
@@ -454,8 +549,14 @@ export function EvidenceWorkspace({
             onEditContext={openContextEditor}
             onExportAudit={exportAudit}
             onRetry={() => void run.retry()}
+            focusMode={focusMode}
+            onCompareEvidence={compareEvidence}
+            onInspectClaim={inspectClaim}
+            onPinEvidence={setPinnedEvidenceId}
             onSelectClaim={selectClaim}
             onSelectEvidence={setSelectedEvidenceId}
+            onToggleFocus={() => setFocusMode((current) => !current)}
+            pinnedEvidence={pinnedEvidence}
             progressEvents={run.result ? run.progressEvents : []}
             result={workspaceResult}
             runLifecycle={run.result ? run.lifecycle : "completed"}
@@ -466,6 +567,8 @@ export function EvidenceWorkspace({
           />
         ) : null}
       </main>
+
+      <AppFooter />
 
       {editOpen && draftContext && run.result?.interpreted_context ? (
         <ContextDialog
@@ -485,14 +588,20 @@ function ResultWorkspace({
   allowContextEditing,
   candidates,
   citations,
+  focusMode,
   isPrevious,
+  onCompareEvidence,
   onCopyAnswer,
   onCopyLink,
   onEditContext,
   onExportAudit,
+  onInspectClaim,
+  onPinEvidence,
   onRetry,
   onSelectClaim,
   onSelectEvidence,
+  onToggleFocus,
+  pinnedEvidence,
   progressEvents,
   result,
   runLifecycle,
@@ -504,14 +613,20 @@ function ResultWorkspace({
   allowContextEditing: boolean;
   candidates: RankedEvidence[];
   citations: CitationIndex;
+  focusMode: boolean;
   isPrevious: boolean;
+  onCompareEvidence: (evidenceId: string, againstEvidenceId: string) => void;
   onCopyAnswer: () => void;
   onCopyLink: () => void;
   onEditContext: () => void;
   onExportAudit: () => void;
+  onInspectClaim: (claimId: string) => void;
+  onPinEvidence: (evidenceId: string | null) => void;
   onRetry: () => void;
   onSelectClaim: (claimId: string) => void;
   onSelectEvidence: (evidenceId: string) => void;
+  onToggleFocus: () => void;
+  pinnedEvidence: EvidenceDetail | null;
   progressEvents: ReturnType<typeof useEvidenceRun>["progressEvents"];
   result: QuestionResult;
   runLifecycle: ReturnType<typeof useEvidenceRun>["lifecycle"];
@@ -521,14 +636,42 @@ function ResultWorkspace({
   selectedEvidenceId: string | null;
 }) {
   const ready = result.status === "ANSWER_READY";
+  /*
+   * The audit sits under the answer it audits, and the source column carries the
+   * inspector alone.
+   *
+   * Sharing one scrolling column with the verification timeline capped the inspector at
+   * roughly half the viewport, which is how a document viewer ended up 377px wide and
+   * 450px tall with 1600px of document inside it. This is also the order the narrow
+   * layout has always used - answer, audit, evidence - so the two now agree.
+   *
+   * When no answer was rendered there is no source to inspect, and the audit is what the
+   * right column is for: an empty second column beside an abstention would be worse than
+   * the panel simply staying where it was.
+   */
+  const verification = (
+    <VerificationPanel
+      isRunning={false}
+      lifecycle={runLifecycle}
+      progressEvents={progressEvents}
+      result={result}
+      status={runStatus}
+    />
+  );
   return (
     <>
       <ProvenanceStrip onCopyLink={onCopyLink} onExportAudit={onExportAudit} result={result} />
-      <div className={styles["workspace-grid"]}>
-        <div className={styles["result-column"]}>
+      {/* Focus mode gives the inspector the whole width. Reading a page of a guideline is
+          the one task in this workspace that is limited by width rather than by what is on
+          screen beside it, and the answer it came from is one keystroke away. */}
+      <div
+        className={`${styles["workspace-grid"]} ${focusMode && ready ? styles["workspace-focused"] : ""}`}
+      >
+        <div className={styles["result-column"]} hidden={focusMode && ready}>
           <AnswerPanel
             isPrevious={isPrevious}
             onCopyAnswer={onCopyAnswer}
+            onInspectClaim={onInspectClaim}
             onRetry={onRetry}
             onSelectClaim={onSelectClaim}
             onSelectEvidence={onSelectEvidence}
@@ -536,16 +679,16 @@ function ResultWorkspace({
             selectedClaimId={selectedClaimId}
             selectedEvidenceId={selectedEvidenceId}
           />
+          {ready ? verification : null}
           {ready ? (
             <EvidenceDetails
               allowContextEditing={allowContextEditing}
-              candidates={candidates}
               citations={citations}
               context={result.interpreted_context}
+              onCompareEvidence={onCompareEvidence}
               onEditContext={onEditContext}
               onSelectEvidence={onSelectEvidence}
               result={result}
-              selectedClaimId={selectedClaimId}
               selectedEvidenceId={selectedEvidenceId}
             />
           ) : (
@@ -561,18 +704,26 @@ function ResultWorkspace({
           {ready ? (
             <SourceViewer
               candidates={candidates}
+              citations={citations}
+              // Both from the result rather than from the composer's state: the composer
+              // holds whatever has been typed since, and the passage on screen was
+              // retrieved for the question this run was actually accepted with.
+              claimText={
+                result.claims.find((claim) => claim.claim_id === selectedClaimId)?.text ??
+                null
+              }
               evidence={selectedClaimEvidence}
+              focusMode={focusMode}
+              onPinEvidence={onPinEvidence}
               onSelectEvidence={onSelectEvidence}
+              onToggleFocus={onToggleFocus}
+              pinnedEvidence={pinnedEvidence}
+              question={result.question}
               selectedEvidenceId={selectedEvidenceId}
             />
-          ) : null}
-          <VerificationPanel
-            isRunning={false}
-            lifecycle={runLifecycle}
-            progressEvents={progressEvents}
-            result={result}
-            status={runStatus}
-          />
+          ) : (
+            verification
+          )}
         </div>
       </div>
     </>

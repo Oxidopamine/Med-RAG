@@ -84,18 +84,17 @@ describe("ConflictPanel", () => {
       }),
     );
 
-    expect(screen.getByText("Checked, none open")).toBeInTheDocument();
-    expect(screen.getByText(/reported no open disagreement across 1 check/)).toBeInTheDocument();
-    expect(screen.queryByText("No conflict")).not.toBeInTheDocument();
+    // One line, but it still has to say which of the two absences this is: a check that
+    // ran and cleared, not a check that never reported.
+    expect(screen.getByText("Checked, none open across 1 check")).toBeInTheDocument();
+    expect(screen.queryByText(/None returned/)).not.toBeInTheDocument();
   });
 
   it("says nothing was returned when the answer reported no conflict at all", () => {
     renderPanel(answerReadyResult({ conflicts: [] }));
 
-    expect(screen.getByText("None returned")).toBeInTheDocument();
-    expect(
-      screen.getByText("No conflict was returned for the rendered claims."),
-    ).toBeInTheDocument();
+    expect(screen.getByText("None returned for the rendered claims")).toBeInTheDocument();
+    expect(screen.queryByText(/Checked, none open/)).not.toBeInTheDocument();
   });
 
   it("does not present an unrecognised type as though it had been classified", () => {

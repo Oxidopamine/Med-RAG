@@ -18,6 +18,8 @@ import styles from "./workspace.module.css";
 
 interface ConflictPanelProps {
   citations: CitationIndex;
+  /** Open both passages of a disagreement side by side in the inspector. */
+  onCompareEvidence?: (evidenceId: string, againstEvidenceId: string) => void;
   onSelectEvidence: (evidenceId: string) => void;
   result: QuestionResult;
   selectedEvidenceId: string | null;
@@ -40,6 +42,7 @@ const TONE_ICONS: Record<ConflictTone, typeof AlertTriangle> = {
  */
 export function ConflictPanel({
   citations,
+  onCompareEvidence,
   onSelectEvidence,
   result,
   selectedEvidenceId,
@@ -48,6 +51,33 @@ export function ConflictPanel({
   const reviewable = reviewableConflicts(conflicts);
   const cleared = conflicts.length - reviewable.length;
 
+  /*
+   * Nothing to review is the common case, and it was costing a full panel to say so - a
+   * heading, a badge, and a sentence stacked over 20px of padding, three ways of reporting
+   * one absence. It collapses to a single line. The distinction the line has to keep is
+   * between a check that ran and cleared and no check being returned at all, so that is
+   * carried twice: in the words, and in the mark beside them. Green is a gate that passed,
+   * and only the first of these is one.
+   */
+  if (!reviewable.length) {
+    const checked = conflicts.length > 0;
+    const Mark = checked ? CheckCircle2 : Info;
+    return (
+      <section
+        className={`${styles.panel} ${styles["conflict-clear"]} ${checked ? styles["conflict-clear-checked"] : ""}`}
+        aria-labelledby="conflict-heading"
+      >
+        <Mark size={15} aria-hidden="true" />
+        <h2 id="conflict-heading">Guideline conflict review</h2>
+        <span>
+          {checked
+            ? `Checked, none open across ${cleared} check${cleared === 1 ? "" : "s"}`
+            : "None returned for the rendered claims"}
+        </span>
+      </section>
+    );
+  }
+
   return (
     <section
       className={`${styles.panel} ${styles["conflict-panel"]}`}
@@ -55,48 +85,34 @@ export function ConflictPanel({
     >
       <div className={styles["conflict-heading-row"]}>
         <h2 id="conflict-heading">Guideline conflict review</h2>
-        <span className={reviewable.length ? styles["conflict-count"] : styles["no-conflict"]}>
-          {reviewable.length
-            ? `${reviewable.length} for review`
-            : conflicts.length
-              ? "Checked, none open"
-              : "None returned"}
-        </span>
+        <span className={styles["conflict-count"]}>{reviewable.length} for review</span>
       </div>
 
-      {reviewable.length ? (
-        <div className={styles["conflict-list"]}>
-          {reviewable.map((conflict) => (
-            <ConflictCard
-              conflict={conflict}
-              key={conflict.key}
-              onSelectEvidence={onSelectEvidence}
-              result={result}
-              selectedEvidenceId={selectedEvidenceId}
-            />
-          ))}
-        </div>
-      ) : (
-        <div className={styles["conflict-info"]}>
-          <CheckCircle2 size={19} aria-hidden="true" />
-          <span>
-            {conflicts.length
-              ? `The answer lane compared the cited passages and reported no open disagreement across ${cleared} check${cleared === 1 ? "" : "s"}.`
-              : "No conflict was returned for the rendered claims."}
-          </span>
-        </div>
-      )}
+      <div className={styles["conflict-list"]}>
+        {reviewable.map((conflict) => (
+          <ConflictCard
+            conflict={conflict}
+            key={conflict.key}
+            onCompareEvidence={onCompareEvidence}
+            onSelectEvidence={onSelectEvidence}
+            result={result}
+            selectedEvidenceId={selectedEvidenceId}
+          />
+        ))}
+      </div>
     </section>
   );
 }
 
 function ConflictCard({
   conflict,
+  onCompareEvidence,
   onSelectEvidence,
   result,
   selectedEvidenceId,
 }: {
   conflict: PresentedConflict;
+  onCompareEvidence?: (evidenceId: string, againstEvidenceId: string) => void;
   onSelectEvidence: (evidenceId: string) => void;
   result: QuestionResult;
   selectedEvidenceId: string | null;
@@ -140,6 +156,21 @@ function ConflictCard({
               );
             })}
           </div>
+        ) : null}
+
+        {/* The two clauses, in the inspector, at full size and side by side. The cards
+            above are an excerpt of a comparison; this is the comparison. Offered only
+            where exactly two records resolve, which is the same condition that lets the
+            cards be drawn at all. */}
+        {compared && onCompareEvidence ? (
+          <button
+            className={styles["conflict-compare-open"]}
+            onClick={() => onCompareEvidence(compared[0].evidence_id, compared[1].evidence_id)}
+            type="button"
+          >
+            <GitCompareArrows size={15} aria-hidden="true" />
+            Compare both passages in the inspector
+          </button>
         ) : null}
 
         {conflict.unrecognizedType ? (

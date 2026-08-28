@@ -222,6 +222,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/sources/{source_id}/pages/{page_number}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Source Page */
+        get: operations["get_source_page_v1_sources__source_id__pages__page_number__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/sources/{source_id}/tables/{table_id}/rows": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Table Row Neighbourhood
+         * @description The rows around a cited row of one table.
+         *
+         *     A spreadsheet row is this corpus's unit of evidence, and one row read alone is often
+         *     not decidable - the row above opens the condition, the row below carries the
+         *     exception. This is the neighbourhood a reader needs to check a citation, served from
+         *     the same release the answer came from.
+         *
+         *     It performs no licence act the answer did not already perform: each row is projected
+         *     through the same path as cited evidence, so a source that may not be excerpted yields
+         *     neighbours with addresses and no text. Every failure answers with an empty window
+         *     rather than a status, on the same grounds as the page route above: which rows a
+         *     release does not contain is a fact about a corpus the caller has not been granted.
+         */
+        get: operations["get_table_row_neighbourhood_v1_sources__source_id__tables__table_id__rows_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -766,6 +814,39 @@ export interface components {
             /** Version Label */
             version_label: string;
         };
+        /**
+         * TableRowNeighbour
+         * @description One row of a table, positioned relative to the row that was asked about.
+         */
+        TableRowNeighbour: {
+            evidence: components["schemas"]["EvidenceDetail"];
+            /** Is Anchor Row */
+            is_anchor_row: boolean;
+            /** Row Index */
+            row_index: number;
+            /** Row Number */
+            row_number: number;
+        };
+        /**
+         * TableRowNeighbourhood
+         * @description The rows immediately around an anchored row of one table.
+         *
+         *     An empty `rows` is an ordinary answer, not an error: the release may hold no
+         *     neighbours, the table may not be in it, or the source may not be servable. The caller
+         *     is told the same thing in each case, for the reason `sources.py` gives.
+         */
+        TableRowNeighbourhood: {
+            /** Anchor Row Index */
+            anchor_row_index: number;
+            /** Radius */
+            radius: number;
+            /** Rows */
+            rows?: components["schemas"]["TableRowNeighbour"][];
+            /** Source Id */
+            source_id: string;
+            /** Table Id */
+            table_id: string;
+        };
         /** ValidationError */
         ValidationError: {
             /** Context */
@@ -1158,6 +1239,83 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_source_page_v1_sources__source_id__pages__page_number__get: {
+        parameters: {
+            query?: {
+                dpi?: number;
+            };
+            header?: never;
+            path: {
+                source_id: string;
+                page_number: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Rendered page image */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/png": unknown;
+                };
+            };
+            /** @description No page image is available for this source */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_table_row_neighbourhood_v1_sources__source_id__tables__table_id__rows_get: {
+        parameters: {
+            query: {
+                /** @description Zero-based row index to centre the window on */
+                row: number;
+                radius?: number;
+            };
+            header?: never;
+            path: {
+                source_id: string;
+                table_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TableRowNeighbourhood"];
                 };
             };
             /** @description Validation Error */

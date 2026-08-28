@@ -369,7 +369,23 @@ class SQLQARepository:
                     "source_class": "E1",
                     "jurisdiction": item.jurisdiction,
                     "canonical_url": asset.source_uri,
-                    "license_render_allowed": item.render_allowed,
+                    # The evidence flag is the *excerpt* permission - "may this passage
+                    # text be shown" - which is how the serving projection reads it
+                    # (corpus/releases.py). It is not the page-image permission, and
+                    # binding it to `license_render_allowed` here was the conflation
+                    # migration 0015 split the column to end: this line was simply not
+                    # updated with it. Asserting the wrong half made a source cleared for
+                    # excerpts but not for page reproduction - which is every WHO source
+                    # under branch A, docs/rendering-licence.md#decision - unable to pass
+                    # QA at all, and would have inserted a *new* source with page
+                    # reproduction granted and excerpts denied, inverted on both axes.
+                    #
+                    # `license_render_allowed` is deliberately absent rather than moved.
+                    # Nothing about a piece of evidence licenses reproducing the page it
+                    # came from; that is a source-level decision, taken explicitly through
+                    # `set-source-licence` and left to its fail-closed default until
+                    # someone takes it.
+                    "license_excerpt_allowed": item.render_allowed,
                 }
                 if source is None:
                     session.add(SourceRow(source_id=source_id, created_at=now, **expected_source))

@@ -179,6 +179,7 @@ export const ABSTENTION_REASON_CODES = [
   "NO_APPROVED_CORPUS",
   "RETRIEVAL_PIPELINE_NOT_CONFIGURED",
   "PIPELINE_FAILURE",
+  "RUN_CANCELLED",
 ] as const;
 
 export type AbstentionReasonCode = (typeof ABSTENTION_REASON_CODES)[number];
@@ -279,6 +280,23 @@ const REASON_GUIDANCE: Record<AbstentionReasonCode, ReasonGuidance> = {
     title: "The review could not be completed",
     message: "The pipeline failed closed and did not render a clinical claim.",
     nextStep: "Retry once. If the problem continues, share the run ID with support.",
+    retryable: true,
+    cause: "service",
+  },
+  /*
+   * The server stopped working on the run - a restart, a deploy, a worker recycle.
+   *
+   * Named rather than left to `UNKNOWN_REASON`, which would have reported it as a
+   * coverage decision: "the available evidence was not sufficient" is a statement about
+   * the corpus, and saying it about a run that was interrupted would blame the guidelines
+   * for an outage. Nothing was judged here, which is also why the retry is the whole of
+   * the advice.
+   */
+  RUN_CANCELLED: {
+    title: "The run stopped before it finished",
+    message:
+      "The server stopped working on this review before it reached an answer. No evidence was judged and no claim was rendered.",
+    nextStep: "Ask again. Nothing about the question or the corpus caused this.",
     retryable: true,
     cause: "service",
   },
