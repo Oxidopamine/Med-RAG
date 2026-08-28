@@ -43,6 +43,13 @@ EXPECTED_CHAPTERS = {2, 3, 4, 5, 6, 7}
 
 SEED = 20260827
 SAMPLE_N = 50
+# Stage 2 of the pre-registered rule extends the same seeded draw to 150. CPython's
+# random.sample takes the pool path for both k=50 and k=150 at this frame size, so the
+# k=150 draw's first 50 elements are exactly the k=50 draw. That nesting is what makes a
+# two-stage design honest - stage 2 must extend stage 1, never redraw it - and it is
+# asserted at runtime rather than trusted, because it is an implementation property of
+# random.sample and not a documented guarantee.
+STAGE2_N = 150
 MIN_STATEMENT_CHARS = 120
 
 RUNNING = re.compile(r"^(Summary recommendations|Consolidated guidelines on HIV)")
@@ -137,6 +144,19 @@ def main() -> int:
         default=Path("benchmarks/questions/mvp-coverage-who-hiv-v1.json"),
         help="committed question set to verify the rebuilt draw against",
     )
+    parser.add_argument(
+        "--sample-n",
+        type=int,
+        default=SAMPLE_N,
+        help=f"draw size; {SAMPLE_N} reproduces stage 1, {STAGE2_N} is the pre-registered "
+        "stage 2, and the full frame size is a census with no sampling error",
+    )
+    parser.add_argument(
+        "--emit-draw",
+        type=Path,
+        default=None,
+        help="write the drawn frame records here (the authoring input for a new stage)",
+    )
     args = parser.parse_args()
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -147,8 +167,16 @@ def main() -> int:
 
     import random
 
-    sample = random.Random(SEED).sample(frame, SAMPLE_N)
-    sample.sort(key=lambda r: (r["chapter_no"], r["id"]))
+    draw = random.Random(SEED).sample(frame, args.sample_n)
+    if args.sample_n > SAMPLE_N:
+        stage1 = random.Random(SEED).sample(frame, SAMPLE_N)
+        if draw[:SAMPLE_N] != stage1:
+            raise SystemExit(
+                f"the n={args.sample_n} draw does not extend the pre-registered n={SAMPLE_N} "
+                "draw; random.sample is no longer prefix-stable at this frame size, so stage 2 "
+                "must be constructed as an explicit extension instead"
+            )
+    sample = sorted(draw, key=lambda r: (r["chapter_no"], r["id"]))
 
     print(f"extracted statements : {len(records)}")
     print(f"graded recommendations: {sum(1 for r in records if r['kind'] == 'RECOMMENDATION')}")
@@ -156,6 +184,35 @@ def main() -> int:
     print(f"drawn                 : {len(sample)} at seed {SEED}")
     for (number, name), count in sorted(Counter((r["chapter_no"], r["chapter"]) for r in sample).items()):
         print(f"  ch{number} {name[:44]:46s} {count}")
+
+    if args.emit_draw is not None:
+        # `draw` is the seeded order, NOT the chapter-sorted display order. The whole
+        # two-stage design rests on the draw being a prefix - stage 2 extends stage 1 - and
+        # sorting destroys exactly that property. Writing the sorted list here silently
+        # turned "the pre-registered first 150" into "the first 150 by chapter", which
+        # differed on 26 of 165 items and even dropped two stage-1 questions. The sorted
+        # view is kept alongside, under its own name, for reading.
+        args.emit_draw.write_text(
+            json.dumps(
+                {
+                    "seed": SEED,
+                    "sample_n": args.sample_n,
+                    "frame_size": len(frame),
+                    "draw": draw,
+                    "draw_order_is_seeded": True,
+                    "sorted_for_display": [record["id"] for record in sample],
+                },
+                indent=2,
+                ensure_ascii=False,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        print(f"wrote draw            : {args.emit_draw}")
+
+    if args.sample_n != SAMPLE_N:
+        print("\nskipping the committed-set comparison: it pins the stage-1 draw only")
+        return 0
 
     if args.compare.exists():
         committed = json.loads(args.compare.read_text(encoding="utf-8"))
