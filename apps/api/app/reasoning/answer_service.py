@@ -18,6 +18,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from app.reasoning.ablation import PRODUCTION, AblationProfile
 from app.reasoning.generation_adapters import GenerationBackend, GenerationUnavailableError
 from app.reasoning.generation_schemas import AbstentionReason, ModelAnswer
 from app.schemas.questions import (
@@ -132,9 +133,18 @@ def _abstain(
 class GroundedAnswerComposer:
     """Turn retrieved evidence into claims that are grounded by construction."""
 
-    def __init__(self, backend: GenerationBackend, *, system_prompt: str = SYSTEM_PROMPT) -> None:
+    def __init__(
+        self,
+        backend: GenerationBackend,
+        *,
+        system_prompt: str = SYSTEM_PROMPT,
+        ablation: AblationProfile = PRODUCTION,
+    ) -> None:
         self._backend = backend
         self._system_prompt = system_prompt
+        # PRODUCTION by default: the grounding rules below are the ones D7 states, and a
+        # caller has to ask explicitly to have them relaxed.
+        self._ablation = ablation
 
     async def compose(
         self,
@@ -166,14 +176,13 @@ class GroundedAnswerComposer:
             )
         return self._ground(answer, passages)
 
-    @staticmethod
     def _ground(
-        answer: ModelAnswer, passages: tuple[RetrievedPassage, ...]
+        self, answer: ModelAnswer, passages: tuple[RetrievedPassage, ...]
     ) -> ComposedAnswer:
         retrieved_ids = {item.evidence_id for item in passages}
         closest = tuple(item.evidence_id for item in passages[:5])
 
-        if not answer.sufficient_evidence:
+        if not answer.sufficient_evidence and self._ablation.enforce_model_sufficiency:
             return _abstain(
                 AbstentionReason.MODEL_DECLARED_INSUFFICIENT,
                 message=answer.insufficiency_note
@@ -185,7 +194,8 @@ class GroundedAnswerComposer:
         withheld = 0
         for index, claim in enumerate(answer.claims, start=1):
             cited = list(dict.fromkeys(claim.evidence_ids))
-            if not cited or not set(cited).issubset(retrieved_ids):
+            ungrounded = not cited or not set(cited).issubset(retrieved_ids)
+            if ungrounded and self._ablation.discard_ungrounded_claims:
                 # A claim citing evidence that was never retrieved is discarded whole.
                 # Partial repair would keep the sentence while dropping the support it
                 # was written to rest on, which is the failure this check exists for.
@@ -196,7 +206,10 @@ class GroundedAnswerComposer:
                     claim_id=f"CL_{index:03d}",
                     text=claim.text,
                     evidence_ids=cited,
-                    verification_status="SUPPORTED",
+                    # An ablated run renders the claim but must not label it SUPPORTED:
+                    # nothing checked it. The status is what a reader classifying the run
+                    # sees, so it states which of the two actually happened.
+                    verification_status="UNVERIFIED" if ungrounded else "SUPPORTED",
                 )
             )
 
@@ -239,7 +252,14 @@ class GroundedAnswerComposer:
             conflicts=conflicts,
             verification=VerificationSummary(
                 rendered_claims=rendered,
-                supported_claims=len(supported),
+                # Only claims whose citations were actually checked. On the production
+                # path every rendered claim is grounded, so this is `len(supported)`; on an
+                # ablated run the list also holds UNVERIFIED claims, and counting those as
+                # supported would report unchecked claims as verified in the one field a
+                # reader classifying the run relies on.
+                supported_claims=sum(
+                    1 for claim in supported if claim.verification_status == "SUPPORTED"
+                ),
                 withheld_claims=withheld,
             ),
             abstention=None,

@@ -44,6 +44,7 @@ from typing import Any
 
 from app.corpus_steward.qdrant_index import stable_qdrant_point_id
 from app.corpus_steward.query_expansion import ExpandedQuery
+from app.reasoning.ablation import PRODUCTION, AblationProfile
 from app.reasoning.presentation import PassageKind, PassagePresenter, RenderedPassage
 from app.schemas.corpus import CorpusEvidenceRecord, EvidenceRole
 
@@ -199,10 +200,14 @@ class ServingRetrievalService:
         rrf_k: int = 60,
         dense_weight: float = 1.0,
         sparse_weight: float = 1.0,
+        ablation: AblationProfile = PRODUCTION,
     ) -> None:
         self._qdrant = qdrant
         self._embedding = embedding_backend
         self._reranker = reranker
+        # Defaults to PRODUCTION, so a caller that does not ask for an ablation gets the
+        # exact path every prior report was measured on.
+        self._ablation = ablation
         self._candidate_limit = candidate_limit
         self._top_k = top_k
         self._rrf_k = rrf_k
@@ -307,14 +312,24 @@ class ServingRetrievalService:
         covered: set[EvidenceRole] = set()
         disqualified: list[tuple[str, EvidenceRole]] = []
         for passage in passages:
-            qualified = set(passage.qualified_roles)
+            # Unqualified, the corpus's own asset-level label is taken at face value -
+            # which is what F2 measured as wrong on 91.0% of the records carrying it.
+            qualified = (
+                set(passage.qualified_roles)
+                if self._ablation.qualify_roles_by_form
+                else set(passage.evidence_roles)
+            )
             covered |= qualified
             disqualified.extend(
                 (passage.evidence_id, role)
                 for role in passage.evidence_roles
                 if role not in qualified
             )
-        missing = tuple(role for role in REQUIRED_ANSWER_ROLES if role not in covered)
+        missing = (
+            tuple(role for role in REQUIRED_ANSWER_ROLES if role not in covered)
+            if self._ablation.enforce_role_gate
+            else ()
+        )
         return ServingRetrievalResult(
             passages=passages,
             lane_failures=tuple(lane_failures),
@@ -346,7 +361,11 @@ class ServingRetrievalService:
         for score, item in fused:
             record = evidence[item.evidence_id]
             rendered = presenter.render(record)
-            survivor = survivor_of.get(rendered.fingerprint)
+            survivor = (
+                survivor_of.get(rendered.fingerprint)
+                if self._ablation.suppress_duplicates
+                else None
+            )
             if survivor is not None:
                 suppressed_by.setdefault(survivor, []).append(item.evidence_id)
                 continue

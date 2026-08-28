@@ -81,6 +81,7 @@ from app.corpus_steward.query_expansion import (
     EXACT_TERMINOLOGY_REVISION,
     DeterministicQueryExpander,
 )
+from app.reasoning.ablation import NAIVE_BASELINE, PRODUCTION, AblationProfile
 from app.reasoning.answer_service import (
     GroundedAnswerComposer,
     RetrievedPassage,
@@ -147,6 +148,29 @@ def build_parser() -> argparse.ArgumentParser:
         type=int,
         default=None,
         help="stop after N questions; for validating the harness, never for a real run",
+    )
+    parser.add_argument(
+        "--ablate",
+        action="append",
+        default=[],
+        choices=(
+            "suppress_duplicates",
+            "qualify_roles_by_form",
+            "enforce_role_gate",
+            "enforce_model_sufficiency",
+            "discard_ungrounded_claims",
+        ),
+        metavar="MECHANISM",
+        help=(
+            "switch one safety mechanism OFF for this run; repeatable. Any use makes the "
+            "run a baseline rather than the product, and the profile is stamped into the "
+            "output. See app/reasoning/ablation.py for what each one removes."
+        ),
+    )
+    parser.add_argument(
+        "--naive-baseline",
+        action="store_true",
+        help="switch every safety mechanism off: the ordinary RAG comparison baseline",
     )
     parser.add_argument(
         "--passage-text",
@@ -342,7 +366,9 @@ async def compose_answer(
     }
 
 
-def summarize(records: list[dict[str, Any]]) -> dict[str, Any]:
+def summarize(
+    records: list[dict[str, Any]], *, ablation: AblationProfile = PRODUCTION
+) -> dict[str, Any]:
     total = len(records)
     gate_passed = sum(1 for record in records if record["retrieval"]["is_answerable"])
     lower, upper = wilson_interval(gate_passed, total)
@@ -373,6 +399,16 @@ def summarize(records: list[dict[str, Any]]) -> dict[str, Any]:
             "alone cannot reach the condemning branch either way."
         )
 
+    if not ablation.is_production:
+        # The pre-registered rule is a statement about the product. Reporting it for a
+        # pipeline with safety mechanisms switched off would put a decision sentence next
+        # to a number the same file calls a rendering count.
+        reading = (
+            "NOT APPLICABLE. This run is an ablation baseline "
+            f"({ablation.describe()}), so the pre-registered decision rule does not apply "
+            "to it and no branch of that rule is reachable from this file."
+        )
+
     return {
         "questions_run": total,
         "gate_passed": gate_passed,
@@ -385,8 +421,9 @@ def summarize(records: list[dict[str, Any]]) -> dict[str, Any]:
                 "grounding can still abstain after the gate passes",
                 "the gate tests role completeness, not topical relevance",
             ],
-            "stage1_floor": STAGE1_FLOOR,
-            "stage1_ceiling": STAGE1_CEILING,
+            "stage1_floor": STAGE1_FLOOR if ablation.is_production else None,
+            "stage1_ceiling": STAGE1_CEILING if ablation.is_production else None,
+            "preregistered_rule_applies": ablation.is_production,
             "reading": reading,
         },
         "p_wrong_zero_occurrence_upper_bound_95": round(zero_occurrence_upper_bound(total), 4)
@@ -397,6 +434,22 @@ def summarize(records: list[dict[str, Any]]) -> dict[str, Any]:
 
 async def main() -> int:
     arguments = build_parser().parse_args()
+
+    if arguments.naive_baseline and arguments.ablate:
+        raise SystemExit(
+            "--naive-baseline already switches every mechanism off; passing --ablate too "
+            "makes the profile ambiguous to a reader. Use one or the other."
+        )
+    if arguments.naive_baseline:
+        ablation = NAIVE_BASELINE
+    else:
+        ablation = AblationProfile(**{name: False for name in dict.fromkeys(arguments.ablate)})
+    if not ablation.is_production:
+        print(f"!! ABLATED RUN: {ablation.describe()}")
+        print("!! This is a comparison baseline, not the product, and its p_answered is")
+        print("!! a rendering count only - no correctness classification exists to say")
+        print("!! how many of the extra answers are wrong.")
+        print()
 
     document, items = load_questions(arguments.questions, limit=arguments.limit)
     review_status = str(document.get("review_status", ""))
@@ -443,6 +496,7 @@ async def main() -> int:
         candidate_limit=arguments.candidate_limit,
         top_k=arguments.top_k,
         rrf_k=arguments.rrf_k,
+        ablation=ablation,
     )
 
     expander = None
@@ -473,7 +527,7 @@ async def main() -> int:
             from app.reasoning.gemini_adapters import GeminiGenerationAdapter
 
             gemini = gemini_parameters()
-            composer = GroundedAnswerComposer(GeminiGenerationAdapter(gemini))
+            composer = GroundedAnswerComposer(GeminiGenerationAdapter(gemini), ablation=ablation)
             generation_binding = {
                 "model_id": gemini.model_id,
                 "max_output_tokens": gemini.max_output_tokens,
@@ -486,7 +540,7 @@ async def main() -> int:
             from app.reasoning.generation_adapters import AnthropicGenerationAdapter
 
             vertex = vertex_parameters()
-            composer = GroundedAnswerComposer(AnthropicGenerationAdapter(vertex))
+            composer = GroundedAnswerComposer(AnthropicGenerationAdapter(vertex), ablation=ablation)
             generation_binding = {
                 "model_id": vertex.qualified_model_id(),
                 "max_tokens": vertex.max_tokens,
@@ -542,6 +596,7 @@ async def main() -> int:
             document,
             records,
             registered=registered,
+            ablation=ablation,
             elapsed=None,
             generation_binding=generation_binding,
         )
@@ -552,6 +607,7 @@ async def main() -> int:
         document,
         records,
         registered=registered,
+        ablation=ablation,
         elapsed=elapsed,
         generation_binding=generation_binding,
     )
@@ -580,9 +636,10 @@ def write_output(
     *,
     registered: bool,
     elapsed: float | None,
+    ablation: AblationProfile = PRODUCTION,
     generation_binding: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    summary = summarize(records)
+    summary = summarize(records, ablation=ablation)
     payload = {
         "schema_version": 1,
         "run_kind": "MVP_COVERAGE_STAGE_1",
@@ -590,6 +647,14 @@ def write_output(
         # not reviewed, and the interval below is a harness check rather than the
         # pre-registered measurement.
         "registered": registered,
+        # Which safety mechanisms were active. `is_production` false means this file is a
+        # comparison baseline: its p_answered is a rendering count for an intentionally
+        # weakened pipeline and must never be quoted as the system's coverage.
+        "ablation": {
+            "is_production": ablation.is_production,
+            "disabled_mechanisms": list(ablation.disabled),
+            "description": ablation.describe(),
+        },
         "generation_ran": bool(arguments.generate),
         "generation_provider": arguments.generation_provider if arguments.generate else None,
         "generation_binding": generation_binding,
