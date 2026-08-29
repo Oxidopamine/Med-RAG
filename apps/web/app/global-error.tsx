@@ -22,7 +22,7 @@ export default function GlobalError({
   reset: () => void;
 }) {
   useEffect(() => {
-    console.error("Guideline Evidence QA failed to load", error);
+    console.error("Sentinel Evidence failed to load", error);
   }, [error]);
 
   return (
@@ -35,7 +35,7 @@ export default function GlobalError({
             </p>
 
             <h1 className={styles.title} id="global-error-title">
-              Guideline Evidence QA could not start
+              Sentinel Evidence could not start
             </h1>
             <p className={styles.body}>
               The application stopped before it could load. Nothing was retrieved, verified,

@@ -1,8 +1,8 @@
 <div align="center">
 
-# Guideline Evidence QA
+# Sentinel Evidence
 
-**A fail-closed, provenance-bound retrieval and answer system for clinical practice guidelines**
+**A fail-closed, provenance-bound retrieval and answer system for infectious disease practice guidelines**
 
 *Research artifact — not authorized for patient care. Do not enter protected health information.*
 
@@ -877,9 +877,9 @@ choice.
 ## 10. Citation and references
 
 ```bibtex
-@software{guideline_evidence_qa,
-  title  = {Guideline Evidence QA: A Fail-Closed, Provenance-Bound Retrieval and
-            Answer System for Clinical Practice Guidelines},
+@software{sentinel_evidence,
+  title  = {Sentinel Evidence: A Fail-Closed, Provenance-Bound Retrieval and
+            Answer System for Infectious Disease Practice Guidelines},
   author = {Alotaibi, Abdullah},
   year   = {2026},
   note   = {Research artifact. Not authorized for patient care.}

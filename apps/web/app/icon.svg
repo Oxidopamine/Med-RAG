@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <!--
+    The tab icon carries the header lockup whole: the virion of `brand-mark.tsx`, on the
+    same near-black `ink` rounded square the header paints behind it. A bare glyph would
+    vanish against a light browser chrome, and the mark is only ever seen on ink elsewhere.
+
+    The path data below must stay identical to the component's - `brand-mark.test.tsx`
+    fails if it drifts. Only the presentation differs, and it differs by transform rather
+    than by rewritten coordinates so there is nothing to keep in step by hand: the 24-unit
+    drawing is centred in the 32-unit box and scaled up to fill about three quarters of it,
+    since a tab crops to a glyph and a mark floating in padding loses at 16px. The stem
+    weight is dialled back to 2.2 because that scale multiplies it back to roughly the
+    component's 2.6-equivalent, which is what keeps the spikes from thinning away.
+  -->
+  <rect width="32" height="32" rx="7" fill="#0a0a0a"/>
+  <g transform="translate(16 16) scale(1.2) translate(-12 -12)" fill="#ffffff"
+     stroke="#ffffff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="12" cy="12" r="5.2"/>
+    <path d="M12 6.8L12 4.4"/>
+    <circle cx="12" cy="3.58" r="1.5" stroke="none"/>
+    <path d="M8.32 8.32L6.63 6.63"/>
+    <circle cx="6.04" cy="6.04" r="1.5" stroke="none"/>
+    <path d="M6.8 12L4.4 12"/>
+    <circle cx="3.58" cy="12" r="1.5" stroke="none"/>
+    <path d="M8.32 15.68L6.63 17.37"/>
+    <circle cx="6.04" cy="17.96" r="1.5" stroke="none"/>
+    <path d="M12 17.2L12 19.6"/>
+    <circle cx="12" cy="20.42" r="1.5" stroke="none"/>
+    <path d="M15.68 15.68L17.37 17.37"/>
+    <circle cx="17.96" cy="17.96" r="1.5" stroke="none"/>
+    <path d="M17.2 12L19.6 12"/>
+    <circle cx="20.42" cy="12" r="1.5" stroke="none"/>
+    <path d="M15.68 8.32L17.37 6.63"/>
+    <circle cx="17.96" cy="6.04" r="1.5" stroke="none"/>
+  </g>
+</svg>

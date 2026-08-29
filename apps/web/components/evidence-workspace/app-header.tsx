@@ -1,7 +1,8 @@
-import { ShieldAlert, ShieldPlus } from "lucide-react";
+import { ShieldAlert } from "lucide-react";
 import Link from "next/link";
 
 import { AppMenu } from "./app-menu";
+import { BrandMark } from "./brand-mark";
 
 import styles from "./workspace.module.css";
 
@@ -25,11 +26,11 @@ export function AppHeader() {
       </a>
       <header className={styles.topbar}>
         <div className={styles["topbar-inner"]}>
-          <Link className={styles["brand-lockup"]} href="/" aria-label="Guideline Evidence QA home">
+          <Link className={styles["brand-lockup"]} href="/" aria-label="Sentinel Evidence home">
             <span className={styles["brand-mark"]} aria-hidden="true">
-              <ShieldPlus size={25} strokeWidth={2.4} />
+              <BrandMark />
             </span>
-            <span className={styles["brand-name"]}>Guideline Evidence QA</span>
+            <span className={styles["brand-name"]}>Sentinel Evidence</span>
           </Link>
 
           <div className={styles["header-status"]}>

@@ -1632,7 +1632,7 @@
   },
   "info": {
     "summary": "Research-only evidence-gated guideline QA API",
-    "title": "Guideline Evidence QA",
+    "title": "Sentinel Evidence",
     "version": "0.1.0"
   },
   "openapi": "3.1.0",

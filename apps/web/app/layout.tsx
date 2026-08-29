@@ -18,8 +18,8 @@ const mono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Guideline Evidence QA",
-  description: "Research-only clinical guideline evidence workspace",
+  title: "Sentinel Evidence",
+  description: "Research-only infectious disease guideline evidence workspace",
 };
 
 /**

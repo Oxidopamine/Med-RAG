@@ -1,2 +1,2 @@
-"""Guideline Evidence QA API."""
+"""Sentinel Evidence API."""
 

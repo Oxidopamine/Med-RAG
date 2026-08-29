@@ -6,7 +6,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    app_name: str = "Guideline Evidence QA"
+    app_name: str = "Sentinel Evidence"
     environment: str = "development"
     api_prefix: str = "/v1"
     api_cors_origins: list[str] = ["http://localhost:3000"]
