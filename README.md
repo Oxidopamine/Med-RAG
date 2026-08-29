@@ -30,14 +30,20 @@ Digital Adaptation Kit (DAK) for HIV — from authenticated acquisition through 
 validation, model-pinned index construction, sealed benchmark acceptance, hybrid retrieval, and
 grounded answer composition. It then does the thing such systems are rarely subjected to: it
 **measures what the corpus can actually answer** under a pre-registered decision rule, and reports
-that the headline retrieval score (0.9647) and the clinical answerable coverage (0.4286) are
+that the headline retrieval score (0.9647) and the clinical answerable coverage (0.4631) are
 measurements of two different things.
 
 The negative results are the informative ones and are reported in full: 40.4% of the release is
 exact duplicate content invisible to content-hash deduplication, 91.0% of the records labelled
-recommendation-bearing structurally cannot bear a recommendation, and the corpus answers 0 of 6
-sampled recommendations on advanced HIV disease. Each is traced to a structural property of the
-source rather than to a ranking defect.
+recommendation-bearing structurally cannot bear a recommendation, and coverage concentrates on the
+business processes the kit operationalizes — 29.6% on coinfections and comorbidities against 67.9%
+on testing and diagnosis. Each is traced to a structural property of the source rather than to a
+ranking defect. Two of the three are then checked against the other WHO adaptation kits, where the
+duplication turns out to be specific to HIV and the labelling defect turns out to be general.
+
+A fourth result is reported against the architecture rather than for it: switching every safety
+mechanism off changes coverage by one question out of 49. The chain is nearly free, and on this
+corpus it is also largely untested, because the failure it exists to prevent does not occur here.
 
 ---
 
@@ -91,7 +97,8 @@ clinician approval, sealed-holdout acceptance, release activation, deployment.
 | **C5** | A **grounded answer lane in which model output is a proposal**: the model's sufficiency signal can lower an outcome to abstention but can never raise one to an answer, and any claim citing evidence outside the retrieved set is discarded whole rather than repaired | [D7](#4-design-decisions-and-their-rationale) |
 | **C6** | A **sealed benchmark contract** with a measured (not chosen) comparator floor, per-stratum Wilson lower bounds, sample mass allocated by measured discriminative headroom, and a custody-controlled holdout that remains unspent | [§5.1](#51-retrieval-benchmark-development-suite) |
 | **C7** | A **pre-registered two-stage coverage measurement** whose question set is sampled from the corpus's *parent* guideline rather than from the corpus itself, instantiated through a published clinical-question taxonomy, with an explicit lexical-leakage screen | [§5.2](#52-answerable-coverage-pre-registered-two-stage-measurement) |
-| **C8** | Three **negative structural findings** about operational guideline corpora — exact duplication invisible to content hashing, asset-level role labelling, and coverage concentrated on operationalized business processes | [§5.3](#53-corpus-structure-findings) |
+| **C8** | Three **negative structural findings** about operational guideline corpora — exact duplication invisible to content hashing, asset-level role labelling, and coverage concentrated on operationalized business processes — two of them re-measured across four WHO adaptation kits, where the duplication proves HIV-specific and the labelling defect proves general | [§5.3](#53-corpus-structure-findings) |
+| **C9** | An **ablation of the safety chain against itself**, showing it costs one answer in 49 and that its claim-grounding stage has never fired in 241 observed claims — the cost objection answered, and the chain's own coverage recorded as untested | [§5.4](#54-what-the-safety-chain-costs-measured-against-itself) |
 
 ---
 
@@ -454,6 +461,17 @@ than silently repaired (one anaphoric fragment excluded → **n = 49**, one near
 general-population advice items). Not redrawn to reach a round number: replacing a drawn item is the
 kind of small discretion that makes a seed meaningless.
 
+**Extension to stage 2.** The pre-registered stage 2 extends the *same* seeded draw to 150, which is
+sound only if the draw nests — the n = 150 sample's first 50 elements must be the n = 50 sample. That
+holds at this frame size and is **asserted at runtime rather than assumed**, because it is a property
+of `random.sample`'s implementation and not a documented guarantee. Membership of the pre-registered
+prefix is therefore a property of the seeded draw *order*; an earlier version of the emitter wrote a
+chapter-sorted view under the same key, which silently turned the prefix into "the first 150 by
+chapter", disagreed with the real draw on 26 of 165 items, and excluded two stage-1 questions. The
+builder now fails loudly if any stage-1 recommendation falls outside the prefix, which is the check
+whose absence allowed that. All 165 frame members are authored, so the pre-registered n = 150 and a
+full-frame census both come from one run.
+
 **Question construction.** Each recommendation instantiated into one of ten generic clinical question
 forms from Ely et al. (BMJ 2000) — 1,396 questions observed from 152 primary-care physicians,
 classified into 64 types, of which the ten published types cover ~63%. This gives phrasing an
@@ -472,45 +490,71 @@ abstentions, because a corpus answering 35% uniformly and one answering 35% whil
 treatment initiation are the same number and different products. `ANSWERED_WRONG` has a separate rule:
 **zero observed occurrences at every stage**, one occurrence stops the MVP.
 
-**Stage 1 result (2026-08-27, n = 49).**
+**Stage 1 result (2026-08-27, n = 49).** `p_answered` = 21/49 = 0.4286, Wilson 95% [0.300, 0.567] —
+neither entirely below 0.25 nor entirely above 0.50, so the rule sent it to stage 2. That is the
+outcome the two-stage design exists to handle, not a failure of it.
 
-> **`p_answered` = 21/49 = 0.4286, Wilson 95% [0.300, 0.567] → stage 2.**
-> The interval is neither entirely below 0.25 nor entirely above 0.50 — the outcome the two-stage
-> design exists to handle, not a failure of it.
+**Stage 2 result (2026-08-29, gemini-3.7-flash).** The frame is 165, so the pre-registered n = 150
+samples 91% of the population. All 165 were therefore authored, which yields the pre-registered
+analysis and a census from one run; the 15 extra questions are a superset of the protocol, not a
+change to it.
 
-| Outcome | n |
+> **`p_answered` = 69/149 = 0.4631, Wilson 95% [0.385, 0.543]** on the pre-registered n = 150.
+> Full-frame census: 73/164 = 0.4451, Wilson 95% [0.371, 0.522].
+> The interval is still not entirely above 0.50, so the decision rests on the *shape* of the
+> abstentions, exactly as the rule anticipated.
+
+| Outcome (full frame, n = 164) | n |
 |---|---:|
-| Answered, at least one claim rendered | 21 |
-| `MODEL_DECLARED_INSUFFICIENT` — gate passed, model judged the passages insufficient | 21 |
-| `INCOMPLETE_EVIDENCE_ROLE_SET` — blocked at the gate, no model call | 5 |
-| `NO_CLAIM_SURVIVED_GROUNDING` — claims composed, none survived verification | 2 |
+| Answered, at least one claim rendered | 73 |
+| `MODEL_DECLARED_INSUFFICIENT` — gate passed, model judged the passages insufficient | 77 |
+| `INCOMPLETE_EVIDENCE_ROLE_SET` — blocked at the gate, no model call | 14 |
+| `NO_CLAIM_SURVIVED_GROUNDING` — claims composed, none survived verification | 0 |
 
-**The gate is not what withholds answers; grounding is.** 44 of 49 cleared the role gate (pass rate
-0.898) and 21 of those were refused downstream — the division `retrieval_service` predicts in its own
-comment, and the reason a retrieval-only run cannot approximate this number.
+**The gate is not what withholds answers; the model is.** 150 of 164 cleared the role gate (pass rate
+0.915, against 0.898 at stage 1) and 77 of those were refused by the model's own sufficiency
+judgement — the division `retrieval_service` predicts in its own comment, and the reason a
+retrieval-only run cannot approximate this number.
+
+**Two checks that the larger sample makes possible.** The 49 stage-1 questions, re-run inside the
+stage-2 pass, reproduced **20/49 = 0.4082** exactly. And the 115 batch-accepted questions score
+0.4435 against the 50 individually-read ones at 0.4082, with heavily overlapping intervals — so the
+newly authored half is not systematically easier. Lexical leakage does not predict answering either
+(mean overlap 0.317 answered against 0.353 abstained, if anything the wrong way), so the question set
+is not rewarding itself.
 
 **Coverage by chapter — the load-bearing part.**
 
-| Chapter | Answered | Share |
-|---|---:|---:|
-| 2 — HIV testing and diagnosis | 7/7 | 100% |
-| 7 — Service delivery | 3/3 | 100% |
-| 4 — ART for people living with HIV | 3/6 | 50% |
-| 3 — HIV prevention | 1/3 | 33% |
-| 6 — Coinfections and comorbidities | 7/24 | 29% |
-| **5 — Advanced HIV disease** | **0/6** | **0%** |
+| Chapter | Stage 1 | Stage 2 | Share |
+|---|---:|---:|---:|
+| 2 — HIV testing and diagnosis | 7/7 | 19/28 | 67.9% |
+| 4 — ART for people living with HIV | 3/6 | 9/16 | 56.2% |
+| 3 — HIV prevention | 1/3 | 6/11 | 54.5% |
+| 7 — Service delivery | 3/3 | 12/22 | 54.5% |
+| **6 — Coinfections and comorbidities** | 7/24 | **21/71** | **29.6%** |
+| 5 — Advanced HIV disease | 0/6 | 4/16 | 25.0% |
 
-This is the **pre-registered** expectation and it is sharper than predicted: the DAK's business
-processes — testing, PrEP, care and treatment visits, PMTCT, infant diagnosis, diagnostics, referral,
-reporting — are answered at or near ceiling, and everything the DAK does not operationalize falls
-away. Read as *this corpus operationalizes a narrow slice of its parent*, not as a retrieval defect.
+The pre-registered expectation holds in direction, and **stage 2 corrects its sharpest number**: the
+"0 of 6 on advanced HIV disease" reported at stage 1 was a small-sample artifact and is 4/16 = 25.0%
+at the larger n, while the near-ceiling chapters fall back toward the middle. What survives is
+chapter 6 — the largest at 71 questions — steady at 29.6% against 29% at stage 1. The durable finding
+is that the corpus underperforms on **coinfections and comorbidities**, not that it answers nothing
+on advanced disease. Read as *this corpus operationalizes a narrow slice of its parent*, not as a
+retrieval defect.
 
-**Three limits the number cannot be read past**, stated with the result: no question has yet been
-classified into the correctness buckets, so 0.4286 means *"the system rendered claims"*, not *"the
-system answered correctly"*; the 28 abstentions are not yet split into `ABSTAINED_CORRECT` versus
-`ABSTAINED_AVOIDABLE`; and the run used the **Gemini comparator lane**, not the sealed Claude
-candidate, because the `anthropic-*` Vertex base-model quota is ungranted. Every grounding and
-abstention rule is shared across lanes, but the number belongs to the lane that produced it.
+Eight of the 164 are general-population physical-activity recommendations carried in chapter 6 of the
+parent guideline; the DAK operationalizes none of them and all eight abstain. Excluding them gives
+73/156 = 0.4679.
+
+**Three limits the number cannot be read past**, stated with the result: no question has been
+classified into the correctness buckets, so 0.4631 means *"the system rendered claims"*, not *"the
+system answered correctly"*; the abstentions are not split into `ABSTAINED_CORRECT` versus
+`ABSTAINED_AVOIDABLE`; and the run used a **Gemini lane**, not the sealed Claude candidate, because
+the `anthropic-*` Vertex base-model quota is ungranted. Every grounding and abstention rule is shared
+across lanes, but the number belongs to the lane that produced it — and lane choice moves it: the
+same 49 questions scored 0.490 on gemini-2.5-flash against 0.408 on gemini-3.7-flash, a difference
+not significant at that n (McNemar p = 0.219) and a reason to treat any single-lane coverage figure
+as lane-conditional.
 
 The residual wrong-answer rate is reported as a **bound, never as "zero"**: with no occurrences, the
 one-sided 95% upper bound is ~5.9% at n = 49 and 2.0% at n = 150. This is a screening measurement that
@@ -521,6 +565,13 @@ can detect a bad system, not one that can certify a good one.
 Three properties of an operational guideline corpus, each measured on the full release, each with a
 consequence for system design.
 
+F1 and F2 were originally measured on one release. Both have since been re-measured on the
+**published annexes of four WHO adaptation kits** — HIV, antenatal care, family planning,
+tuberculosis — so that each can be stated as a property of the artifact class or denied it. The
+cross-kit measurement is pre-QA and workbook-level, a different denominator from the release-level
+numbers below, and is reported as such rather than reconciled away
+([scripts/audit_dak_structure.py](scripts/audit_dak_structure.py)).
+
 **F1 — 40.4% of the release is exact duplicate content that content hashing could not see.** The
 Annex A `all` worksheet is a verbatim copy of all thirteen topic worksheets with one extra column
 recording which tab each row came from. That column changes `content_search`, so QA's exact-content
@@ -529,11 +580,34 @@ distinct passages.** Suppression at serving is exact rather than thresholded —
 every substantive cell, the `Tab` column is declared structural, and the measured collision count
 matches the copy count exactly.
 
+**F1 does not generalize, and the mechanism claim is the part that survives.** Of the four kits, only
+HIV publishes an aggregate worksheet: `all` reproduces **2,091 distinct rows across 11 topic sheets**
+at 98.8–100% each, while ANC, FP and TB ship none. So the *duplication* is an HIV publishing choice,
+not a DAK-class property, and the release-level 40.4% must not be generalized. What does generalize
+is the reason it was invisible: measured on the published workbook, exact content hashing sees
+**11 duplicate rows (0.2%)**, because the extra `Tab` column changes every row. Content-hash
+deduplication is insufficient for this artifact class whether or not a given kit exercises the case.
+
 **F2 — 91.0% of the recommendation-bearing label is not recommendation-bearing.** Roles are assigned
 by source asset. **4,664 of 5,145 records (90.7%) carry `PRIMARY_SUPPORT`, and 4,244 of those (91.0%)
 structurally cannot bear a recommendation** — 4,211 data-dictionary entries, 16 section titles, 13
 table headers, 4 caption rows. The release's genuinely recommendation-bearing surface is **420
 records, not 4,664.**
+
+**F2 does generalize, and HIV is the extreme rather than the typical case.** Every kit publishes a
+data dictionary many times larger than its decision-support logic, so any labeller assigning roles by
+source asset inherits that ratio as a labelling error:
+
+| Kit | Data-dictionary rows | Decision-support rows | Indicator rows | Data-dictionary share |
+|---|---:|---:|---:|---:|
+| HIV | 4,489 | 521 | 501 | **81.5%** |
+| Antenatal care | 1,160 | 742 | 42 | 59.7% |
+| Tuberculosis | 714 | 899 | 76 | 42.3% |
+| Family planning | 696 | 1,667 | 40 | 29.0% |
+
+The defect is structural across the class at 29–81%, and the HIV release sits at the top of that
+range. A serving layer that trusts publisher role labels is wrong on a large minority of records in
+the best case here and on four fifths of them in the worst.
 
 **F3 — the corpus answers "what data element records this" far better than "what should a clinician
 do".** On *"When should ART be started in adults with HIV?"*, pushing retrieval to depth 30 surfaces
@@ -547,7 +621,45 @@ Together F1–F3 are evidence *for* the narrative-materialization path — the W
 guidelines are narrative PDFs and would carry exactly the missing content — rather than evidence
 against the architecture.
 
-### 5.4 Runtime characteristics
+### 5.4 What the safety chain costs, measured against itself
+
+The claim that the fail-closed chain is worth its cost was, until now, architectural rather than
+measured. `AblationProfile` ([app/reasoning/ablation.py](apps/api/app/reasoning/ablation.py)) makes
+each of the five mechanisms switchable — duplicate suppression, role qualification by form, the role
+gate, the model-sufficiency override, and claim-level grounding — with all-on as the default, so the
+measured system is unchanged unless a caller explicitly asks otherwise.
+
+Same 49 questions, same release, same lane; the profile is the only difference:
+
+| Profile | Answered | Wilson 95% |
+|---|---:|---|
+| Production (all five active) | 20/49 = 0.408 | [0.282, 0.548] |
+| Every mechanism off | 21/49 = 0.429 | [0.300, 0.567] |
+
+**McNemar exact p = 1.0.** Turning the entire chain off moves coverage by one question. Underneath:
+
+- **Claim-level grounding never fires.** Zero of 54 baseline claims cited evidence outside the
+  retrieved set, and zero of 187 claims in the stage-2 run were withheld at grounding. D7's headline
+  protection has not been exercised once in 241 observed claims.
+- **The abstention cannot be ablated away.** Overriding the model's sufficiency flag relocates the
+  abstention to `NO_CLAIM_SURVIVED_GROUNDING` rather than producing an answer: the model declines to
+  *write* claims it cannot support, so the withholding is the model's behaviour, not the pipeline's.
+- **The role gate blocks 5, of which 1 would otherwise have been answered.**
+- Duplicate suppression removed 198 passages and 211 role claims were disqualified by form — large
+  effects on *what a reader sees*, almost none on *whether an answer appears*.
+
+Read honestly this cuts both ways, and both directions are the result. The chain is nearly free, so
+the cost objection to fail-closed design does not survive contact with this measurement. It is also
+largely **untested**, because the failure modes it exists to prevent — fabricated citations, claims
+resting on unretrieved evidence — do not occur on this corpus with these models. That is L5 and L6
+turned from a caveat into a number, and it is the strongest argument for the plausible-negative
+hardening the roadmap defers rather than for the chain as currently exercised.
+
+Because no correctness classification exists, this compares **rendering behaviour only**. It cannot
+say how many of the naive pipeline's extra answers are wrong, which is the quantity that would make
+the comparison an argument for the chain rather than a description of it.
+
+### 5.5 Runtime characteristics
 
 | Quantity | Measurement |
 |---|---|
@@ -572,8 +684,8 @@ constrains a claim.
 |---|---|---|
 | L1 | The development suite is **source-derived**: queries are normalized source fragments | 0.9647 measures near-duplicate lookup; it is not a clinical retrieval claim |
 | L2 | The coverage questions are **model-authored** from a mechanical frame and draw | The frame and draw reproduce; each question is a judgement about how a clinician would ask, and `review_status` gates whether a number may be quoted |
-| L3 | Stage 1 ran on the **Gemini comparator lane** | The number belongs to that lane and must be re-measured on the sealed Claude candidate before it is quoted as the product's |
-| L4 | **No correctness classification yet** | `p_answered` counts rendered claims, not correct ones; `ANSWERED_WRONG` is unmeasured and is the stop-the-MVP bucket |
+| L3 | Stages 1 and 2 ran on **Gemini lanes**, not the sealed Claude candidate | The number belongs to the lane that produced it and must be re-measured before it is quoted as the product's. Lane choice moved the stage-1 figure from 0.408 to 0.490 |
+| L4 | **No correctness classification yet** | `p_answered` counts rendered claims, not correct ones; `ANSWERED_WRONG` is unmeasured and is the stop-the-MVP bucket. This also bounds §5.4: the ablation compares rendering behaviour, not wrongness prevented |
 | L5 | The role gate proves completeness **of kind, never of subject** | An off-topic passage can satisfy it; claim-level grounding is what protects the reader |
 | L6 | `minimum_insufficient_evidence_accuracy = 1.0` over negatives **detectable by release filter alone** | It currently certifies the filter, not abstention; it will not survive plausible negatives, where the literature puts frontier models below 50% |
 | L7 | `generation_context_budget == top_k` | `complete_evidence_at_budget` is currently identical to `complete_evidence_set`; forward-looking infrastructure |
@@ -693,7 +805,10 @@ contract drifts from the API.
 | Qdrant version-compatibility report | [benchmarks/qdrant_compat/](benchmarks/qdrant_compat/) |
 | Frozen synthetic release + JSON Schema | [data/fixtures/](data/fixtures/) |
 | Frame/draw rebuild script (fails if either stops reproducing) | [scripts/build_mvp_question_set.py](scripts/build_mvp_question_set.py) |
-| Stage-1 coverage runner and scorer | [scripts/run_mvp_coverage_stage1.py](scripts/run_mvp_coverage_stage1.py), [scripts/score_mvp_coverage.py](scripts/score_mvp_coverage.py) |
+| Coverage runner (both stages) and scorer | [scripts/run_mvp_coverage_stage1.py](scripts/run_mvp_coverage_stage1.py), [scripts/score_mvp_coverage.py](scripts/score_mvp_coverage.py) |
+| Stage-2 question set: full frame, seeded prefix marked per item | [benchmarks/questions/mvp-coverage-who-hiv-v2.json](benchmarks/questions/mvp-coverage-who-hiv-v2.json), [scripts/build_mvp_question_set_v2.py](scripts/build_mvp_question_set_v2.py) |
+| Safety-chain ablation profiles | [apps/api/app/reasoning/ablation.py](apps/api/app/reasoning/ablation.py) (`--naive-baseline`, `--ablate`) |
+| Cross-DAK structure audit and IRIS annex discovery | [scripts/audit_dak_structure.py](scripts/audit_dak_structure.py), [scripts/discover_dak_annexes.py](scripts/discover_dak_annexes.py) |
 
 ---
 
