@@ -210,6 +210,32 @@
      target - one line here rather than a rule per control. */
 
   --header-h: 60px;
+
+  /*
+   * The page's measure.
+   *
+   * One number, because every band on the page - the top bar, the composer, the
+   * provenance strip, the answer stack and the inspector - shares a left and right edge,
+   * and a second measure for any one of them shows up as a jog on scroll.
+   *
+   * 1200 rather than the 1520 this was: at 1520 the widest thing on the page was a
+   * verification step name with 1300px of dotted leader after it, and the document stage
+   * was 1270px of grey holding a 670px sheet. Nothing here is a spreadsheet. The panels
+   * that do want width - the inspector's stage, the evidence grids - are still the widest
+   * things in the layout, they are simply no longer the emptiest.
+   */
+  --shell-max: 1200px;
+
+  /*
+   * Reading measures, for content set inside a panel rather than as a panel.
+   *
+   * --measure-prose is where a sentence stops being easier to read for being wider.
+   * --measure-row is for a label/value or name/timing row whose two ends are related: a
+   * row that spans the panel puts a timestamp a screen away from the step it belongs to,
+   * which is a gap the eye has to cross rather than a column it can read down.
+   */
+  --measure-prose: 68ch;
+  --measure-row: 62ch;
 }
 
 @media (max-width: 860px) {

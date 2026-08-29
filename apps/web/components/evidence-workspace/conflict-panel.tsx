@@ -206,7 +206,7 @@ function ConflictCard({
         ) : null}
 
         {conflict.extraFields.length ? (
-          <dl>
+          <dl className={styles["conflict-fields"]}>
             {conflict.extraFields.map(([field, value]) => (
               <div key={field}>
                 <dt>{humanizeCode(field)}</dt>

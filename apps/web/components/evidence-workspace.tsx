@@ -637,17 +637,18 @@ function ResultWorkspace({
 }) {
   const ready = result.status === "ANSWER_READY";
   /*
-   * The audit sits under the answer it audits, and the source column carries the
-   * inspector alone.
+   * The audit sits under the answer it audits, and the inspector gets a section of its own.
    *
    * Sharing one scrolling column with the verification timeline capped the inspector at
    * roughly half the viewport, which is how a document viewer ended up 377px wide and
-   * 450px tall with 1600px of document inside it. This is also the order the narrow
-   * layout has always used - answer, audit, evidence - so the two now agree.
+   * 450px tall with 1600px of document inside it. Sharing a row with the answer capped
+   * its width the same way. It is now the second section of the page rather than the
+   * second column of a row, which is also the order the narrow layout has always
+   * used - answer, audit, evidence - so every width now agrees.
    *
    * When no answer was rendered there is no source to inspect, and the audit is what the
-   * right column is for: an empty second column beside an abstention would be worse than
-   * the panel simply staying where it was.
+   * section is for: an empty band under an abstention would be worse than the panel
+   * simply staying where it was.
    */
   const verification = (
     <VerificationPanel
@@ -661,9 +662,9 @@ function ResultWorkspace({
   return (
     <>
       <ProvenanceStrip onCopyLink={onCopyLink} onExportAudit={onExportAudit} result={result} />
-      {/* Focus mode gives the inspector the whole width. Reading a page of a guideline is
-          the one task in this workspace that is limited by width rather than by what is on
-          screen beside it, and the answer it came from is one keystroke away. */}
+      {/* Focus mode hides the answer section so the inspector is the only thing on the
+          page. Reading a page of a guideline is the one task in this workspace limited by
+          how much room it gets, and the answer it came from is one keystroke away. */}
       <div
         className={`${styles["workspace-grid"]} ${focusMode && ready ? styles["workspace-focused"] : ""}`}
       >

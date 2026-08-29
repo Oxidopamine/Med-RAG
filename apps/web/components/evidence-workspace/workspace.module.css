@@ -19,7 +19,7 @@
 }
 
 .appShell main {
-  width: min(1520px, 100%);
+  width: min(var(--shell-max), 100%);
   margin: 0 auto;
   padding: var(--s-6) var(--s-6) var(--s-12);
 }
@@ -71,7 +71,7 @@
 }
 
 .topbar-inner {
-  width: min(1520px, 100%);
+  width: min(var(--shell-max), 100%);
   height: var(--header-h);
   margin: 0 auto;
   padding: 0 var(--s-6);
@@ -1772,39 +1772,34 @@
 /* ============================================================ workspace grid */
 
 /*
- * Two panes, read against each other.
+ * Two sections, stacked - not two panes sharing a row.
  *
- * A claim and the passage it rests on have to be on screen together, so neither column
- * scrolls the other away: both pin and scroll within the viewport instead of the page
- * growing to twice its height. `align-self` is what lets sticky work in an
- * `align-items: start` track.
+ * The answer is prose with a natural measure and stops benefiting from width around
+ * 60ch; the inspector is a document viewer and does not. Beside each other, the sheet
+ * could only ever be as wide as the reading column left over, so a guideline page was
+ * being read through a slot. The inspector now takes the page's full width as a section
+ * of its own, below the answer and its audit.
  *
- * `dvh`, not `vh`: mobile browser chrome resizes the viewport as the reader scrolls, and
- * `vh` measures the larger of the two, so a `vh`-capped pane hides its last rows.
- *
- * Scroll chaining stays on. The composer sits above this grid, so the page keeps a short
- * scroll to tuck it away; with `overscroll-behavior: contain` a wheel over a pane that had
- * reached its end stopped dead and the last rows stayed unreachable.
+ * What that gives up is the pinned pane: a claim and its passage no longer sit side by
+ * side, and `Inspect evidence` scrolls to the inspector rather than filling one already
+ * on screen. The width is bought with that.
  */
 .workspace-grid {
   margin-top: var(--s-4);
   display: grid;
-  /* The answer is prose with a natural measure and stops benefiting from width around
-     60ch; the inspector is a document viewer and does not. Splitting the row evenly gave
-     the reading column slack it could not use and the viewer 377px of sheet. */
-  grid-template-columns: minmax(400px, 0.78fr) minmax(620px, 1.22fr);
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--s-4);
   align-items: start;
 }
 
 /*
- * One pinned column, not two, and no third inside it.
+ * One scroll, not four.
  *
  * The page scrolled, both columns scrolled, and the document stage inside the right one
- * scrolled again - four places a wheel could land, three of which looked identical. The
- * answer column now flows with the page, which is how prose read top to bottom wants to
- * behave; the inspector stays pinned because it is the surface a reader keeps returning
- * to; and the stage inside it no longer scrolls on its own (see `.document-stage`).
+ * scrolled again - four places a wheel could land, three of which looked identical.
+ * Stacked, there is one scroll context left and it is the page's: neither section caps
+ * its own height, and the stage inside the inspector does not scroll on its own either
+ * (see `.document-stage`).
  */
 .result-column {
   min-width: 0;
@@ -1813,23 +1808,25 @@
   align-self: start;
 }
 
+/*
+ * The inspector's own band.
+ *
+ * No height cap and no scroll context of its own, so the sheet is as tall as the record
+ * inside it rather than as tall as a share of the viewport. The rule and the space above
+ * it mark the break from the audit that ends the section before; below 1080px the column
+ * is `display: contents` and the page flow already separates them, so the rule correctly
+ * does not render there.
+ */
 .source-column {
   min-width: 0;
   display: grid;
   gap: var(--s-3);
-  position: sticky;
-  top: calc(var(--header-h) + var(--s-3));
   align-self: start;
-  max-height: calc(100dvh - var(--header-h) - var(--s-6));
-  overflow-y: auto;
-  scrollbar-width: thin;
-}
-
-/* One panel, sized to the column rather than to a fraction of the viewport, so the
-   inspector's own panes do the scrolling and the column never scrolls them again. */
-.source-column {
   align-content: start;
   grid-auto-rows: minmax(0, auto);
+  margin-top: var(--s-5);
+  padding-top: var(--s-6);
+  border-top: 1px solid var(--border-subtle);
 }
 
 .support-grid {
@@ -1961,7 +1958,17 @@
 
 /* ============================================================ claims */
 
+/*
+ * Set to the width of a claim, not to the width of the workspace.
+ *
+ * A claim is a sentence capped at 62ch with a row of citation chips under it; nothing in
+ * the card grows past about 660px. Left at the panel's width, every card was a bordered
+ * box filled to its left half, with `Claim 1 of 2 - Supported` pushed against a far edge
+ * a thousand pixels from the claim it counts. A border is what makes empty space read as
+ * empty, so the card is drawn around its contents and the slack becomes panel margin.
+ */
 .claim-list {
+  max-width: 720px;
   margin: 0;
   padding: 0;
   display: grid;
@@ -2477,16 +2484,34 @@
 
 /* ============================================================ context + lists */
 
+/*
+ * Facts across the panel, not down one edge of it.
+ *
+ * Each fact is a short label and a shorter value - `Age 34` - so a row per fact left the
+ * value with the rest of the panel empty beside it, and the panel as tall as the number of
+ * facts. Wrapping into columns fills the width with facts rather than with gap, and the
+ * 1px grid gap keeps drawing the hairlines that separate them in both directions.
+ */
 .context-facts {
   margin: 0;
   display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
   gap: 1px;
   overflow: hidden;
-  background: var(--border-subtle);
+  background: var(--bg-surface);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
 }
 
+/*
+ * The separators are drawn by the cells, not by a background showing through the gaps.
+ *
+ * Once the facts wrap into columns the last row is usually short, and a grey sheet behind
+ * them turned that remainder into a filled block at the end of the grid - which, on a
+ * panel reporting what was read from the question, reads as a fact that failed to render.
+ * A ring on each cell overlaps the 1px gap to the same hairline and stops where the facts
+ * do; `overflow: hidden` trims the outermost rings against the container's own border.
+ */
 .context-facts > div {
   padding: var(--s-2) var(--s-3);
   display: grid;
@@ -2494,6 +2519,7 @@
   gap: var(--s-3);
   align-items: baseline;
   background: var(--bg-surface);
+  box-shadow: 0 0 0 1px var(--border-subtle);
 }
 
 .context-facts dt {
@@ -2805,13 +2831,17 @@
 }
 
 .conflict-meaning {
+  max-width: var(--measure-prose);
   margin: 0 0 var(--s-3);
   color: var(--text-muted);
   font-size: var(--t-2xs);
   line-height: 1.5;
 }
 
+/* The summary is the sentence the panel exists to show, so it keeps a surface of its own -
+   set to a measure rather than to the panel, which is what stopped it reading as a banner. */
 .conflict-summary {
+  max-width: var(--measure-prose);
   margin: 0 0 var(--s-3);
   padding: var(--s-3);
   color: var(--text-primary);
@@ -2911,11 +2941,55 @@
 }
 
 .conflict-guidance {
+  max-width: var(--measure-prose);
   margin: 0;
   color: var(--text-secondary);
   font-size: var(--t-xs);
   font-weight: var(--w-medium);
   line-height: 1.5;
+}
+
+/*
+ * A disagreement the answer lane described in fields this interface has no type for.
+ *
+ * The <dl> carried no class, so browser defaults set the values at body size indented
+ * under their labels, and three fields ran taller than the conflict above them - a record
+ * shown as returned, rendered as though the stylesheet had missed it. Same hairline grid
+ * as the interpreted context, because it is the same object: short labels, short values.
+ * The label column is wider than that one's, since these labels are sentences' worth of
+ * name rather than `Age`.
+ */
+.conflict-fields {
+  max-width: var(--measure-prose);
+  margin: 0 0 var(--s-3);
+  display: grid;
+  gap: 1px;
+  overflow: hidden;
+  background: var(--border-subtle);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+}
+
+.conflict-fields > div {
+  padding: var(--s-2) var(--s-3);
+  display: grid;
+  grid-template-columns: minmax(0, 132px) minmax(0, 1fr);
+  gap: var(--s-3);
+  align-items: baseline;
+  background: var(--bg-surface);
+}
+
+.conflict-fields dt {
+  color: var(--text-muted);
+  font-size: var(--t-xs);
+}
+
+.conflict-fields dd {
+  margin: 0;
+  overflow-wrap: break-word;
+  color: var(--text-primary);
+  font-size: var(--t-xs);
+  font-weight: var(--w-medium);
 }
 
 .conflict-unrecognized {
@@ -3043,9 +3117,11 @@
     grid-template-columns: 168px minmax(0, 1fr);
   }
 
+  /* Sticky against the page, now that the section around it no longer scrolls on its
+     own: at `top: 0` the rail pinned underneath the sticky top bar instead of below it. */
   .evidence-rail {
     position: sticky;
-    top: 0;
+    top: calc(var(--header-h) + var(--s-3));
     align-self: start;
     max-height: calc(100dvh - var(--header-h) - var(--s-6));
     display: grid;
@@ -3985,6 +4061,10 @@
  * a sunk surface says that without adding a word.
  */
 .verification-timeline {
+  /* A log block, not a table: the leader on each row joins a gate name to its timing, so
+     the block is set to the measure that keeps the two ends of a row readable as one row.
+     Spanning the panel turned every leader into 1300px of dots. */
+  max-width: var(--measure-prose);
   margin: var(--s-3) 0 0;
   padding: var(--s-3);
   display: grid;
@@ -4865,10 +4945,12 @@ button.provenance-fact:hover {
   grid-template-columns: minmax(0, 1fr);
 }
 
+/* Nothing sits above it in focus mode, so the section rule would read as a line hung
+   under the header rather than as a break between two sections. */
 .workspace-focused .source-column {
-  position: static;
-  max-height: none;
-  overflow: visible;
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
 }
 
 /* ============================================================ recent reviews */
@@ -5049,6 +5131,14 @@ button.provenance-fact:hover {
   vertical-align: -1px;
 }
 
+/* "Inspect evidence" scrolls the page to this heading now that the inspector is a section
+   below the answer rather than a pane pinned beside it, and the top bar is sticky: without
+   a scroll margin the heading it lands on sits underneath the bar. */
+.source-viewer h2,
+.source-empty-panel h2 {
+  scroll-margin-top: calc(var(--header-h) + var(--s-4));
+}
+
 /* Arrived at by "Inspect evidence" rather than by tabbing, so the ring would mark a place
    the reader is already looking at. Same treatment as the answer heading. */
 .source-viewer h2:focus,
@@ -5056,11 +5146,16 @@ button.provenance-fact:hover {
   outline: none;
 }
 
-@media (max-width: 1240px) {
-  .workspace-grid {
-    grid-template-columns: minmax(360px, 0.8fr) minmax(560px, 1.2fr);
-  }
-}
+/*
+ * There is no two-column rule here on purpose.
+ *
+ * There used to be one, at `max-width: 1240px`, left behind when the workspace became two
+ * stacked sections. Because the base rule above is already one column, it did not narrow a
+ * wide layout - it was the *only* place two columns were ever declared, so the stacked
+ * layout ran everywhere except a 160px-wide band between 1081 and 1240, which got a
+ * 435px answer column and a 483px document stage. The one range that could least afford a
+ * split was the only range that got one.
+ */
 
 @media (max-width: 1080px) {
   .appShell main {
@@ -5074,13 +5169,6 @@ button.provenance-fact:hover {
   .result-column,
   .source-column {
     display: contents;
-  }
-
-  /* `display: contents` dissolves the track sticky was measured against. */
-  .source-column {
-    position: static;
-    max-height: none;
-    overflow-y: visible;
   }
 
   /*
@@ -5267,7 +5355,7 @@ button.provenance-fact:hover {
 }
 
 .app-footer-inner {
-  width: min(1520px, 100%);
+  width: min(var(--shell-max), 100%);
   margin: 0 auto;
   padding: var(--s-5) var(--s-6);
   display: flex;
