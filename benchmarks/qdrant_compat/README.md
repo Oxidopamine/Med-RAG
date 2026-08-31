@@ -43,7 +43,9 @@ Full machine-readable output: `qdrant-1.15.4-vs-1.19.0-report.json`.
 
 ## Result summary
 
-14 of 16 contract areas pass. Two fail, and neither is a scoring change.
+13 of 16 contract areas pass. Three fail, and none is a scoring change: two are
+tie-break reproducibility, and the third — attestation reconciliation — fails by
+construction because `qdrant_version` sits inside the signed report digest.
 
 | Contract area | Verdict |
 | --- | --- |

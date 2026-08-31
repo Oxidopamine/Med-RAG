@@ -26,11 +26,11 @@ export function AppHeader() {
       </a>
       <header className={styles.topbar}>
         <div className={styles["topbar-inner"]}>
-          <Link className={styles["brand-lockup"]} href="/" aria-label="Sentinel Evidence home">
+          <Link className={styles["brand-lockup"]} href="/" aria-label="Sentinel RAG home">
             <span className={styles["brand-mark"]} aria-hidden="true">
               <BrandMark />
             </span>
-            <span className={styles["brand-name"]}>Sentinel Evidence</span>
+            <span className={styles["brand-name"]}>Sentinel RAG</span>
           </Link>
 
           <div className={styles["header-status"]}>

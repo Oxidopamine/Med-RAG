@@ -1,5 +1,5 @@
 {
-  "name": "@med-rag/web",
+  "name": "@sentinel-rag/web",
   "version": "0.1.0",
   "private": true,
   "scripts": {

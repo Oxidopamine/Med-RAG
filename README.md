@@ -1,18 +1,56 @@
 <div align="center">
 
-# Sentinel Evidence
+# Sentinel RAG
 
 **A fail-closed, provenance-bound retrieval and answer system for infectious disease practice guidelines**
 
 *Research artifact — not authorized for patient care. Do not enter protected health information.*
 
 [![Status](https://img.shields.io/badge/status-research%20prototype-blue)](docs/roadmap.md)
+[![License](https://img.shields.io/badge/license-Apache--2.0-green)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.10%2B-3776AB)](apps/api/pyproject.toml)
 [![Node](https://img.shields.io/badge/node-20%2B-339933)](package.json)
+[![Tests](https://img.shields.io/badge/API%20tests-499-success)](#96-checks)
 [![Corpus](https://img.shields.io/badge/corpus-WHO%20SMART%20HIV-orange)](docs/corpus-steward.md)
-[![Serving](https://img.shields.io/badge/serving-RESEARCH__UNACTIVATED-lightgrey)](#7-reproducibility)
+[![Serving](https://img.shields.io/badge/serving-RESEARCH__UNACTIVATED-lightgrey)](#9-reproducibility)
 
 </div>
+
+---
+
+## In one minute
+
+**What this is.** A retrieval and answer system over WHO HIV practice guidelines in which a
+clinical claim cannot reach the reader without an authenticated source artifact, an exact
+locator, a cryptographically signed corpus release, and a deterministic policy that fails closed
+at every stage. One real corpus, answered end to end, and then **measured against what it can
+actually answer** rather than against a retrieval score.
+
+**The result to read first.** Two numbers, same system, measuring different things — and
+reading either as the other is the mistake this repository exists to prevent:
+
+| Measurement | Value | What it actually says |
+|---|---:|---|
+| Retrieval benchmark, 430 sealed cases | **0.9647** | Near-duplicate lookup works. The queries are normalized fragments of the corpus's own text, so this is **not** a clinical retrieval claim ([§7.1](#71-retrieval-benchmark-development-suite)) |
+| Clinical answerable coverage, pre-registered | **0.4631** | Of the recommendations in the corpus's *parent* guideline, this fraction gets an answer with rendered claims. The honest number ([§7.2](#72-answerable-coverage-pre-registered-two-stage-measurement)) |
+
+**Four findings that changed a decision**, all negative, all reproducible:
+
+- **40.4% of the release is exact duplicate content** that content hashing could not see — and re-measuring across four WHO kits shows the duplication is HIV-specific while the blindness is general ([§7.3](#73-corpus-structure-findings))
+- **91.0% of records labelled recommendation-bearing cannot bear a recommendation.** That defect generalizes: 29–81% across four kits ([§7.3](#73-corpus-structure-findings))
+- **A cross-encoder reranker made ranking worse**, and the excuse — truncation — was tested at double the budget and refuted ([§7.4](#74-reranking-measured-and-rejected))
+- **Turning the entire safety chain off changes coverage by one question in 49.** The chain is nearly free, and on this corpus also largely untested ([§7.7](#77-what-the-safety-chain-costs-measured-against-itself))
+
+**Every number here is checkable.** The runs behind them are committed in
+[benchmarks/results/](benchmarks/results/) — sealed retrieval reports verbatim with verifiable
+digests, coverage runs with corpus text redacted and everything measured left intact.
+
+**Start here:** [run it](#9-reproducibility) · [how it's built](#3-system-architecture) ·
+[why it's built that way](#6-design-decisions-and-their-rationale) ·
+[what it can't do](#8-threats-to-validity-and-known-limitations)
+
+> **Not authorized for patient care.** No clinical validation, clinician approval, holdout
+> acceptance, or release activation has taken place. Do not enter protected health information.
 
 ---
 
@@ -39,7 +77,9 @@ recommendation-bearing structurally cannot bear a recommendation, and coverage c
 business processes the kit operationalizes — 29.6% on coinfections and comorbidities against 67.9%
 on testing and diagnosis. Each is traced to a structural property of the source rather than to a
 ranking defect. Two of the three are then checked against the other WHO adaptation kits, where the
-duplication turns out to be specific to HIV and the labelling defect turns out to be general.
+duplication turns out to be specific to HIV and the labelling defect turns out to be general. A
+cross-encoder reranker, added on the expectation that it would help, measurably hurt and was
+rejected — and the explanation that would have excused it was tested and refuted.
 
 A fourth result is reported against the architecture rather than for it: switching every safety
 mechanism off changes coverage by one question out of 49. The chain is nearly free, and on this
@@ -52,13 +92,16 @@ corpus it is also largely untested, because the failure it exists to prevent doe
 1. [Problem statement and scope](#1-problem-statement-and-scope)
 2. [Contributions](#2-contributions)
 3. [System architecture](#3-system-architecture)
-4. [Design decisions and their rationale](#4-design-decisions-and-their-rationale)
-5. [Evaluation](#5-evaluation)
-6. [Threats to validity and known limitations](#6-threats-to-validity-and-known-limitations)
-7. [Reproducibility](#7-reproducibility)
-8. [Repository map](#8-repository-map)
-9. [Data governance and licensing](#9-data-governance-and-licensing)
-10. [Citation and references](#10-citation-and-references)
+4. [Technology stack, and why each part was chosen](#4-technology-stack-and-why-each-part-was-chosen)
+5. [Execution environment: what runs locally, what runs in the cloud](#5-execution-environment-what-runs-locally-what-runs-in-the-cloud)
+6. [Design decisions and their rationale](#6-design-decisions-and-their-rationale)
+7. [Evaluation and experimental results](#7-evaluation-and-experimental-results)
+8. [Threats to validity and known limitations](#8-threats-to-validity-and-known-limitations)
+9. [Reproducibility](#9-reproducibility)
+10. [Repository map](#10-repository-map)
+11. [Work in progress: the narrative vertical](#11-work-in-progress-the-narrative-vertical)
+12. [Data governance and licensing](#12-data-governance-and-licensing)
+13. [Citation and references](#13-citation-and-references)
 
 ---
 
@@ -92,13 +135,14 @@ clinician approval, sealed-holdout acceptance, release activation, deployment.
 |---|---|---|
 | **C1** | A **two-plane architecture** separating an offline, cryptographically attested corpus build plane from a serving plane that cannot mutate corpus state, with a signed release as the only interface between them | [§3.1](#31-two-plane-separation) |
 | **C2** | **Anchor-replay QA**: every evidence record's locator is replayed against preserved source bytes before the record can enter a release; any replay failure, incomplete classifier output, duplicate approved content, or empty approval set fails the release closed | [§3.3](#33-build-plane-the-corpus-steward) |
-| **C3** | A **presentation-as-view** layer that makes cell-addressed spreadsheet evidence readable without re-materializing it, preserving digest, anchor, and citation stability | [D4](#4-design-decisions-and-their-rationale) |
-| **C4** | An **evidence-role completeness gate qualified by passage form**, which blocks generation before any model call and cannot be satisfied by evidence whose structural form cannot carry a recommendation | [D5](#4-design-decisions-and-their-rationale) |
-| **C5** | A **grounded answer lane in which model output is a proposal**: the model's sufficiency signal can lower an outcome to abstention but can never raise one to an answer, and any claim citing evidence outside the retrieved set is discarded whole rather than repaired | [D7](#4-design-decisions-and-their-rationale) |
-| **C6** | A **sealed benchmark contract** with a measured (not chosen) comparator floor, per-stratum Wilson lower bounds, sample mass allocated by measured discriminative headroom, and a custody-controlled holdout that remains unspent | [§5.1](#51-retrieval-benchmark-development-suite) |
-| **C7** | A **pre-registered two-stage coverage measurement** whose question set is sampled from the corpus's *parent* guideline rather than from the corpus itself, instantiated through a published clinical-question taxonomy, with an explicit lexical-leakage screen | [§5.2](#52-answerable-coverage-pre-registered-two-stage-measurement) |
-| **C8** | Three **negative structural findings** about operational guideline corpora — exact duplication invisible to content hashing, asset-level role labelling, and coverage concentrated on operationalized business processes — two of them re-measured across four WHO adaptation kits, where the duplication proves HIV-specific and the labelling defect proves general | [§5.3](#53-corpus-structure-findings) |
-| **C9** | An **ablation of the safety chain against itself**, showing it costs one answer in 49 and that its claim-grounding stage has never fired in 241 observed claims — the cost objection answered, and the chain's own coverage recorded as untested | [§5.4](#54-what-the-safety-chain-costs-measured-against-itself) |
+| **C3** | A **presentation-as-view** layer that makes cell-addressed spreadsheet evidence readable without re-materializing it, preserving digest, anchor, and citation stability | [D4](#d4--presentation-is-a-view-never-a-re-materialization) |
+| **C4** | An **evidence-role completeness gate qualified by passage form**, which blocks generation before any model call and cannot be satisfied by evidence whose structural form cannot carry a recommendation | [D5](#d5--the-role-gate-is-qualified-by-passage-form-not-by-content-reading) |
+| **C5** | A **grounded answer lane in which model output is a proposal**: the model's sufficiency signal can lower an outcome to abstention but can never raise one to an answer, and any claim citing evidence outside the retrieved set is discarded whole rather than repaired | [D7](#d7--model-output-is-a-proposal-never-a-result) |
+| **C6** | A **sealed benchmark contract** with a measured (not chosen) comparator floor, per-stratum Wilson lower bounds, sample mass allocated by measured discriminative headroom, and a custody-controlled holdout that remains unspent | [§7.1](#71-retrieval-benchmark-development-suite) |
+| **C7** | A **pre-registered two-stage coverage measurement** whose question set is sampled from the corpus's *parent* guideline rather than from the corpus itself, instantiated through a published clinical-question taxonomy, with an explicit lexical-leakage screen | [§7.2](#72-answerable-coverage-pre-registered-two-stage-measurement) |
+| **C8** | Three **negative structural findings** about operational guideline corpora — exact duplication invisible to content hashing, asset-level role labelling, and coverage concentrated on operationalized business processes — two of them re-measured across four WHO adaptation kits, where the duplication proves HIV-specific and the labelling defect proves general | [§7.3](#73-corpus-structure-findings) |
+| **C9** | An **ablation of the safety chain against itself**, showing it costs one answer in 49 and that its claim-grounding stage has never fired in 241 observed claims — the cost objection answered, and the chain's own coverage recorded as untested | [§7.7](#77-what-the-safety-chain-costs-measured-against-itself) |
+| **C10** | A **record of components measured and rejected**, kept as reproducible negative results rather than deleted: a cross-encoder reranker that regressed ranking, a query expander whose value is not established, and a vector-store upgrade blocked by tie-order reproducibility | [§7.4](#74-reranking-measured-and-rejected), [§7.6](#76-vector-store-version-study-qdrant-1154-vs-1190) |
 
 ---
 
@@ -134,7 +178,7 @@ flowchart LR
   G -.->|"signed release bundle<br/>(the only interface)"| H
 ```
 
-The planes run as separate process entry points. `corpus-steward` — a console script with ~55
+The planes run as separate process entry points. `corpus-steward` — a console script with 56
 subcommands — holds every mutation of corpus state; the API holds none. **No build-side command
 can move the active-release pointer except the one signed activation gate**, and no serving
 request can write corpus state at all.
@@ -145,7 +189,7 @@ The authority boundary is the **authenticated source artifact, canonical evidenc
 structured clinical semantics, and deterministic safety policy**. Model output is never accepted
 as citation metadata or source truth.
 
-PostgreSQL is the canonical registry (52 tables, 16 Alembic migrations). **Qdrant is a rebuildable,
+PostgreSQL is the canonical registry (54 tables, 20 Alembic migrations). **Qdrant is a rebuildable,
 release-specific projection and never a source of truth**: passage text is read from canonical
 evidence records, the index carries only filterable metadata, and a point whose payload disagrees
 with the canonical record is a corrupted index that both the serving and benchmark paths fail
@@ -236,13 +280,115 @@ treated as trusted UI state, and CI fails the build if the generated contract dr
 | `ingestion` | Publisher policy, safe acquisition, immutable storage, layout extraction, trust classification, quarantine |
 | `semantics` | Formal tri-state eligibility/context comparison |
 | `verification` | Deterministic required-check policy, duplicate-check rejection, per-evidence coverage, fail-closed gate |
-| `reasoning` | Orchestration, serving retrieval, presentation view, grounded composition — cannot override failed verification |
-| `corpus_steward` | The entire build plane: connectors, ledgers, crypto, QA, indexing, benchmarking, CLI |
+| `reasoning` | Orchestration, serving retrieval, presentation view, grounded composition, ablation profiles — cannot override failed verification |
+| `corpus_steward` | The entire build plane: connectors, ledgers, crypto, QA, indexing, benchmarking, narrative extraction, CLI |
 | `api` | Transport and dependency wiring only |
 
 ---
 
-## 4. Design decisions and their rationale
+## 4. Technology stack, and why each part was chosen
+
+Every entry below is a decision with a rejected alternative, not an inventory. The organizing
+constraint is the same one that drives the architecture: **anything that participates in a signed
+attestation must be pinnable to exact bytes and reproducible offline.** That single requirement
+eliminates most of the convenient options in a modern RAG stack, and it is the reason the list
+looks conservative.
+
+### 4.1 Build and serving backend
+
+| Layer | Choice | Pin | Why this, and what it displaced |
+|---|---|---|---|
+| Language | Python | ≥ 3.10 (CI on 3.10) | The document-extraction (PyMuPDF, openpyxl), local-inference (Torch, Transformers) and cloud-SDK ecosystems are all Python. A second language at the build/serve seam would have meant reimplementing the anchor format twice |
+| HTTP API | FastAPI + Uvicorn | `>=0.115,<1` | The OpenAPI document is generated from the *same* Pydantic models that validate requests, which is what makes "the checked-in contract must match the API" a CI-enforceable invariant instead of a convention. **Rejected:** Flask/Django REST — the contract would have been hand-maintained, and drift would be invisible |
+| Contracts | Pydantic v2, frozen and `extra="forbid"` | `>=2.10,<3` | An unexpected field is a **rejected payload**, not an ignored one, so a caller cannot smuggle state past a schema. Frozen models mean an attested content object cannot be mutated after its digest is computed. **Rejected:** dataclasses + manual validation, which cannot express the range/identity/contradiction validators the safety contracts need |
+| Registry database | PostgreSQL | 16-alpine | Activation moves a singleton pointer, transitions release state, and emits an outbox event **in one transaction**. That needs real transactions and real uniqueness constraints. **Rejected:** a document store — the invariant "at most one active release" would have become application logic, which is exactly where it fails |
+| ORM / migrations | SQLAlchemy 2 (async) + asyncpg, Alembic | `>=2.0,<3` | 20 revisions over 54 tables; the schema is versioned because a release signed under an older schema must remain verifiable |
+| Vector store | Qdrant | **exactly 1.15.4** | Named dense *and* sparse vectors in one collection with server-side IDF, plus payload filtering strong enough to make the release filter a server-side concern. The version is pinned exactly and appears **inside** the signed index report, so an upgrade is a deliberate, re-attested act (see [§7.6](#76-vector-store-version-study-qdrant-1154-vs-1190)). **Rejected:** pgvector — no first-class sparse lane, so hybrid fusion would have been assembled in the application |
+| Signing | `cryptography`, Ed25519 | `>=45,<47` | Deterministic signatures, small keys, and no parameter choices available to get wrong. **Rejected for now:** cloud KMS/HSM — key custody is a deployment concern, and a research artifact that cannot be verified offline is worse than one with local key files |
+| PDF extraction | PyMuPDF | `>=1.25,<2` | Page- and rectangle-level coordinates, which is what makes a *replayable* anchor possible. Text-only extractors give no locator to replay |
+| XLSX extraction | openpyxl | `>=3.1,<4` | Cell addresses, which become the `A145=…` anchor form the QA gate replays |
+| Dense retrieval | Qwen3-Embedding-0.6B | revision `97b0c61…`, SHA-256-pinned | Instruction-formatted queries, last-token pooling, MRL dimension bounds; declared the deployment **floor**, not the intended selection. **Controls retained:** BGE-M3 (multilingual), MedCPT (English-biomedical specialist) |
+| Sparse retrieval | Unicode BM25, Qdrant-IDF-compatible | `qdrant-bm25-unicode-v1` | Parameters are derived from the release itself rather than from a generic corpus, and the IDF modifier is evaluated server-side so the sparse lane is reproducible from the index alone |
+| Local inference | Torch + Transformers | `torch>=2.5,<3` | Runs against **verified local model bytes**: the artifact manifest pins a SHA-256 over the model root, and the adapter refuses to load anything else |
+| Optional CPU optimization | OpenVINO + NNCF + optimum-intel | `openvino>=2025.0` | An int8 export path exists for the dense lane; per the runtime contract an optimized runtime may **not** reuse the float32 vector-batch attestation and must be re-measured with a newly sealed batch |
+| Generation | `anthropic[vertex]`, `anthropic` + boto3, `google-genai` | optional extras | The lane is provider-swappable through a **sealed parameter file**, so changing provider or model is configuration, not code. Two platform limits are handled explicitly: automatic prompt caching is unavailable on both Bedrock and Vertex, so the cache breakpoint is placed on the frozen instruction block; server-side refusal fallbacks are unavailable on both, so a refusal becomes an abstention rather than a silent retry |
+| Tests / lint | pytest, pytest-asyncio, aiosqlite, ruff | `pytest>=8.3,<9` | 499 API tests, including **executable safety fixtures** — the applicability cases are data files run as tests, so a behaviour change breaks a test rather than a comment |
+
+### 4.2 Web client
+
+| Layer | Choice | Pin | Why this, and what it displaced |
+|---|---|---|---|
+| Framework | Next.js App Router + React | 16 / 19 | Server components by default; the interactive workspace is one narrow, explicitly marked client boundary. The default being *server* is the point — evidence rendering has no reason to ship to the browser |
+| Language | TypeScript, strict | 5.7 | |
+| HTTP contract | `openapi-typescript` + `openapi-fetch` | 7.13 / 0.17 | Types are **generated** from the checked-in OpenAPI document, and CI fails if the regenerated document or types differ from what is committed. **Rejected:** a hand-written client, which is how schema drift reaches production silently |
+| Runtime validation | Zod | 4.4 | The generated types are compile-time only. Zod re-validates every HTTP and SSE payload at runtime, so malformed network data cannot become trusted UI state. Two layers, because they fail differently |
+| Styling | CSS Modules + design tokens | — | Recorded dependency policy: plain CSS with shared colour tokens rather than Tailwind, and a deliberately dense evidence-review layout. Revisit only if repeated interactive patterns justify a component system |
+| Components | Radix Dialog only | 1.1 | Focus trapping and dialog ARIA are the one thing not worth hand-rolling. Everything else is local |
+| Icons / type | lucide-react; Public Sans + JetBrains Mono via `next/font` | — | Self-hosted at build time — no third-party font request at runtime |
+| State | A focused custom hook | — | The SSE workflow (submission, progress, polling fallback, stale-run cancellation) is one hook. **Rejected:** Redux/TanStack Query — there is no shared server state yet, and the policy records the condition under which that changes |
+| Tests | Vitest + Testing Library; Playwright + `@axe-core/playwright` | — | Cross-browser end-to-end runs include automated accessibility assertions, not just behaviour |
+
+### 4.3 What is deliberately absent
+
+| Not used | Why |
+|---|---|
+| A RAG framework (LangChain, LlamaIndex, Haystack) | Every stage boundary here is a *signed artifact* with its own schema and exit status. A framework's orchestration abstractions would sit exactly where the attestations need to be, and the framework's retriever would become the measured system |
+| A hosted embedding API | A remote endpoint cannot be pinned by SHA-256 and can change underneath a sealed vector batch. Reproducibility of the index is the whole point of the vector-batch attestation |
+| A managed vector database | Same reason as above, plus the pinned-version gate: the exact server version is inside the signed report |
+| An LLM in the build plane | Nothing in acquisition, materialization, QA, or indexing calls a model. Role labelling and anchoring are deterministic, which is why a release can be re-derived from source bytes |
+| A cloud-hosted PostgreSQL | The registry holds nothing that needs to be shared, and a local instance keeps the build plane fully offline |
+
+---
+
+## 5. Execution environment: what runs locally, what runs in the cloud
+
+The split is not incidental. **The entire build plane is local by design**, because its trust
+argument rests on being reproducible offline from source bytes and a private key that never leaves
+the machine. Cloud is used for exactly two things the workstation cannot do: reach a frontier
+generation model, and put a GPU under an embedding model too large for CPU.
+
+### 5.1 Local
+
+| Runs locally | Detail |
+|---|---|
+| **The whole build plane** | Acquisition, inventory reconciliation, FHIR validation, materialization, anchor-replay QA, index build, validation and attestation — 56 `corpus-steward` subcommands |
+| **Signing keys** | Ed25519 private keys are local files, generated by `corpus-steward keygen`, never uploaded, never committed |
+| **PostgreSQL 16** | Docker Compose, named volume |
+| **Qdrant 1.15.4** | Docker Compose, named volume; two extra throwaway instances behind a `qdrant-compat` profile for the version study |
+| **Dense + sparse encoding** | Qwen3-Embedding-0.6B on CPU/fp32, ~5.4 GiB resident; Unicode BM25 with release-derived parameters |
+| **Reranker experiments** | Qwen3-Reranker-0.6B, artifact-bound dynamic-int8 CPU runtime, digest-checked score cache |
+| **The 430-case retrieval benchmark** | Every accepted development report was produced here |
+| **The coverage runner** | Retrieval runs locally; only the generation call leaves the machine |
+| **Cross-DAK structure audit** | Four WHO kits, workbook-level, no network at analysis time |
+| **Web dev server, Vitest, Playwright** | |
+
+### 5.2 Google Cloud Platform
+
+One provider, one project, application-default credentials. **No API keys exist in this repository**
+and none is required — `gcloud auth application-default login` is the whole authentication story.
+
+| Service | Used for | Why cloud rather than local |
+|---|---|---|
+| **Vertex AI** | The grounded answer lane. `claude-opus-5` is the intended production lane; `gemini-3.7-flash` is the comparator that actually produced the stage-1 and stage-2 coverage numbers | A frontier model cannot be run on the workstation. Vertex was selected over Bedrock because the Gemini comparator reaches the *same project under the same credentials*, so switching lanes introduces no second credential path. Model IDs are pinned explicitly: `gemini-flash-latest` is a floating alias, and the first two stage-1 runs recorded no model ID at all, which made their numbers unattributable |
+| **Cloud Run Jobs + NVIDIA L4** | The Qwen3-Embedding **4B and 8B** runtime matrix, `europe-west1`, `--no-gpu-zonal-redundancy` | These two targets were sealed as `BLOCKED` in the CPU matrix — the workstation cannot hold them. Jobs (not Services) because the work is a batch measurement with a defined end, and an idle GPU service would bill for nothing |
+| **Artifact Registry** | The CUDA 12.1 benchmark image (`infra/benchmarks/Dockerfile`) | The Cloud Run L4 driver is 535.x/CUDA 12.2, so the Torch wheel is pinned to the cu121 build rather than the newer cu124 one |
+| **Cloud Storage** | Release bundle and sealed suite in; the signed runtime report out | The report round-trips through its Pydantic model and self-verifies `report_sha256`, so a corrupted or hand-edited download fails validation instead of quietly seating bad numbers |
+| **GitHub Actions** | CI on every branch push, not only pull requests | Feature work here runs long and lands in one merge; gating on PRs alone let a branch reach 33 commits without ever being built |
+
+**Cost discipline.** The GPU jobs are the only paid compute in the project, they are deleted after
+the run, and the two reports they produced are checked in
+([benchmarks/runtime/](benchmarks/runtime/)) so nobody has to pay for them twice. The generation
+lane bills per call and is never invoked from a test — `scripts/ask.py` and the research serving
+mode exist so that looking at an answer costs one request and consumes no sealed-holdout claim.
+
+**A quota constraint shaped a result.** The `anthropic-*` Vertex base-model quota is ungranted on
+this project, so every coverage number in [§7.2](#72-answerable-coverage-pre-registered-two-stage-measurement)
+belongs to a **Gemini lane**, not to the sealed Claude candidate. That is recorded as limitation
+L3 rather than smoothed over, and the lane comparison in that section shows why it matters.
+
+---
+
+## 6. Design decisions and their rationale
 
 Each decision below was taken deliberately, with the rejected alternative recorded. This section is
 the intended entry point for a reader evaluating the design rather than running the code.
@@ -380,8 +526,8 @@ at all. Those saturated strata carry 15 cases each; `PARAPHRASED_INTENT`, `TERMI
 Development acceptance is not clinical validation. The holdout is a one-shot, custody-controlled
 resource, and acceptance binds the release — so any later corpus change voids it. Three reasons keep
 it closed: the 0.6B candidate is the declared deployment *floor* rather than the intended selection;
-the 4B/8B artifacts are not acquired; and the first-contact findings indicate the corpus and chunking
-will change before a candidate is worth freezing.
+the 4B/8B artifacts are not acquired for the serving path; and the first-contact findings indicate
+the corpus and chunking will change before a candidate is worth freezing.
 
 `scripts/ask.py` and the research serving mode both exist so that **looking at an answer never
 consumes a holdout claim**.
@@ -414,12 +560,15 @@ quotable by excerpt* — rather than being silently declared satisfied.
 
 ---
 
-## 5. Evaluation
+## 7. Evaluation and experimental results
 
-Two measurements, on the same system, measuring different things. Reading either as the other is the
-central interpretive error this section exists to prevent.
+Two headline measurements, on the same system, measuring different things. Reading either as the
+other is the central interpretive error this section exists to prevent. Around them sit five
+component studies — reranking, embedding runtime, vector-store version, the safety-chain ablation,
+and the benchmark contract's own corrections — of which **three produced negative results that
+changed a decision**.
 
-### 5.1 Retrieval benchmark (development suite)
+### 7.1 Retrieval benchmark (development suite)
 
 **Suite.** `who-smart-hiv-source-derived-development-v7`, contract 1.6 — 430 deterministic cases over
 release `CR_b6155a25415b25f3ba787b3b036da10d`, 12 safety strata, `top_k = 10`, sealed and digest-bound
@@ -435,21 +584,57 @@ registry.
 | Required-role recall | 0.9647 | ungated by design |
 | Forbidden-evidence leakage cases | 0 | 0 |
 | Candidate failure cases | 0 | 0 |
-| p95 latency | 1,673 ms | ≤ 2,000 ms |
+| p95 latency | 1,672.7 ms | ≤ 2,000 ms |
 
 **Verdict: ACCEPTED on the development suite, with no blockers — and this is not clinical
-validation.**
+validation.** Evidence: [`retrieval-v7-candidate-accepted.json`](benchmarks/results/retrieval-v7-candidate-accepted.json)
+and [`retrieval-v7-comparator-floor.json`](benchmarks/results/retrieval-v7-comparator-floor.json),
+both digest-verifiable.
+
+**One detail the published reports make visible.** The suite was executed twice, eight minutes
+apart, with **identical** quality metrics and different latency — hybrid p95 1,672.7 ms in the
+earlier run and 1,440.2 ms in the later one. The figure above is the earlier, slower run; both are
+published ([`…-earlier-run.json`](benchmarks/results/retrieval-v7-candidate-accepted-earlier-run.json))
+rather than merged, because quoting the faster number while the gate was cleared on the slower one
+would be picking a run after the fact.
 
 **How to read 0.9647.** The suite's queries are normalized source fragments. Measured query-term
 coverage by the gold passage is **1.000** for `APPLICABILITY`, `CONTRAINDICATION`, `DOSE`,
-`MONITORING`, and `NEGATION`. BM25 alone reaches **0.9927** recall; the dense lane reaches **0.9291**.
-A high blended score on this suite is evidence that **near-duplicate lookup works**, not that clinical
-retrieval works. The `PARAPHRASED_INTENT` stratum exists to counter this — controlled vocabulary
-substitution, all source identifiers dropped, accepted only inside an IDF-weighted lexical rank band
-deliberately wider than the retrieval depth — and its measured coverage is **0.411**. It is not a
-clinician-authored paraphrase and must not be described as one.
+`MONITORING`, and `NEGATION`. A high blended score on this suite is evidence that **near-duplicate
+lookup works**, not that clinical retrieval works. The `PARAPHRASED_INTENT` stratum exists to counter
+this — controlled vocabulary substitution, all source identifiers dropped, accepted only inside an
+IDF-weighted lexical rank band deliberately wider than the retrieval depth — and its measured
+coverage is **0.411**. It is not a clinician-authored paraphrase and must not be described as one.
 
-### 5.2 Answerable coverage (pre-registered, two-stage measurement)
+**Lane decomposition, on the accepted suite.** These three rows come from the *same* report as the
+headline number, so they are directly comparable to it and to each other:
+
+| Lane | Answerable complete-evidence | Answerable recall@10 | Required-role recall |
+|---|---:|---:|---:|
+| Sparse (BM25 Unicode) | 0.9608 | 0.9686 | 0.9729 |
+| Dense (Qwen3-0.6B) | 0.6824 | 0.7314 | 0.7654 |
+| **Hybrid (weighted RRF)** | **0.9647** | 0.9647 | 0.9647 |
+
+**The lexical lane carries this suite almost entirely.** Hybrid beats sparse alone by 0.0039 — one
+case in 255 — while the dense lane alone reaches 0.68. On a suite built from normalized source
+fragments that is the expected result, and it is the sharpest single piece of evidence that 0.9647
+is a statement about the instrument rather than about clinical retrieval. It is *not* evidence that
+the dense lane is misconfigured; that hypothesis was tested separately on the
+`m2-verified-rendering` branch by paired significance testing and rejected in favour of "the
+benchmark is the problem".
+
+**Other comparisons, measured on earlier suite revisions.** These are internally comparable within
+each row but **not** to the table above, because the case mix changed underneath them (§7.8). The
+275-case figures in particular are frequently misquoted alongside the 430-case headline:
+
+| Comparison | Suite | Measurement |
+|---|---|---|
+| Sparse vs dense recall | 275-case | BM25 **0.9927** vs Qwen3-0.6B **0.9291** ([report](benchmarks/results/rerank-control-pre-rerank.json)) |
+| Hybrid, pre-rerank | 275-case | recall 0.9927, complete-evidence **0.9855**, required-role recall 0.9982 |
+| Deterministic expansion v3 vs none | earlier | complete-evidence **0.9345 → 0.9564**, no case regressions. Positive on the benchmark; **not** positive on real questions (D6), and the discrepancy is the finding |
+| Rebalanced sample mass | 275 → 430 | comparator **0.9000 → 0.8275** on the same baseline — the mix doing its job, lowering a saturated score without changing the system |
+
+### 7.2 Answerable coverage (pre-registered, two-stage measurement)
 
 **Sampling frame.** 321 statement-shaped blocks extracted from *Summary recommendations* of the 2021
 WHO consolidated HIV guidelines; filtered to GRADE-rated statements ≥120 characters containing a
@@ -503,6 +688,11 @@ change to it.
 > Full-frame census: 73/164 = 0.4451, Wilson 95% [0.371, 0.522].
 > The interval is still not entirely above 0.50, so the decision rests on the *shape* of the
 > abstentions, exactly as the rule anticipated.
+>
+> Recomputable in six lines from
+> [`coverage-stage2-gemini-3.7-flash.json`](benchmarks/results/coverage-stage2-gemini-3.7-flash.json)
+> and the `in_preregistered_150` flag in the question set — see
+> [benchmarks/results/](benchmarks/results/).
 
 | Outcome (full frame, n = 164) | n |
 |---|---:|
@@ -546,21 +736,22 @@ Eight of the 164 are general-population physical-activity recommendations carrie
 parent guideline; the DAK operationalizes none of them and all eight abstain. Excluding them gives
 73/156 = 0.4679.
 
+**Lane conditionality, measured.** The same 49 questions scored **0.490 on gemini-2.5-flash against
+0.408 on gemini-3.7-flash** — a difference not significant at that n (McNemar exact p = 0.219), and a
+concrete reason to treat any single-lane coverage figure as lane-conditional rather than as a property
+of the corpus.
+
 **Three limits the number cannot be read past**, stated with the result: no question has been
 classified into the correctness buckets, so 0.4631 means *"the system rendered claims"*, not *"the
 system answered correctly"*; the abstentions are not split into `ABSTAINED_CORRECT` versus
 `ABSTAINED_AVOIDABLE`; and the run used a **Gemini lane**, not the sealed Claude candidate, because
-the `anthropic-*` Vertex base-model quota is ungranted. Every grounding and abstention rule is shared
-across lanes, but the number belongs to the lane that produced it — and lane choice moves it: the
-same 49 questions scored 0.490 on gemini-2.5-flash against 0.408 on gemini-3.7-flash, a difference
-not significant at that n (McNemar p = 0.219) and a reason to treat any single-lane coverage figure
-as lane-conditional.
+the `anthropic-*` Vertex base-model quota is ungranted.
 
 The residual wrong-answer rate is reported as a **bound, never as "zero"**: with no occurrences, the
 one-sided 95% upper bound is ~5.9% at n = 49 and 2.0% at n = 150. This is a screening measurement that
 can detect a bad system, not one that can certify a good one.
 
-### 5.3 Corpus structure findings
+### 7.3 Corpus structure findings
 
 Three properties of an operational guideline corpus, each measured on the full release, each with a
 consequence for system design.
@@ -619,9 +810,133 @@ assertion the corpus does not contain.
 
 Together F1–F3 are evidence *for* the narrative-materialization path — the WHO consolidated HIV
 guidelines are narrative PDFs and would carry exactly the missing content — rather than evidence
-against the architecture.
+against the architecture. That path is [§11](#11-work-in-progress-the-narrative-vertical).
 
-### 5.4 What the safety chain costs, measured against itself
+### 7.4 Reranking: measured and rejected
+
+A cross-encoder reranker is the standard next move after hybrid fusion, and it was implemented as
+one: a verified-local **Qwen3-Reranker-0.6B** yes/no scoring adapter with deterministic safety-role
+preservation, isolated fallback, an artifact-bound dynamic-int8 CPU runtime, and a digest-checked
+score cache. Three candidate pools (20, 50, 100) were sealed and run against the same vector batch as
+the pre-rerank control.
+
+**Every pool made the system worse.**
+
+| Configuration | Complete-evidence coverage | nDCG | MRR |
+|---|---:|---:|---:|
+| Pre-rerank hybrid (control) | **0.9855** | **0.8900** | **0.8673** |
+| Reranked, pool 20 / 50 / 100 | 0.9673 | 0.62–0.66 | 0.51–0.57 |
+
+The coverage regression is modest; the ranking collapse is not. nDCG falling from 0.89 to 0.62–0.66
+with MRR from 0.87 to 0.51–0.57 is an **ordering collapse**, not a mild relevance regression.
+
+**The obvious explanation was tested and refuted.** All three pools shared a 256-token reranker
+budget which, after the official prompt template, the instruction, and a roughly 90-token query,
+left about **75 tokens for a document whose release mean length is 86 tokens and whose p95 is 204**.
+Most documents were truncated mid-passage — a clean, exculpatory story. So a pinned **512-token**
+candidate was sealed as its own artifact digest and measured:
+
+| 512-token reranker vs pre-rerank control | Answerable nDCG | MRR | R-precision |
+|---|---:|---:|---:|
+| Pre-rerank control | **0.8118** | **0.7641** | — |
+| Reranked, 512-token budget | 0.4391 | 0.2914 | 0.1100 |
+
+Doubling the document budget made the ranking **worse**. At r-precision 0.1100 the correct passage
+survives as the top hit in roughly one case in nine. The truncation explanation is dead, and the
+rejection therefore stands on the model's behaviour rather than on a starved context.
+
+**The remaining explanation is distributional**, and it is a property of the *suite* as much as the
+model: a yes/no relevance cross-encoder is being handed a query that is itself (a normalization of)
+the passage, and giving it more passage text makes that worse. A reranker is not readmitted on this
+evidence, and it should be re-measured — not reinstated — against a question set that is not
+source-derived.
+
+**Kept, not deleted.** `scripts/benchmark_qwen_reranker.py`, the sealed candidates and the runtime
+contract remain in the repository, and all six sealed reports behind this section are published:
+[control](benchmarks/results/rerank-control-pre-rerank.json),
+[pool 20](benchmarks/results/rerank-pool-20.json) /
+[50](benchmarks/results/rerank-pool-50.json) /
+[100](benchmarks/results/rerank-pool-100.json),
+[512-token control](benchmarks/results/rerank-len512-control.json) and
+[512-token candidate](benchmarks/results/rerank-len512-candidate.json). A negative result that
+cannot be re-run is an opinion.
+
+### 7.5 Embedding runtime matrix: the CPU floor and the L4 GPU targets
+
+The 4B and 8B embedding targets were sealed as `BLOCKED` in the CPU matrix — the workstation cannot
+hold them — with explicit blockers (`LOCAL_MODEL_ROOT_MISSING`, `ARTIFACT_SHA256_PIN_MISSING`,
+`MODEL_ARTIFACT_MANIFEST_MISSING`) rather than fabricated measurements. Both were then run on
+**Cloud Run Jobs with an attached NVIDIA L4**, and the two signed reports are checked in.
+
+| Target | Device / dtype | Batch | Dim | Queries/s | Documents/s | Peak memory | Init |
+|---|---|---:|---:|---:|---:|---:|---:|
+| Qwen3-Embedding-0.6B | CPU / fp32 | 8 | 1024 | 1.47 | 0.40 | 5.77 GB RSS | — |
+| Qwen3-Embedding-4B | L4 / fp16 | 16 | 2560 | **22.43** | **10.28** | 10.21 GB CUDA | 25.3 s |
+| Qwen3-Embedding-8B | L4 / fp16 | 4 | 4096 | 16.94 | 11.33 | 15.73 GB CUDA | 37.5 s |
+
+Throughput is `items ÷ mean wall time` over 32 items per phase, after warm-up.
+
+**What this does and does not establish.** It establishes **feasibility and cost shape**: both large
+targets fit an L4 in fp16 with headroom, and initialization dominates a short job. One result is
+counterintuitive and is left unexplained rather than rationalized — 8B at batch 4 *out-throughputs*
+4B at batch 16 on documents (11.33/s against 10.28/s) while losing on queries, which two runs at two
+batch sizes cannot separate into a batch effect, a sequence-length effect, or a utilization effect.
+It does **not** establish a device speedup, and must not be quoted as one: the CPU row is a *different model* (0.6B) on a *different host* (WSL2, Python 3.11,
+torch 2.13 CPU) bound to a *different development-suite digest*, while the GPU rows share one
+Cloud Run environment (Python 3.10, torch 2.5.1+cu121). It is a feasibility matrix, not a controlled
+comparison.
+
+**Numerical evidence carried alongside.** Maximum norm deviation is ~1e-15 on all three targets and
+truncated query/document counts are zero, so the larger targets are producing properly normalized,
+untruncated vectors — which is the precondition for treating any of them as a future candidate.
+
+Neither GPU target is a serving candidate today: 0.6B remains the declared deployment floor, and a
+new candidate would require a newly sealed vector batch and a re-measured acceptance run.
+
+### 7.6 Vector-store version study: Qdrant 1.15.4 vs 1.19.0
+
+An open roadmap item asked whether the pin could move. Two throwaway instances behind a compose
+profile, no volumes, byte-identical bundle/vector-batch/manifest fed to both, driven through the real
+`QdrantIndexService.build`/`.validate`/`_smoke_tests` code paths. **Reports only — it changes no pin.**
+
+**13 of 16 contract areas pass.**
+
+| Area | Verdict |
+|---|---|
+| Version gate fail-closed, collection creation, config echo, metadata round-trip, 14 payload indexes, point/payload/vector round-trip, scroll shape, 8 filter forms, dense cosine scoring, sparse IDF (release + skewed-df corpus), sparse dot-product control, rebuild determinism with distinct scores | PASS (13) |
+| Rebuild determinism, 12-way tied sparse scores | **FAIL** |
+| Rebuild determinism, duplicate dense vectors | **FAIL** |
+| Signed attestation reconciliation | **FAIL (by construction)** |
+
+**The flagged risk did not materialize.** A sparse-IDF scoring change would have invalidated every
+sealed vector batch. Scores are **bit-identical** between versions, including IDF-weighted values on a
+purpose-built skewed-document-frequency corpus, and the `modifier=none` control arm matches too, which
+isolates the result to scoring rather than to the IDF weighting alone.
+
+**What actually fails is tie-order reproducibility.** Over five rebuilds of identical data:
+
+| Case | 1.15.4 distinct orders | 1.19.0 distinct orders |
+|---|---:|---:|
+| Sparse, distinct scores | 1 | 1 |
+| Sparse, 12-way tie | 1 | **5** |
+| Dense, 4 duplicate vectors | 1 | **5** |
+
+Scores stay identical in every trial; only the permutation among *equal* scores moves. That is not
+cosmetic here: `_smoke_tests` seals `dense_rank` and `sparse_rank` into the validation report, which
+feeds `report_sha256`, which the attestation signs. A rank is order-derived, so a tie at the result
+boundary makes a sealed report non-reproducible — `validate` would flap between runs over identical
+data. The duplicate-dense-vector case is the realistic trigger, because duplicated evidence text
+(see F1) produces identical embeddings that both score 1.0 against a self-retrieval probe.
+
+The third failure is the contract working as designed: `qdrant_version` is *inside*
+`IndexValidationReportContent`, so any version change invalidates every existing signed index
+attestation by construction. An upgrade is therefore a deliberate re-index and re-attestation of every
+release, not a drop-in.
+
+**Decision: the pin stays at 1.15.4.** The roadmap item is answered rather than left open, and the
+"or are deliberately versioned" branch is what an upgrade would have to take.
+
+### 7.7 What the safety chain costs, measured against itself
 
 The claim that the fail-closed chain is worth its cost was, until now, architectural rather than
 measured. `AblationProfile` ([app/reasoning/ablation.py](apps/api/app/reasoning/ablation.py)) makes
@@ -633,8 +948,8 @@ Same 49 questions, same release, same lane; the profile is the only difference:
 
 | Profile | Answered | Wilson 95% |
 |---|---:|---|
-| Production (all five active) | 20/49 = 0.408 | [0.282, 0.548] |
-| Every mechanism off | 21/49 = 0.429 | [0.300, 0.567] |
+| [Production (all five active)](benchmarks/results/coverage-stage1-gemini-3.7-flash.json) | 20/49 = 0.408 | [0.282, 0.548] |
+| [Every mechanism off](benchmarks/results/coverage-stage1-naive-baseline.json) | 21/49 = 0.429 | [0.300, 0.567] |
 
 **McNemar exact p = 1.0.** Turning the entire chain off moves coverage by one question. Underneath:
 
@@ -659,7 +974,40 @@ Because no correctness classification exists, this compares **rendering behaviou
 say how many of the naive pipeline's extra answers are wrong, which is the quantity that would make
 the comparison an argument for the chain rather than a description of it.
 
-### 5.5 Runtime characteristics
+### 7.8 How the benchmark contract was corrected four times
+
+The measurement instrument is itself a result. Each revision below was forced by a defect found in
+the *previous* instrument, and each is recorded because the corrected version is only trustworthy if
+the correction is visible.
+
+| Revision | Defect found | Correction |
+|---|---|---|
+| **1.3 → 1.4** | Context precision at fixed depth is bounded by `min(\|gold\|, k)/k`. With 150 single-gold cases, 25 two-gold cases and 100 negatives at `top_k = 10`, the suite **could not exceed 0.4364** — which is exactly what the leading candidate scored against a 0.60 gate. The standing "improve context precision" task was chasing an already-optimal metric | Reports now carry `context_precision_ceiling_at_k`; sealing a suite whose policy exceeds its own ceiling fails closed; the achievable gate moved to r-precision |
+| **1.4** | Negatives are detectable by release filter alone, so a deterministic hashing baseline scored **1.0 on all 100** of them. They were a third of the suite, inflating every blended headline number | Every mode summary reports `answerable_*` metrics separately from the insufficient-evidence partition |
+| **1.4 → 1.5** | A literature review found **no basis for absolute retrieval thresholds**: IR evaluation is comparative by construction, scores do not transfer across test collections, and topic difficulty contributes more variance than system quality — BM25 alone spans 0.213 to 0.789 nDCG@10 across BEIR | Gates restricted to three defensible forms: derived from the consumer's context budget, stated as a Wilson lower bound, or relative to a comparator measured on the same case set. R-precision degated — 175 of 200 answerable cases carry one gold record, so it degenerates to precision@1 |
+| **1.5 → 1.6** | The sealed suite pinned `rrf_k`, `rrf_weights` and `candidate_limit`, so **re-tuning fusion minted a new benchmark** — which left post-retrieval selection as the only tunable surface, and is how template-keyed output budgeting came to be written | Only `top_k` stays in the suite, because every rank metric and the context-precision ceiling are defined at it. The candidate manifest is authoritative for fusion |
+
+Two further self-corrections sit outside the version sequence:
+
+- **The threshold policy claimed a pre-registration that had not happened.** Every gate was a Wilson
+  lower bound of a measured comparator run, but the field asserting it was
+  `set_before_candidate_evaluation`. It is replaced by an explicit `threshold_derivation`, a
+  `comparator_measured_at` timestamp that must precede the policy, and
+  `candidates_under_test_unevaluated` — the claim the policy can actually support.
+- **The `PARAPHRASED_INTENT` stratum was easy in its first revision.** Gating answerability on the
+  passage being the *unique best lexical match* selected the lexically unambiguous records and made it
+  the easiest stratum in the suite (r-precision 0.960 sparse against 0.280 for `TERMINOLOGY`). The rule
+  now requires the passage to sit inside a lexical rank **band** — reachable within the retrieval
+  depth, never already first — and the band no longer tracks `top_k`, because a candidate could
+  otherwise improve its own score simply by widening its output.
+
+A related defect was found by the wider conflict stratum: one deterministic terminology expansion
+reduced to a bare punctuation fragment, which a lexical backend rejects outright, aborting an entire
+run. Non-searchable variants are now dropped at the expansion boundary. **On the sealed holdout the
+same fault would have consumed a one-time custody-controlled execution claim**, because the ledger
+binds the candidate even when a run fails.
+
+### 7.9 Runtime characteristics
 
 | Quantity | Measurement |
 |---|---|
@@ -675,7 +1023,7 @@ batch.
 
 ---
 
-## 6. Threats to validity and known limitations
+## 8. Threats to validity and known limitations
 
 Stated as limits, not as future work. Each is recorded in the design documents at the point it
 constrains a claim.
@@ -685,7 +1033,7 @@ constrains a claim.
 | L1 | The development suite is **source-derived**: queries are normalized source fragments | 0.9647 measures near-duplicate lookup; it is not a clinical retrieval claim |
 | L2 | The coverage questions are **model-authored** from a mechanical frame and draw | The frame and draw reproduce; each question is a judgement about how a clinician would ask, and `review_status` gates whether a number may be quoted |
 | L3 | Stages 1 and 2 ran on **Gemini lanes**, not the sealed Claude candidate | The number belongs to the lane that produced it and must be re-measured before it is quoted as the product's. Lane choice moved the stage-1 figure from 0.408 to 0.490 |
-| L4 | **No correctness classification yet** | `p_answered` counts rendered claims, not correct ones; `ANSWERED_WRONG` is unmeasured and is the stop-the-MVP bucket. This also bounds §5.4: the ablation compares rendering behaviour, not wrongness prevented |
+| L4 | **No correctness classification yet** | `p_answered` counts rendered claims, not correct ones; `ANSWERED_WRONG` is unmeasured and is the stop-the-MVP bucket. This also bounds §7.7: the ablation compares rendering behaviour, not wrongness prevented |
 | L5 | The role gate proves completeness **of kind, never of subject** | An off-topic passage can satisfy it; claim-level grounding is what protects the reader |
 | L6 | `minimum_insufficient_evidence_accuracy = 1.0` over negatives **detectable by release filter alone** | It currently certifies the filter, not abstention; it will not survive plausible negatives, where the literature puts frontier models below 50% |
 | L7 | `generation_context_budget == top_k` | `complete_evidence_at_budget` is currently identical to `complete_evidence_set`; forward-looking infrastructure |
@@ -694,14 +1042,17 @@ constrains a claim.
 | L10 | Role labelling is wrong **at the point it is written** | Serving mitigates; the durable fix is a re-release, deliberately deferred to be done once alongside narrative materialization |
 | L11 | Page-image rendering is **licence-blocked** for every WHO asset | The anchor chain terminates in an address and an excerpt, not a picture |
 | L12 | Sealed holdout **unspent**; no clinical validation, approval, or activation | Nothing here supports a deployment claim |
+| L13 | The reranker rejection was measured on the **source-derived suite** | §7.4 rules a reranker out *on this instrument*; it is not evidence about reranking on a clinician-authored question set |
+| L14 | The GPU runtime matrix is a **feasibility measurement**, not a device comparison | Different model sizes, hosts, and suite digests across rows (§7.5) |
 
 ---
 
-## 7. Reproducibility
+## 9. Reproducibility
 
-Requirements: Python 3.10+, Node.js 20+, Docker.
+Requirements: Python 3.10+, Node.js 20+, Docker. A GCP project is needed **only** for the
+generation lane and the GPU runtime matrix; everything else runs offline.
 
-### 7.1 Environment
+### 9.1 Environment
 
 ```powershell
 Copy-Item .env.example .env
@@ -717,14 +1068,14 @@ npm install
 npm run dev:web    # http://localhost:3000 ; API docs at http://localhost:8000/docs
 ```
 
-### 7.2 Validate the build/serve seam without a corpus
+### 9.2 Validate the build/serve seam without a corpus
 
 ```powershell
 .\.venv\Scripts\python -m app.corpus_steward.cli validate-bundle `
   data/fixtures/corpus-release-v1.json --require-activatable
 ```
 
-### 7.3 End-to-end synthetic reconciliation
+### 9.3 End-to-end synthetic reconciliation
 
 Exercises the full build plane deterministically, with no network acquisition. Do not commit the
 generated private key.
@@ -746,7 +1097,7 @@ The checked-in real connector definition is `data/trust-roots/who-smart-hiv.json
 qdrant-attest → benchmark-run` sequence is documented in
 [docs/corpus-steward.md](docs/corpus-steward.md).
 
-### 7.4 Ask one question end to end
+### 9.4 Ask one question end to end
 
 `scripts/ask.py` drives the serving path against a **validated** release without activating it, so no
 sealed-holdout claim is consumed to look at an answer.
@@ -768,13 +1119,17 @@ sealed-holdout claim is consumed to look at an answer.
 
 Retrieval runs with **no generation credentials**. `--generate` composes an answer and additionally
 requires `MEDRAG_VERTEX_PROJECT_ID` plus application-default credentials; an incomplete evidence-role
-set abstains before any model call. `--generation-provider gemini` selects the comparator lane.
+set abstains before any model call. `--generation-provider gemini` selects the comparator lane. The
+ablation profiles measured in [§7.7](#77-what-the-safety-chain-costs-measured-against-itself) are
+driven from the coverage runner instead — `scripts/run_mvp_coverage_stage1.py --naive-baseline` or
+`--ablate <mechanism>`, which refuses both together because the first already switches every
+mechanism off.
 
 Read the retrieved passages, not just the metrics. Passages print as the presentation view: rows are
 rendered under the publisher's own column labels, verbatim copies are suppressed before top-k, and
 `role claims not counted` marks a passage whose declared `PRIMARY_SUPPORT` its form cannot carry.
 
-### 7.5 Research serving through the HTTP API
+### 9.5 Research serving through the HTTP API
 
 By default the API abstains with `RETRIEVAL_PIPELINE_NOT_CONFIGURED` — an accurate description of a
 deployment with no serving path, not a defect. `SERVING_ENABLED=true` plus the `SERVING_*` block in
@@ -782,56 +1137,81 @@ deployment with no serving path, not a defect. `SERVING_ENABLED=true` plus the `
 release** (see [D11](#d11--research-serving-is-labelled-not-faked)). The embedding model loads
 in-process, so startup is slow and the first question is not the one to time.
 
-### 7.6 Checks
+### 9.6 Checks
 
 ```powershell
-.\.venv\Scripts\python -m pytest apps/api/tests     # 312 tests incl. executable safety fixtures
+.\.venv\Scripts\python -m pytest apps/api/tests     # 499 tests incl. executable safety fixtures
 .\.venv\Scripts\python -m ruff check apps/api
+.\.venv\Scripts\python scripts\check_readme_figures.py   # stated figures vs. published runs
 npm run typecheck:web ; npm run test:web ; npm run build:web
 npx playwright install ; npm run test:e2e:web       # cross-browser accessibility coverage
 ```
 
-CI runs on every branch push, and fails if the checked-in OpenAPI document or generated TypeScript
-contract drifts from the API.
+CI runs on **every branch push**, not only pull requests, and fails if the checked-in OpenAPI
+document or generated TypeScript contract drifts from the API.
 
-### 7.7 Reproducibility artifacts
+**Prose is checked like code.** This README restates figures that also appear in `docs/` and that
+originate in runs under [benchmarks/results/](benchmarks/results/). That duplication is deliberate
+— the README should be readable without opening five other files — so divergence is prevented
+mechanically rather than by discipline.
+[`scripts/check_readme_figures.py`](scripts/check_readme_figures.py) recomputes 21 stated figures
+from the published artifacts and asserts the prose spells each one exactly, then scans every
+document in scope for a *different* value written against the same quantity. It runs in CI and as
+part of the test suite ([test_stated_figures.py](apps/api/tests/unit/test_stated_figures.py)),
+which additionally asserts that every published sealed report still self-verifies against its
+digest and that no published coverage run carries corpus text. The second check is what would have
+caught `benchmarks/qdrant_compat/README.md` claiming "14 of 16" while its own table said 13.
+
+> **Run the API suite in a clean environment.** `pydantic-settings` reads `.env` from the working
+> directory, so a developer `.env` that sets `SERVING_ENABLED=true` or a real `INGESTION_API_KEY`
+> leaks into the test process and fails five fail-closed tests for the wrong reason — they assert the
+> *unconfigured* behaviour and observe the configured one. CI has no `.env`, which is why it stays
+> green.
+
+### 9.7 Reproducibility artifacts
 
 | Artifact | Location |
 |---|---|
+| **The runs behind every number in §7** — sealed retrieval reports verbatim, coverage runs redacted | [benchmarks/results/](benchmarks/results/) |
+| The publisher that produced them, and its redaction rule | [scripts/publish_evidence.py](scripts/publish_evidence.py) (`--check` fails on drift) |
+| The guard that fails if the README's figures stop matching those runs | [scripts/check_readme_figures.py](scripts/check_readme_figures.py) |
 | Sealed development suite (430 cases, digest-bound) | [benchmarks/suites/](benchmarks/suites/) |
 | Coverage question set, frame, draw, seed, leakage screen | [benchmarks/questions/](benchmarks/questions/) |
 | Access, generation, and threshold policies (sealed) | [benchmarks/policies/](benchmarks/policies/) |
-| Runtime matrices, artifact-bound | [benchmarks/runtime/](benchmarks/runtime/) |
-| Qdrant version-compatibility report | [benchmarks/qdrant_compat/](benchmarks/qdrant_compat/) |
+| Embedding runtime matrices, artifact-bound (CPU + two L4 GPU reports) | [benchmarks/runtime/](benchmarks/runtime/) |
+| Qdrant version-compatibility harness and full report | [benchmarks/qdrant_compat/](benchmarks/qdrant_compat/) |
+| Cloud Run GPU job definition (image, entrypoint, deploy/teardown) | [infra/benchmarks/](infra/benchmarks/) |
 | Frozen synthetic release + JSON Schema | [data/fixtures/](data/fixtures/) |
 | Frame/draw rebuild script (fails if either stops reproducing) | [scripts/build_mvp_question_set.py](scripts/build_mvp_question_set.py) |
 | Coverage runner (both stages) and scorer | [scripts/run_mvp_coverage_stage1.py](scripts/run_mvp_coverage_stage1.py), [scripts/score_mvp_coverage.py](scripts/score_mvp_coverage.py) |
 | Stage-2 question set: full frame, seeded prefix marked per item | [benchmarks/questions/mvp-coverage-who-hiv-v2.json](benchmarks/questions/mvp-coverage-who-hiv-v2.json), [scripts/build_mvp_question_set_v2.py](scripts/build_mvp_question_set_v2.py) |
-| Safety-chain ablation profiles | [apps/api/app/reasoning/ablation.py](apps/api/app/reasoning/ablation.py) (`--naive-baseline`, `--ablate`) |
+| Safety-chain ablation profiles | [apps/api/app/reasoning/ablation.py](apps/api/app/reasoning/ablation.py) |
+| Reranker benchmark (the rejected candidate) | [scripts/benchmark_qwen_reranker.py](scripts/benchmark_qwen_reranker.py) |
 | Cross-DAK structure audit and IRIS annex discovery | [scripts/audit_dak_structure.py](scripts/audit_dak_structure.py), [scripts/discover_dak_annexes.py](scripts/discover_dak_annexes.py) |
 
 ---
 
-## 8. Repository map
+## 10. Repository map
 
 ```text
 apps/
-  api/                     FastAPI service + corpus-steward build plane  (95 modules, ~35.6k LOC)
+  api/                     FastAPI service + corpus-steward build plane  (103 modules, ~39.4k LOC)
     app/schemas/           frozen extra-forbid contracts
     app/lifecycle/         version DAG, scoped supersession
     app/ingestion/         publisher policy, acquisition, extraction, quarantine
     app/semantics/         tri-state applicability
     app/verification/      deterministic required-check gate
-    app/reasoning/         retrieval_service, presentation, answer_service, serving pipeline
-    app/corpus_steward/    connectors, ledgers, crypto, QA, indexing, benchmarking, CLI
-    tests/                 safety + unit suites (~12.4k LOC, 312 tests)
-  web/                     Next.js evidence workspace (~17.9k LOC TS/TSX)
+    app/reasoning/         retrieval_service, presentation, answer_service, ablation, serving pipeline
+    app/corpus_steward/    connectors, ledgers, crypto, QA, indexing, benchmarking, narrative, CLI
+    tests/                 safety + unit suites (~14.4k LOC, 499 tests)
+  web/                     Next.js evidence workspace (~16.7k LOC TS/TSX, excluding generated)
     components/evidence-workspace/   panels, anchor/source viewers, SSE orchestration
     lib/                   generated OpenAPI types, Zod contracts, presentation helpers
-benchmarks/                sealed suites, policies, question sets, runtime evidence
-docs/                      architecture, corpus-steward, roadmap, MVP definition, licence decision
-migrations/                16 Alembic revisions over 52 tables
-scripts/                   ask.py, coverage pipeline, model export, ingestion utilities
+benchmarks/                sealed suites, policies, question sets, runtime + compatibility evidence
+docs/                      architecture, corpus-steward, roadmap, MVP definition, licence, narrative notes
+infra/benchmarks/          CUDA image and Cloud Run Job definition for the GPU runtime matrix
+migrations/                20 Alembic revisions over 54 tables
+scripts/                   ask.py, coverage pipeline, reranker benchmark, DAK audit, model export
 ```
 
 ### Documentation index
@@ -843,42 +1223,99 @@ scripts/                   ask.py, coverage pipeline, model export, ingestion ut
 | [docs/mvp-definition.md](docs/mvp-definition.md) | What "done" means; the pre-registered coverage rule and its result |
 | [docs/roadmap.md](docs/roadmap.md) | Decisions taken, findings, and what is deliberately deferred |
 | [docs/rendering-licence.md](docs/rendering-licence.md) | The three rendering acts and which are permitted |
-| [docs/narrative-only-materialization.md](docs/narrative-only-materialization.md) | The path to the content F1–F3 show is missing |
+| [docs/narrative-only-materialization.md](docs/narrative-only-materialization.md) | How a PDF-only publisher reaches a signed input closure |
+| [docs/narrative-corpus-composition.md](docs/narrative-corpus-composition.md) | One composite release, and the extraction granularity that enters signed history with it |
+| [docs/narrative-role-classification.md](docs/narrative-role-classification.md) | How `evidence_roles` is decided for prose — measured before deciding |
+| [docs/qa-promotion-separation.md](docs/qa-promotion-separation.md) | The `DECIDED` state that separates QA's decision from promotion |
+| [docs/narrative-coverage-frame.md](docs/narrative-coverage-frame.md) | Where coverage questions come from when the corpus *is* the guideline |
 | [docs/frontend.md](docs/frontend.md) / [docs/frontend-audit.md](docs/frontend-audit.md) | Client workflow and the audit that reshaped the workspace |
 | [docs/ingestion.md](docs/ingestion.md) | The authenticated source workflow |
 
 ---
 
-## 9. Data governance and licensing
+## 11. Work in progress: the narrative vertical
+
+F1–F3 all point the same way: the DAK is operational and tabular, and the clinical assertions a
+reader wants are in its **parent narrative guidelines**. The current branch builds that path. It is
+recorded here as in-flight work, not as a result.
+
+| Piece | Status |
+|---|---|
+| **PDF-only publisher reaches a signed input closure** | Complete. The closure no longer parses every source artifact as a FHIR package; for a narrative-anchored publisher the inventory source artifact *is* the controlling clinical narrative (`asset_id ≡ item_id`), the inverse of the DAK topology |
+| **Narrative extraction and QA** | A guideline PDF now reaches signed, source-anchored evidence and **clears QA**. `NarrativeSourceExtractor` turns the WHO 2021 consolidated guidelines (594 pages, 592 text-bearing) into 1,889 block-grouped units |
+| **Role classification for prose** | Decided, and **measured before deciding**: against the 165 known GRADE-rated recommendations, end-to-end recall **165/165 = 1.000**, 43.7% of all units labelled, precision inside *Summary recommendations* **0.828** — reported as a floor, because the guideline states recommendations in its chapters too and the frame covers only the summary section |
+| **One composite release from many documents** | Decided (`CompositeCorpusReleaseCandidateContent`, union-widened) and **blocked at assembly**: canonical evidence binds its release id inside the signed record, so a composite cannot re-point evidence a member QA run already promoted |
+| **Separating promotion from validation in QA** | The seam is implemented and tested — a new `DECIDED` state sits between `PREPARED` and `VALIDATED`, where a composite member stops. Assembly does not yet use it, so five composite tests remain skipped |
+| **Coverage frame for a narrative corpus** | Decided, not executed. The HIV method does not transfer: the guideline *is* the corpus, so there is no parent to retreat to. Questions will be drawn from an **independent guideline on the same condition**, instantiated through the same Ely forms, with per-question disagreement recorded as signal rather than smoothed away |
+
+Beyond that, the roadmap's declared order is: harden abstention against **plausible** negatives
+(sourced from the correct abstentions of §7.2, and the case L6 says the current gate cannot survive);
+evidence cards and exact PDF highlighting once the WHO permissions question is answered; then a
+verification layer of atomic claim planning and deterministic validators; and only then clinician
+review of the finished product. Clinicians are deliberately involved **last** — after the end-to-end
+product exists — and their findings are treated as final-product evaluation rather than as labour for
+tuning the retrieval benchmark.
+
+---
+
+## 12. Data governance and licensing
 
 **Source corpus.** WHO SMART Guidelines Digital Adaptation Kit for HIV, second edition, with the 2021
 *Consolidated guidelines on HIV prevention, testing, treatment, service delivery and monitoring* and
 the 2019 *Consolidated guidelines on HIV testing services* as its parent guidelines. Published by the
 World Health Organization under CC BY-NC-SA 3.0 IGO, with WHO's publishing policy layered on top.
 
-**No source content is redistributed in this repository.** Acquisition is content-addressed and
-performed locally against registered publisher domains; the checked-in artifacts are trust roots,
-connector definitions, digests, sealed policies, and synthetic fixtures. `render_allowed` remains
-`false` for page-image reproduction of every WHO asset (see [D12](#d12--the-rendering-licence-is-a-decision-recorded)).
+**The corpus is not redistributed here.** Acquisition is content-addressed and performed locally
+against registered publisher domains; the checked-in artifacts are trust roots, connector
+definitions, digests, sealed policies, synthetic fixtures, and measurement outputs.
+`render_allowed` remains `false` for page-image reproduction of every WHO asset
+(see [D12](#d12--the-rendering-licence-is-a-decision-recorded)).
 
-**The evaluation question set is a measurement input, not evidence.** It does not enter the corpus
-pipeline, needs no attestation or trust root, and the parent guidelines are read there as a source of
-*questions*, not acquired as a source of clinical content.
+**Two places where WHO text does appear, stated rather than glossed:**
+
+- [`benchmarks/questions/mvp-coverage-who-hiv-v2.json`](benchmarks/questions/mvp-coverage-who-hiv-v2.json)
+  quotes **165 GRADE-rated recommendation statements** from the 2021 consolidated guidelines as the
+  sampling frame, with attribution, under CC BY-NC-SA 3.0 IGO. They are a *measurement input*: they
+  do not enter the corpus pipeline, need no attestation or trust root, and the parent guideline is
+  read there as a source of **questions**, not acquired as a source of clinical content.
+- The published coverage runs in [benchmarks/results/](benchmarks/results/) would otherwise have
+  carried retrieved passage text. Every one of them is **redacted** — `rendered_text` and
+  `rendered_text_truncated` removed from all 3,600 passages, nothing else touched — because the
+  release marks that content `render_allowed: false`. The rule is executable and auditable in
+  [scripts/publish_evidence.py](scripts/publish_evidence.py). Model-composed claim text is retained:
+  it is the system's own output, not publisher content.
+
+**Naming.** The product is **Sentinel RAG** everywhere a human reads it — interface, API, docs,
+citation. Three classes of identifier deliberately still say `med-rag` or `MEDRAG_`, and are not
+renamed: strings sealed inside digest-bound artifacts (`med-rag/source-derived-benchmark` appears
+in the benchmark suite, and renaming it would break `suite_sha256` and invalidate every acceptance
+report bound to it), environment variables (`MEDRAG_*`, which would break every existing `.env` and
+documented command), and the local database and Docker volume names. The repository directory is
+still `Med-RAG`.
+
+**No secrets in the repository.** The cloud lane authenticates with application-default credentials
+rather than API keys; signing keys are generated locally and git-ignored; `.env.example` carries
+placeholders only.
 
 **Research profile only.** Do not use this stack for PHI or patient care. The disclaimer is
 architectural rather than decorative: nothing in the repository can reach an activated release, and
 every answer the system can currently produce is stamped `RESEARCH_UNACTIVATED`.
 
-**Code licence.** No licence file is currently present; all rights reserved pending an explicit
-choice.
+**Code licence: [Apache-2.0](LICENSE)**, with copyright and the corpus carve-out stated in
+[NOTICE](NOTICE). Apache rather than MIT for two reasons that matter for a research artifact:
+it grants patent rights explicitly, so a reader who builds on the fail-closed pipeline is not
+relying on an implied licence; and it requires changes to be marked, which keeps a modified fork
+from being mistaken for these measurements. The licence covers the code, schemas, scripts and the
+measurement artifacts under `benchmarks/`. It does **not** cover the WHO source corpus, which is
+CC BY-NC-SA 3.0 IGO and is not redistributed here.
 
 ---
 
-## 10. Citation and references
+## 13. Citation and references
 
 ```bibtex
-@software{sentinel_evidence,
-  title  = {Sentinel Evidence: A Fail-Closed, Provenance-Bound Retrieval and
+@software{sentinel_rag,
+  title  = {Sentinel RAG: A Fail-Closed, Provenance-Bound Retrieval and
             Answer System for Infectious Disease Practice Guidelines},
   author = {Alotaibi, Abdullah},
   year   = {2026},
@@ -899,10 +1336,13 @@ choice.
    the corpus under test.
 5. Wilson EB. Probable inference, the law of succession, and statistical inference. *JASA*
    1927;22(158):209–212. — the interval every acceptance gate and coverage decision is stated in.
-6. HIVMedQA. [arXiv:2507.18143](https://arxiv.org/abs/2507.18143);
+6. Thakur N, Reimers N, Rücklé A, Srivastava A, Gurevych I. BEIR: a heterogeneous benchmark for
+   zero-shot evaluation of information retrieval models. *NeurIPS Datasets and Benchmarks* 2021. —
+   the basis for refusing absolute retrieval thresholds (contract 1.5).
+7. HIVMedQA. [arXiv:2507.18143](https://arxiv.org/abs/2507.18143);
    data [Zenodo 15868085](https://zenodo.org/records/15868085) — evaluated and rejected as the
    coverage instrument; category 4 retained for abstention hardening.
-7. RealMedQA. [PMC12099375](https://pmc.ncbi.nlm.nih.gov/articles/PMC12099375/) — methodological
+8. RealMedQA. [PMC12099375](https://pmc.ncbi.nlm.nih.gov/articles/PMC12099375/) — methodological
    precedent for deriving a question set from guideline recommendations.
 
 ---

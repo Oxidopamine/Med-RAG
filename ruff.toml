@@ -1,0 +1,15 @@
+# Lint configuration for the repository-level Python that sits outside `apps/api`
+# (`scripts/`, `benchmarks/`, `infra/`). It mirrors the rule set in
+# `apps/api/pyproject.toml`, which keeps its own config and takes precedence for files
+# under it.
+#
+# Without this, `ruff check scripts/` ran on ruff's defaults instead: E402 was not
+# enabled, so the `# noqa: E402` that guards the deliberate post-`sys.path` import in
+# `scripts/publish_evidence.py` was reported as an unused directive, while the rules the
+# project actually cares about were not being applied at all.
+
+target-version = "py310"
+line-length = 100
+
+[lint]
+select = ["E", "F", "I", "B", "UP", "SIM"]

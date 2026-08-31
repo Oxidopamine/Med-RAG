@@ -18,7 +18,7 @@ const mono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Sentinel Evidence",
+  title: "Sentinel RAG",
   description: "Research-only infectious disease guideline evidence workspace",
 };
 

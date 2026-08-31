@@ -1,0 +1,31 @@
+Sentinel RAG
+Copyright 2026 Abdullah Alotaibi
+
+This product includes software developed as a research artifact for fail-closed,
+provenance-bound retrieval over infectious disease practice guidelines.
+
+The software in this repository is licensed under the Apache License, Version 2.0
+(see LICENSE). That licence covers the code, schemas, scripts, and the measurement
+artifacts published under benchmarks/.
+
+It does NOT cover, and this repository does not redistribute, the source corpus. The
+WHO SMART Guidelines Digital Adaptation Kit for HIV and the WHO consolidated HIV
+guidelines are published by the World Health Organization under CC BY-NC-SA 3.0 IGO,
+with WHO's publishing policy layered on top. Corpus content is acquired locally at
+build time against registered publisher domains and is never committed here.
+
+Two exceptions are stated explicitly rather than left implicit:
+
+  * benchmarks/questions/mvp-coverage-who-hiv-v2.json quotes 165 GRADE-rated
+    recommendation statements from the WHO 2021 consolidated HIV guidelines. They are
+    quoted with attribution as the sampling frame for a measurement, under CC BY-NC-SA
+    3.0 IGO. They are a measurement input, not corpus content, and do not enter the
+    corpus pipeline.
+
+  * benchmarks/results/coverage-*.json carry model-composed claim text, which is system
+    output rather than publisher content. Retrieved passage text (rendered_text) is
+    redacted from every one of them, because the release marks it render_allowed: false.
+    See scripts/publish_evidence.py for the redaction rule.
+
+Not authorized for patient care. No clinical validation, clinician approval, holdout
+acceptance, or release activation has taken place.

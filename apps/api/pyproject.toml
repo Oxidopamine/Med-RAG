@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "guideline-evidence-api"
 version = "0.1.0"
-description = "Fail-closed API foundation for Guideline Evidence QA"
+description = "Sentinel RAG: fail-closed, provenance-bound retrieval and answer composition over clinical practice guidelines"
 requires-python = ">=3.10"
 dependencies = [
   "alembic>=1.14,<2",

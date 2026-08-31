@@ -1,2 +1,2 @@
-"""Sentinel Evidence API."""
+"""Sentinel RAG API."""
 

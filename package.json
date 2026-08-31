@@ -1,18 +1,18 @@
 {
-  "name": "guideline-evidence-qa",
+  "name": "sentinel-rag",
   "version": "0.1.0",
   "private": true,
   "workspaces": [
     "apps/web"
   ],
   "scripts": {
-    "dev:web": "npm run dev --workspace @med-rag/web",
-    "build:web": "npm run build --workspace @med-rag/web",
-    "lint:web": "npm run lint --workspace @med-rag/web",
-    "typecheck:web": "npm run typecheck --workspace @med-rag/web",
-    "test:web": "npm run test --workspace @med-rag/web",
-    "test:e2e:web": "npm run test:e2e --workspace @med-rag/web",
-    "generate:api-types": "npm run generate:api-types --workspace @med-rag/web"
+    "dev:web": "npm run dev --workspace @sentinel-rag/web",
+    "build:web": "npm run build --workspace @sentinel-rag/web",
+    "lint:web": "npm run lint --workspace @sentinel-rag/web",
+    "typecheck:web": "npm run typecheck --workspace @sentinel-rag/web",
+    "test:web": "npm run test --workspace @sentinel-rag/web",
+    "test:e2e:web": "npm run test:e2e --workspace @sentinel-rag/web",
+    "generate:api-types": "npm run generate:api-types --workspace @sentinel-rag/web"
   },
   "engines": {
     "node": ">=20"
