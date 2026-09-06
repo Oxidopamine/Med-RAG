@@ -159,3 +159,45 @@ class TestBucketSources:
             "abstained_avoidable": 1,
             "avoidable_are_system_defects": True,
         }
+
+
+def _error_record(question_id: str, *, bucket: str | None = None) -> dict:
+    return {
+        "question_id": question_id,
+        "chapter_no": 2,
+        "chapter": "Testing",
+        "generation": {"error": "429", "error_class": "RESOURCE_EXHAUSTED", "abstained": None},
+        "bucket": bucket,
+    }
+
+
+def test_error_records_are_excluded_from_every_denominator():
+    """Plan Section 2.2 item 4: a missing measurement enters no denominator."""
+
+    run = _run(
+        _record("Q1", answered=True, bucket="ANSWERED_CORRECT"),
+        _record("Q2", answered=False, bucket="ABSTAINED_CORRECT"),
+        _error_record("Q3"),
+    )
+    result = _score(run)
+    assert result["questions"] == 2
+    assert result["error_records"]["count"] == 1
+    assert result["error_records"]["question_ids"] == ["Q3"]
+    assert result["p_answered"]["rate"] == 0.5
+    assert result["by_chapter"]["2 Testing"]["total"] == 2
+
+
+def test_an_error_record_may_not_carry_a_bucket():
+    run = _run(
+        _record("Q1", answered=True, bucket="ANSWERED_CORRECT"),
+        _error_record("Q3", bucket="ABSTAINED_CORRECT"),
+    )
+    problems = scorer.validate(run, scorer.resolve_buckets(run, None), BUCKETS)
+    assert len(problems) == 1
+    assert "missing measurement" in problems[0]
+
+
+def test_a_legacy_quota_failure_is_an_error_not_an_abstention():
+    legacy = {"generation": {"abstained": True, "reason_code": "GENERATION_UNAVAILABLE"}}
+    assert scorer.system_outcome(legacy) == "ERROR"
+    assert scorer.system_outcome({"generation": None}) == "ABSTAINED"

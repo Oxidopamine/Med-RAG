@@ -46,9 +46,8 @@ class GenerationEffort(str, Enum):
 class ConflictType(str, Enum):
     """The conflict taxonomy the answer layer is allowed to report.
 
-    Naming the kind of disagreement is worth roughly twenty accuracy points over
-    presenting conflicting passages unlabelled, and for guideline evidence the correct
-    output is almost never a resolution - it is both clauses, typed, with provenance.
+    For guideline evidence the correct output is almost never a resolution - it is both
+    clauses, typed, with provenance.
     """
 
     NO_CONFLICT = "NO_CONFLICT"

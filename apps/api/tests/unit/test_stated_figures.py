@@ -68,7 +68,10 @@ def test_published_coverage_runs_carry_no_corpus_text() -> None:
     scanned = 0
     for path in published:
         document = json.loads(path.read_text(encoding="utf-8"))
-        assert document["_redaction"]["removed_field_count"] > 0
+        # Zero is legitimate for a run that retrieves nothing (the closed-book arm of the
+        # correctness measurement plan redacts nothing); the per-passage assertions below
+        # are what carry the obligation.
+        assert document["_redaction"]["removed_field_count"] >= 0
         for result in document["results"]:
             for passage in (result.get("retrieval") or {}).get("passages", []):
                 scanned += 1

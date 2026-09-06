@@ -178,6 +178,34 @@ def build_parser() -> argparse.ArgumentParser:
         default=600,
         help="characters of each passage's rendered text to retain in the output",
     )
+    parser.add_argument(
+        "--run-label",
+        default=None,
+        help="a name for this run, written to the top-level run_label field",
+    )
+    parser.add_argument(
+        "--notes",
+        default=None,
+        help="free text written to the top-level notes field, e.g. start and end wall clock",
+    )
+    parser.add_argument(
+        "--only-question-ids",
+        default=None,
+        metavar="ID[,ID...]",
+        help=(
+            "run only these questions, so errored questions can be re-run into a separate "
+            "file or merged back with --merge-base"
+        ),
+    )
+    parser.add_argument(
+        "--merge-base",
+        type=Path,
+        default=None,
+        help=(
+            "an existing run file whose records the re-run replaces by question_id; the "
+            "merged record list is written to --output and its summary recomputed"
+        ),
+    )
     _add_embedding_backend_arguments(parser)
     return parser
 
@@ -217,6 +245,73 @@ def zero_occurrence_upper_bound(total: int, alpha: float = 0.05) -> float:
 
 def digest_of(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+# A generation failure is never an abstention. `GroundedAnswerComposer.compose` wraps
+# every backend exception in a GENERATION_UNAVAILABLE abstention whose message carries the
+# error text, so the cause is classified here from that text. A quota failure or a
+# declined finish is a missing measurement, excluded from every denominator; an output-
+# budget overrun or a contract-validation failure is a model behaviour, counted under
+# its own class and never excluded silently (plan Sections 1.1 and 3.3).
+ERROR_CLASSES: tuple[str, ...] = (
+    "RESOURCE_EXHAUSTED",
+    "DECLINED",
+    "MAX_TOKENS",
+    "CONTRACT_VALIDATION",
+    "NO_CANDIDATE",
+    "OTHER",
+)
+MISSING_MEASUREMENT_CLASSES = frozenset(
+    {"RESOURCE_EXHAUSTED", "DECLINED", "NO_CANDIDATE", "OTHER"}
+)
+MODEL_BEHAVIOUR_CLASSES = frozenset({"MAX_TOKENS", "CONTRACT_VALIDATION"})
+RETRY_ATTEMPTS = 5
+RETRY_BASE_SECONDS = 2.0
+
+
+def classify_generation_error(message: str | None) -> str:
+    """Name the cause of a GENERATION_UNAVAILABLE abstention from the adapter's message."""
+
+    text = message or ""
+    if "RESOURCE_EXHAUSTED" in text or "429" in text:
+        return "RESOURCE_EXHAUSTED"
+    if "declined the request" in text or "blocked the prompt" in text:
+        return "DECLINED"
+    if "exceeded the output budget" in text:
+        return "MAX_TOKENS"
+    if "did not satisfy the answer contract" in text:
+        return "CONTRACT_VALIDATION"
+    if "returned no candidate" in text or "returned no text part" in text:
+        return "NO_CANDIDATE"
+    return "OTHER"
+
+
+def record_outcome(record: dict[str, Any]) -> str:
+    """ANSWERED, ABSTAINED or ERROR.
+
+    A legacy quota failure recorded as an abstention under the old scheme
+    (`reason_code GENERATION_UNAVAILABLE`) reads as an error too.
+    """
+
+    generation = record.get("generation")
+    if generation is None:
+        return "ABSTAINED"
+    if "error" in generation or generation.get("reason_code") == "GENERATION_UNAVAILABLE":
+        return "ERROR"
+    if generation.get("abstained"):
+        return "ABSTAINED"
+    return "ANSWERED"
+
+
+def merge_records(
+    base: list[dict[str, Any]], fresh: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    """Replace base records by question_id with re-run ones; append any new question."""
+
+    replacements = {record["question_id"]: record for record in fresh}
+    merged = [replacements.pop(record["question_id"], record) for record in base]
+    merged.extend(replacements.values())
+    return merged
 
 
 def _load_ask_module():
@@ -328,20 +423,40 @@ def gate_reason(result: ServingRetrievalResult) -> str | None:
 
 
 async def compose_answer(
-    composer: GroundedAnswerComposer, question: str, result: ServingRetrievalResult
+    composer: GroundedAnswerComposer,
+    question: str,
+    result: ServingRetrievalResult,
+    *,
+    sleep: Any = asyncio.sleep,
 ) -> dict[str, Any]:
-    composed = await composer.compose(
-        question,
-        tuple(
-            RetrievedPassage(
-                evidence_id=passage.evidence_id,
-                text=passage.rendered_text,
-                evidence_roles=tuple(role.value for role in passage.evidence_roles),
-                source_version_label=passage.source_version_id,
-            )
-            for passage in result.passages
-        ),
+    passages = tuple(
+        RetrievedPassage(
+            evidence_id=passage.evidence_id,
+            text=passage.rendered_text,
+            evidence_roles=tuple(role.value for role in passage.evidence_roles),
+            source_version_label=passage.source_version_id,
+        )
+        for passage in result.passages
     )
+    attempts = 0
+    while True:
+        attempts += 1
+        composed = await composer.compose(question, passages)
+        abstention = composed.abstention
+        if abstention is not None and abstention.reason_code == "GENERATION_UNAVAILABLE":
+            error_class = classify_generation_error(abstention.message)
+            if error_class == "RESOURCE_EXHAUSTED" and attempts < RETRY_ATTEMPTS:
+                await sleep(RETRY_BASE_SECONDS * 2 ** (attempts - 1))
+                continue
+            # Recorded as an error, never as an abstention: `abstained` is null so no
+            # reader can count it on either side of the answered/abstained split.
+            return {
+                "error": abstention.message,
+                "error_class": error_class,
+                "abstained": None,
+                "attempts": attempts,
+            }
+        break
     if composed.abstention is not None:
         return {
             "abstained": True,
@@ -370,8 +485,21 @@ def summarize(
     records: list[dict[str, Any]], *, ablation: AblationProfile = PRODUCTION
 ) -> dict[str, Any]:
     total = len(records)
-    gate_passed = sum(1 for record in records if record["retrieval"]["is_answerable"])
+    gate_passed = sum(
+        1 for record in records if (record.get("retrieval") or {}).get("is_answerable")
+    )
     lower, upper = wilson_interval(gate_passed, total)
+    outcomes = [record_outcome(record) for record in records]
+    answered = outcomes.count("ANSWERED")
+    abstained = outcomes.count("ABSTAINED")
+    error_classes: dict[str, int] = {}
+    for record, outcome in zip(records, outcomes, strict=True):
+        if outcome != "ERROR":
+            continue
+        error_class = (record.get("generation") or {}).get("error_class") or "UNCLASSIFIED"
+        error_classes[error_class] = error_classes.get(error_class, 0) + 1
+    errors = outcomes.count("ERROR")
+    measured = answered + abstained
     reasons: dict[str, int] = {}
     for record in records:
         reason = record["gate_reason"]
@@ -426,9 +554,27 @@ def summarize(
             "preregistered_rule_applies": ablation.is_production,
             "reading": reading,
         },
-        "p_wrong_zero_occurrence_upper_bound_95": round(zero_occurrence_upper_bound(total), 4)
-        if total
-        else None,
+        # Error records are missing measurements: excluded from both denominators, and no
+        # p_wrong bound is emitted while one exists. Both bounds are pure functions of
+        # the counts and are emitted whether or not a classification exists; the
+        # publisher withholds them when every bucket is null.
+        "answered": answered,
+        "abstained": abstained,
+        "answered_rate": round(answered / measured, 4) if measured else None,
+        "error_records": errors,
+        "error_classes": error_classes,
+        "missing_measurements": sum(
+            count for name, count in error_classes.items() if name not in MODEL_BEHAVIOUR_CLASSES
+        ),
+        "model_behaviour_errors": sum(
+            count for name, count in error_classes.items() if name in MODEL_BEHAVIOUR_CLASSES
+        ),
+        "p_wrong_zero_occurrence_upper_bound_95_questions": (
+            round(zero_occurrence_upper_bound(measured), 4) if measured and not errors else None
+        ),
+        "p_wrong_zero_occurrence_upper_bound_95_answered": (
+            round(zero_occurrence_upper_bound(answered), 4) if answered and not errors else None
+        ),
     }
 
 
@@ -452,6 +598,20 @@ async def main() -> int:
         print()
 
     document, items = load_questions(arguments.questions, limit=arguments.limit)
+    if arguments.only_question_ids:
+        wanted = [qid.strip() for qid in arguments.only_question_ids.split(",") if qid.strip()]
+        known = {item.question_id for item in items}
+        unknown = [qid for qid in wanted if qid not in known]
+        if unknown:
+            raise SystemExit(f"--only-question-ids names questions not in the set: {unknown}")
+        items = [item for item in items if item.question_id in set(wanted)]
+    base_records: list[dict[str, Any]] = []
+    if arguments.merge_base is not None:
+        base = json.loads(arguments.merge_base.read_text(encoding="utf-8"))
+        base_records = list(base.get("results") or [])
+        if arguments.run_label is None:
+            arguments.run_label = base.get("run_label")
+        print(f"merging into {len(base_records)} records from {arguments.merge_base}")
     review_status = str(document.get("review_status", ""))
     registered = review_status.upper().startswith(REVIEWED_STATUS_PREFIX)
     if not registered and not arguments.allow_draft:
@@ -594,7 +754,7 @@ async def main() -> int:
         write_output(
             arguments,
             document,
-            records,
+            merge_records(base_records, records),
             registered=registered,
             ablation=ablation,
             elapsed=None,
@@ -605,7 +765,7 @@ async def main() -> int:
     summary = write_output(
         arguments,
         document,
-        records,
+        merge_records(base_records, records),
         registered=registered,
         ablation=ablation,
         elapsed=elapsed,
@@ -620,6 +780,12 @@ async def main() -> int:
     print(f"Wilson 95%        : [{lower}, {upper}]  (upper bound on p_answered)")
     for reason, count in sorted(summary["gate_reason_counts"].items()):
         print(f"  {reason:<32} {count}")
+    print(f"answered          : {summary['answered']}")
+    print(f"abstained         : {summary['abstained']}")
+    print(f"error records     : {summary['error_records']} {summary['error_classes'] or ''}")
+    if summary["error_records"]:
+        print("  errors are missing measurements, not abstentions; re-run them with")
+        print("  --only-question-ids and --merge-base before quoting any bound")
     print()
     print(summary["interpretation"]["reading"])
     print()
@@ -643,6 +809,8 @@ def write_output(
     payload = {
         "schema_version": 1,
         "run_kind": "MVP_COVERAGE_STAGE_1",
+        "run_label": getattr(arguments, "run_label", None),
+        "notes": getattr(arguments, "notes", None),
         # The single most important field in this file. False means the question set was
         # not reviewed, and the interval below is a harness check rather than the
         # pre-registered measurement.

@@ -63,10 +63,20 @@ def _load_runner():
 
 
 def system_outcome(record: dict[str, Any]) -> str:
-    """What the system did, independent of what a reader concluded about it."""
+    """What the system did, independent of what a reader concluded about it.
+
+    ERROR is a generation failure: a quota failure, a declined finish, or a model
+    behaviour recorded under its own `error_class`. It is a missing measurement, never an
+    abstention, and it carries no bucket. A legacy record that filed a quota failure as a
+    `GENERATION_UNAVAILABLE` abstention reads as an error too.
+    """
 
     generation = record.get("generation")
-    if generation is None or generation.get("abstained"):
+    if generation is None:
+        return "ABSTAINED"
+    if "error" in generation or generation.get("reason_code") == "GENERATION_UNAVAILABLE":
+        return "ERROR"
+    if generation.get("abstained"):
         return "ABSTAINED"
     return "ANSWERED"
 
@@ -93,6 +103,13 @@ def validate(
     for record in run["results"]:
         question_id = record["question_id"]
         bucket = buckets.get(question_id)
+        if system_outcome(record) == "ERROR":
+            if bucket is not None:
+                problems.append(
+                    f"{question_id}: generation error record classified {bucket} - a missing "
+                    "measurement carries no bucket and enters no denominator"
+                )
+            continue
         if bucket is None:
             problems.append(f"{question_id}: not classified")
             continue
@@ -110,8 +127,11 @@ def validate(
 
 
 def score(run: dict[str, Any], buckets: dict[str, str | None], runner: Any) -> dict[str, Any]:
-    counts = collections.Counter(buckets.values())
-    total = len(run["results"])
+    error_records = [r["question_id"] for r in run["results"] if system_outcome(r) == "ERROR"]
+    counts = collections.Counter(
+        buckets[r["question_id"]] for r in run["results"] if system_outcome(r) != "ERROR"
+    )
+    total = len(run["results"]) - len(error_records)
     answered = sum(count for bucket, count in counts.items() if bucket.startswith(ANSWERED_PREFIX))
     wrong = counts.get("ANSWERED_WRONG", 0)
     avoidable = counts.get("ABSTAINED_AVOIDABLE", 0)
@@ -139,6 +159,8 @@ def score(run: dict[str, Any], buckets: dict[str, str | None], runner: Any) -> d
 
     by_chapter: dict[str, dict[str, int]] = {}
     for record in run["results"]:
+        if system_outcome(record) == "ERROR":
+            continue
         bucket = buckets[record["question_id"]]
         key = f"{record['chapter_no']} {record['chapter']}"
         entry = by_chapter.setdefault(key, {"answered": 0, "total": 0, "abstained_correct": 0})
@@ -150,6 +172,11 @@ def score(run: dict[str, Any], buckets: dict[str, str | None], runner: Any) -> d
 
     return {
         "questions": total,
+        "error_records": {
+            "count": len(error_records),
+            "question_ids": error_records,
+            "policy": "missing measurements, excluded from every denominator",
+        },
         "bucket_counts": dict(sorted(counts.items())),
         "p_wrong": {
             "answered_wrong": wrong,
@@ -241,6 +268,11 @@ def main() -> int:
     print(f"decision          : {answered['decision']}")
     print(f"  {answered['reading']}")
     print()
+    if result["error_records"]["count"]:
+        print(
+            f"error records     : {result['error_records']['count']} excluded as missing "
+            f"measurements ({', '.join(result['error_records']['question_ids'])})"
+        )
     print(f"buckets           : {result['bucket_counts']}")
     split = result["abstention_split"]
     print(

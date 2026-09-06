@@ -1,5 +1,9 @@
 {
  "_redaction": {
+  "p_wrong_bound_withheld": "no correctness classification exists for this run",
+  "p_wrong_keys_nulled": [
+   "p_wrong_zero_occurrence_upper_bound_95"
+  ],
   "reason": "rendered_text is WHO source content carried at render_allowed: false. Publishing it would redistribute the corpus. Every field the measurement depends on is retained.",
   "removed_field_count": 3280,
   "removed_fields": [
@@ -46063,7 +46067,7 @@
     "the gate tests role completeness, not topical relevance"
    ]
   },
-  "p_wrong_zero_occurrence_upper_bound_95": 0.0181,
+  "p_wrong_zero_occurrence_upper_bound_95": null,
   "questions_run": 164
  }
 }

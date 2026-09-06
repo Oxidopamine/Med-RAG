@@ -1,0 +1,110 @@
+{
+  "schema_version": 1,
+  "written_at": "2026-09-06T19:50:02+00:00",
+  "note": "A data-dependent design parameter fixed before the comparison arm is unblinded, labelled that way and not as fixed a priori. Non-significant results are reported as Tango intervals, never as the MDE.",
+  "mde": {
+    "n": 164,
+    "alpha": 0.05,
+    "power_target": 0.8,
+    "corrected": {
+      "anchor": {
+        "discordant": 2,
+        "trials": 48,
+        "pi0": 0.0417
+      },
+      "primary": {
+        "parameterisation": "p_b = pi0/2 + delta, p_c = pi0/2, trinomial enumerated unconditionally",
+        "power_by_delta": {
+          "0.03": 0.205,
+          "0.04": 0.338,
+          "0.05": 0.483,
+          "0.06": 0.62,
+          "0.07": 0.736,
+          "0.08": 0.825,
+          "0.09": 0.89,
+          "0.10": 0.934
+        },
+        "mde_at_80_percent": 0.08
+      }
+    },
+    "uncorrected": {
+      "anchor": {
+        "discordant": 3,
+        "trials": 49,
+        "pi0": 0.0612
+      },
+      "primary": {
+        "parameterisation": "p_b = pi0/2 + delta, p_c = pi0/2, trinomial enumerated unconditionally",
+        "power_by_delta": {
+          "0.03": 0.173,
+          "0.04": 0.282,
+          "0.05": 0.406,
+          "0.06": 0.531,
+          "0.07": 0.646,
+          "0.08": 0.745,
+          "0.09": 0.824,
+          "0.10": 0.884
+        },
+        "mde_at_80_percent": 0.09
+      },
+      "secondary": {
+        "parameterisation": "p_b + p_c fixed at pi0, only the direction varies; caps delta at pi0 and drives p_c toward zero, which is the source of its optimism",
+        "power_by_delta": {
+          "0.03": 0.232,
+          "0.04": 0.439,
+          "0.05": 0.697,
+          "0.06": 0.92,
+          "0.07": null,
+          "0.08": null,
+          "0.09": null,
+          "0.10": null
+        },
+        "mde_at_80_percent": 0.06
+      }
+    }
+  },
+  "expected_half_widths": {
+    "claims": 190,
+    "answered_records": 73,
+    "mean_claims_per_record": 2.6,
+    "design_effect_assumed": 1.5,
+    "grid": {
+      "0.05": {
+        "q2_half_width": 0.039,
+        "expected_non_attributable_claims": 10,
+        "q3_sensitivity_half_width_at_0.75": 0.227
+      },
+      "0.10": {
+        "q2_half_width": 0.053,
+        "expected_non_attributable_claims": 19,
+        "q3_sensitivity_half_width_at_0.75": 0.185
+      },
+      "0.15": {
+        "q2_half_width": 0.062,
+        "expected_non_attributable_claims": 28,
+        "q3_sensitivity_half_width_at_0.75": 0.153
+      },
+      "0.20": {
+        "q2_half_width": 0.069,
+        "expected_non_attributable_claims": 38,
+        "q3_sensitivity_half_width_at_0.75": 0.135
+      },
+      "0.25": {
+        "q2_half_width": 0.075,
+        "expected_non_attributable_claims": 48,
+        "q3_sensitivity_half_width_at_0.75": 0.119
+      },
+      "0.30": {
+        "q2_half_width": 0.079,
+        "expected_non_attributable_claims": 57,
+        "q3_sensitivity_half_width_at_0.75": 0.109
+      },
+      "0.35": {
+        "q2_half_width": 0.082,
+        "expected_non_attributable_claims": 66,
+        "q3_sensitivity_half_width_at_0.75": 0.101
+      }
+    }
+  },
+  "half_width_source": "stage-2 placeholders"
+}

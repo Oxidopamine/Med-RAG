@@ -88,7 +88,15 @@ the 164.
 
 `bucket` is `null` on every record in every run. That is not an omission in the publication —
 it is limitation **L4**: no question has been classified into the correctness buckets, so these
-files record that the system *rendered claims*, never that it answered *correctly*.
+files record that the system *rendered claims*, never that it answered *correctly*. For the same
+reason the publisher withholds the wrong-answer bound: `summary.p_wrong_zero_occurrence_upper_bound_95`
+is `null` in every published run and `_redaction.p_wrong_bound_withheld` says why, because a
+bound over an unclassified run reads as a safety figure and is not one.
+
+One record in `coverage-stage1-naive-baseline.json` (`MVPQ-C3-059`) is a `GENERATION_UNAVAILABLE`
+quota failure recorded under the old scheme as an abstention. It is a missing measurement, not a
+refusal, so that run's 21/49 is 21 of 48 real trials; the harness now records such failures as
+error records with their class and excludes them from every denominator.
 
 ## What is not here
 

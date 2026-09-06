@@ -29,7 +29,15 @@ QUESTIONS = REPO_ROOT / "benchmarks" / "questions" / "mvp-coverage-who-hiv-v2.js
 
 SCOPE = [REPO_ROOT / "README.md", *sorted((REPO_ROOT / "docs").glob("*.md"))]
 SCOPE += [REPO_ROOT / "benchmarks" / "results" / "README.md"]
+SCOPE += [REPO_ROOT / "benchmarks" / "analysis" / "README.md"]
 SCOPE += [REPO_ROOT / "benchmarks" / "qdrant_compat" / "README.md"]
+
+# The API test count CI collects at HEAD. Bumped in the same commit that changes it, and
+# compared against the live collection by the CI step that passes `--collected-tests`.
+# The checker never runs pytest itself: `main()` calls `recomputed_checks()` twice and
+# `test_stated_figures.py` runs the checker from inside pytest, so a collection here would
+# nest four full collections in every CI run.
+API_TEST_COUNT = "579"
 
 
 def _load(name: str) -> dict:
@@ -38,6 +46,64 @@ def _load(name: str) -> dict:
 
 def _answered(run: dict) -> int:
     return sum(1 for r in run["results"] if (r.get("generation") or {}).get("claims"))
+
+
+def _is_error(record: dict) -> bool:
+    """A generation failure is a missing measurement, not an abstention (plan 2.2 item 4)."""
+
+    generation = record.get("generation") or {}
+    return "error" in generation or generation.get("reason_code") == "GENERATION_UNAVAILABLE"
+
+
+def _claims(run: dict) -> list[tuple[dict, dict]]:
+    """(claim, record) for every rendered claim of an answered record."""
+
+    return [
+        (claim, record)
+        for record in run["results"]
+        for claim in ((record.get("generation") or {}).get("claims") or [])
+    ]
+
+
+def _cites_outside_retrieved_set(claim: dict, record: dict) -> bool:
+    retrieved = {p["evidence_id"] for p in (record.get("retrieval") or {}).get("passages", [])}
+    return not set(claim.get("evidence_ids") or []).issubset(retrieved)
+
+
+def _chapter_cells(run: dict) -> dict[int, tuple[str, int, int]]:
+    """chapter_no -> (chapter name, answered, total), recomputed from the run."""
+
+    cells: dict[int, list] = {}
+    for record in run["results"]:
+        entry = cells.setdefault(record["chapter_no"], [record["chapter"], 0, 0])
+        entry[2] += 1
+        if (record.get("generation") or {}).get("claims"):
+            entry[1] += 1
+    return {chapter: (name, answered, total) for chapter, (name, answered, total) in cells.items()}
+
+
+def chapter_rows(stage1: dict, stage2: dict) -> list[str]:
+    """The full rows of the README chapter table, ordered by stage-2 share, descending.
+
+    Full rows rather than bare cells: the checker's needle test is a plain substring
+    match against the whitespace-collapsed README, and a bare `6/7` would match anywhere.
+    """
+
+    first = _chapter_cells(stage1)
+    second = _chapter_cells(stage2)
+    rows = []
+    for chapter, (name, answered, total) in second.items():
+        s1_answered, s1_total = first.get(chapter, (name, 0, 0))[1:]
+        share = 100.0 * answered / total
+        rows.append(
+            (
+                -share,
+                chapter,
+                f"| {chapter} — {name} | {s1_answered}/{s1_total} | {answered}/{total} "
+                f"| {share:.1f}% |",
+            )
+        )
+    return [row for _, _, row in sorted(rows)]
 
 
 def _hybrid(name: str) -> dict:
@@ -73,14 +139,64 @@ def recomputed_checks() -> list[tuple[str, str]]:
         ("stage-2 gate-blocked count", f"blocked at the gate, no model call | {gate_blocked} |"),
     ]
 
-    production = _answered(_load("coverage-stage1-gemini-3.7-flash.json"))
-    naive = _answered(_load("coverage-stage1-naive-baseline.json"))
+    stage1 = _load("coverage-stage1-gemini-3.7-flash.json")
+    naive_run = _load("coverage-stage1-naive-baseline.json")
+    production = _answered(stage1)
+    naive = _answered(naive_run)
     lane_25 = _answered(_load("coverage-stage1-gemini-2.5-flash.json"))
+    naive_errors = sum(1 for r in naive_run["results"] if _is_error(r))
     checks += [
         ("ablation production", f"{production}/49 = 0.408"),
         ("ablation all-off", f"{naive}/49 = 0.429"),
         ("lane comparison", "**0.490 on gemini-2.5-flash against 0.408 on gemini-3.7-flash**"),
+        (
+            "naive real trials",
+            f"{naive} of {len(naive_run['results']) - naive_errors} real trials",
+        ),
     ]
+
+    # Every chapter cell in both columns, as full table rows (plan Section 2.2 item 2).
+    for index, row in enumerate(chapter_rows(stage1, stage2)):
+        checks.append((f"chapter row {index + 1}", row))
+
+    # Claim totals and the grounding predicate's occasion to fire. The count of claims
+    # citing an ID outside the record's own retrieved set is recomputed, not assumed zero.
+    stage2_claims = _claims(stage2)
+    naive_claims = _claims(naive_run)
+    outside_stage2 = sum(
+        1 for claim, record in stage2_claims if _cites_outside_retrieved_set(claim, record)
+    )
+    outside_naive = sum(
+        1 for claim, record in naive_claims if _cites_outside_retrieved_set(claim, record)
+    )
+    checks += [
+        (
+            "stage-2 claims outside retrieved set",
+            f"{outside_stage2} of {len(stage2_claims)} with the mechanism live",
+        ),
+        (
+            "naive claims outside retrieved set",
+            f"{outside_naive} of {len(naive_claims)} in the naive arm",
+        ),
+    ]
+
+    # The stage-2-authored questions, against the individually read stage-1 ones.
+    authored = {
+        q["question_id"]
+        for q in questions["items"]
+        if q.get("stage") != 1 and q.get("usable", True)
+    }
+    authored_records = [r for r in stage2["results"] if r["question_id"] in authored]
+    authored_answered = sum(
+        1 for r in authored_records if (r.get("generation") or {}).get("claims")
+    )
+    authored_rate = authored_answered / len(authored_records)
+    checks.append(
+        (
+            "stage-2-authored answered",
+            f"{authored_answered}/{len(authored_records)} = {authored_rate:.4f}",
+        )
+    )
     if lane_25 != 24:
         checks.append(("lane 2.5 answered count", f"__EXPECTED_24_GOT_{lane_25}__"))
 
@@ -133,8 +249,23 @@ CONSISTENT: tuple[tuple[str, str, str], ...] = (
     ),
     (
         "API test count",
-        "499",
+        API_TEST_COUNT,
         r"\b(\d+) tests incl\. executable safety fixtures\b",
+    ),
+    (
+        "API test count (stack table)",
+        API_TEST_COUNT,
+        r"\b(\d+) API tests, including\b",
+    ),
+    (
+        "API test count (badge)",
+        API_TEST_COUNT,
+        r"API%20tests-(\d+)-",
+    ),
+    (
+        "API test count (repository map)",
+        API_TEST_COUNT,
+        r"LOC, (\d+) tests\)",
     ),
     (
         "Alembic migration count",
@@ -164,7 +295,18 @@ CONSISTENT: tuple[tuple[str, str, str], ...] = (
 )
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
+    import argparse
+
+    parser = argparse.ArgumentParser(description="check stated figures against the artifacts")
+    parser.add_argument(
+        "--collected-tests",
+        type=int,
+        default=None,
+        help="the count pytest collected; CI passes it so the README's figure is compared",
+    )
+    arguments = parser.parse_args(argv)
+
     readme_raw = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
     # Prose wraps at column 100, so a quoted figure can straddle a newline.
     readme = re.sub(r"\s+", " ", readme_raw)
@@ -186,6 +328,13 @@ def main() -> int:
                         f"[consistency] {label}: {where} says {match.group(1)!r}, "
                         f"every document must say {expected!r} -- {match.group(0)!r}"
                     )
+
+    if arguments.collected_tests is not None and str(arguments.collected_tests) != API_TEST_COUNT:
+        failures.append(
+            f"[collection] API test count: pytest collected {arguments.collected_tests}, the "
+            f"documents say {API_TEST_COUNT}; bump API_TEST_COUNT and every document in the "
+            "same commit"
+        )
 
     if failures:
         print("Stated figures disagree with the artifacts or with each other:\n", file=sys.stderr)

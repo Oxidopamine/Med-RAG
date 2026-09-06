@@ -42,3 +42,7 @@ apps/api/build/
 # Backups of .env made by hand before a branch switch; they carry live credentials.
 .env.bak*
 .env.*.bak
+# Agent-instruction files that `next dev` regenerates. They are tooling scaffolding, not
+# project documentation, and are not tracked.
+apps/web/AGENTS.md
+apps/web/CLAUDE.md

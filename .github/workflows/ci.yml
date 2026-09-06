@@ -36,8 +36,13 @@ jobs:
         run: python -m pytest apps/api/tests -q
       # The README and docs restate numbers produced by runs under benchmarks/results/.
       # Duplication there is deliberate; silent divergence is not, so it is a build failure.
-      - name: Verify stated figures against the published runs
-        run: python scripts/check_readme_figures.py
+      # The checker never runs pytest itself (it would nest four collections in one CI
+      # run), so the collected count is taken here and handed to it for comparison with
+      # the count the README states.
+      - name: Verify stated figures against the published runs and the test count
+        run: |
+          collected=$(python -m pytest apps/api/tests --collect-only -q | tail -1 | awk '{print $1}')
+          python scripts/check_readme_figures.py --collected-tests "$collected"
 
   web:
     runs-on: ubuntu-latest

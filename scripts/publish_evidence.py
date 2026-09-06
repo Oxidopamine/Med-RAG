@@ -76,6 +76,32 @@ COVERAGE_RUNS: tuple[tuple[str, str, str], ...] = (
     ),
 )
 
+# The four runs of the correctness measurement plan (Section 9.3). Published through the
+# same redaction once they exist; until then they are reported as pending rather than as
+# a problem, so the check stays green before the runs are made.
+PLANNED_COVERAGE_RUNS: tuple[tuple[str, str, str], ...] = (
+    (
+        "cm/production-a.json",
+        "coverage-production-a.json",
+        "Production replicate A, seed 20260906: the labelled census of the plan.",
+    ),
+    (
+        "cm/production-b.json",
+        "coverage-production-b.json",
+        "Production replicate B, same session and binding: the noise floor.",
+    ),
+    (
+        "cm/naive-164.json",
+        "coverage-naive-164.json",
+        "Naive baseline on all 164 questions, same session: the Q5 comparison arm.",
+    ),
+    (
+        "cm/closed-book-164.json",
+        "coverage-closed-book-164.json",
+        "Closed-book arm, no retrieval: the Q4 comparison arm. Redacts nothing.",
+    ),
+)
+
 # Copied verbatim: no source text, and `report_sha256` must round-trip.
 SEALED_REPORTS: tuple[tuple[str, str, str], ...] = (
     (
@@ -135,6 +161,15 @@ SEALED_REPORTS: tuple[tuple[str, str, str], ...] = (
 
 REDACTED_FIELDS = ("rendered_text", "rendered_text_truncated")
 
+# Withheld whenever every `bucket` is null: a bound on p_wrong over a run that has no
+# correctness classification reads as a safety figure and is not one (plan Section 2.2).
+P_WRONG_KEYS = (
+    "p_wrong_zero_occurrence_upper_bound_95",
+    "p_wrong_zero_occurrence_upper_bound_95_questions",
+    "p_wrong_zero_occurrence_upper_bound_95_answered",
+)
+P_WRONG_WITHHELD = "no correctness classification exists for this run"
+
 
 def _dump(payload: Any) -> str:
     return json.dumps(payload, indent=1, sort_keys=True, ensure_ascii=False) + "\n"
@@ -158,6 +193,14 @@ def redact_coverage(document: dict[str, Any]) -> tuple[dict[str, Any], int]:
             "depends on is retained."
         ),
     }
+    results = document.get("results", [])
+    summary = document.get("summary") or {}
+    if results and all(result.get("bucket") is None for result in results):
+        nulled = [key for key in P_WRONG_KEYS if summary.get(key) is not None]
+        for key in nulled:
+            summary[key] = None
+        document["_redaction"]["p_wrong_bound_withheld"] = P_WRONG_WITHHELD
+        document["_redaction"]["p_wrong_keys_nulled"] = nulled
     return document, removed
 
 
@@ -180,10 +223,17 @@ def main() -> int:
     problems: list[str] = []
     written: list[str] = []
 
-    for source_name, published_name, _ in COVERAGE_RUNS:
+    pending: list[str] = []
+    runs = [(*run, True) for run in COVERAGE_RUNS] + [
+        (*run, False) for run in PLANNED_COVERAGE_RUNS
+    ]
+    for source_name, published_name, _, required in runs:
         source = LOCAL / source_name
         if not source.exists():
-            problems.append(f"missing local run: {source}")
+            if required:
+                problems.append(f"missing local run: {source}")
+            else:
+                pending.append(f"{published_name} (planned; {source_name} not yet produced)")
             continue
         document = json.loads(source.read_text(encoding="utf-8"))
         before = answered_count(document)
@@ -227,6 +277,8 @@ def main() -> int:
 
     for line in written:
         print("published", line)
+    for line in pending:
+        print("pending  ", line)
     if problems:
         print("\nPROBLEMS:", file=sys.stderr)
         for problem in problems:
