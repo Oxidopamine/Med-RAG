@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-09-07T01:33:39+00:00",
+  "generated_at": "2026-09-07T01:36:27+00:00",
   "seed": 20260906,
   "bootstrap_resamples": 10000,
   "software": {
@@ -440,7 +440,7 @@
   },
   "rubric_check": {
     "rubric": "docs\\correctness-measurement-plan.md",
-    "sha256": "0a87781e197867a3129398da74863b27f6a84021b00d8a725ee4914f84b89340",
+    "sha256": "c8b4058b48a1a6bdf34d79a662249628ff63ecbe5bda4ebacb08ba6a8f815e1e",
     "files": {}
   },
   "inputs": {

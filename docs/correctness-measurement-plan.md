@@ -1,6 +1,10 @@
 # Correctness measurement plan
 
-Status: pre-registered analysis plan, revision 3. The four runs of Section 3 were executed on 2026-09-07 before the deposit, under the ordering recorded in Section 11; no label, judge, oracle, checker or statistics output exists. To be deposited
+Status: pre-registered analysis plan, revision 3. The four runs of Section 3 were executed on
+2026-09-07 before the deposit, under the ordering recorded in Section 11, and the Horizon 1
+quantities of Sections 1.2 (Q5) and 3.5 are computed from them. No label exists; the only judge,
+oracle and checker outputs are shakedowns on the stage-1 naive run, outside every census
+population. To be deposited
 at OSF Registries (embargoed until submission) together with `scripts/cm_statistics.py` and
 `scripts/retrieval_overlap.py` before the first run of Section 3 executes. The registered
 snapshot is the file as deposited; `rubric_sha256` in every downstream file is the sha256 of
