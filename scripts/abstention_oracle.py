@@ -438,9 +438,11 @@ async def main() -> int:
         "binding": gemini_json.binding_of(parameters),
         "run": str(arguments.run),
         "run_label": run.get("run_label"),
-        "rubric_sha256": hashlib.sha256(arguments.rubric.read_bytes()).hexdigest()
-        if arguments.rubric
-        else None,
+        "rubric_sha256": (
+            hashlib.sha256(arguments.rubric.read_bytes().replace(b"\r\n", b"\n")).hexdigest()
+            if arguments.rubric
+            else None
+        ),
         "collection": arguments.collection,
         "release_filter": query_filter,
         "limit_per_lane": arguments.limit_per_lane,

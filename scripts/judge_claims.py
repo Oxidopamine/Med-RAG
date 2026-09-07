@@ -429,7 +429,9 @@ async def main() -> int:
         "run": str(arguments.run),
         "run_label": run.get("run_label"),
         "rubric_sha256": (
-            hashlib.sha256(arguments.rubric.read_bytes()).hexdigest() if arguments.rubric else None
+            hashlib.sha256(arguments.rubric.read_bytes().replace(b"\r\n", b"\n")).hexdigest()
+            if arguments.rubric
+            else None
         ),
         "binding": gemini_json.binding_of(parameters),
         "prompt_templates": {

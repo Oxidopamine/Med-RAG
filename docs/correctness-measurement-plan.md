@@ -208,8 +208,9 @@ discordant, twice the production-versus-naive discordance of 3 of 49).
 ### 1.4 Pre-specification housekeeping
 
 - **Frozen at a deposit.** `rubric_sha256` in every label, judge, oracle and statistics file is
-  the sha256 of this document as deposited at OSF; a file whose hash differs is reported as
-  labelled under a revised rubric. Recording the DOI in Section 11 is an administrative
+  the sha256 of this document as deposited at OSF, computed over its bytes with line endings
+  normalised to LF so that a Windows checkout and the deposited file hash alike; a file whose
+  hash differs is reported as labelled under a revised rubric. Recording the DOI in Section 11 is an administrative
   amendment logged there and does not change the registered hash.
 - **Frozen analysis code.** `scripts/cm_statistics.py` computes every number in 1.2, 3.5, 4.5,
   4.6, 5.2, 6.2 and 7.3 from the label, judge, oracle, checker and run files, fails loudly on a

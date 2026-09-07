@@ -854,6 +854,12 @@ def sha256_of(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def rubric_sha256(path: Path) -> str:
+    """The plan's hash over LF-normalised bytes, so a CRLF checkout and the deposit agree."""
+
+    return hashlib.sha256(path.read_bytes().replace(b"\r\n", b"\n")).hexdigest()
+
+
 def load_json(path: Path) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
 
@@ -2343,7 +2349,7 @@ SECTIONS: dict[str, Callable[[Inputs], dict[str, Any]]] = {
 def rubric_check(inputs: Inputs, rubric: Path | None) -> dict[str, Any]:
     if rubric is None:
         return {"rubric": None}
-    expected = sha256_of(rubric)
+    expected = rubric_sha256(rubric)
     report: dict[str, Any] = {"rubric": str(rubric), "sha256": expected, "files": {}}
     for name in ("labels", "retest_labels", "second_reader_labels", "oracle", "checker"):
         if inputs.has(name):

@@ -1041,8 +1041,11 @@ def main() -> int:
         print(f"wrote {key_path}  (do not open until the pass is finished)")
 
     if arguments.claims_template:
+        # LF-normalised, as plan Section 1.4 defines the hash, so a CRLF checkout agrees.
         rubric = (
-            hashlib.sha256(arguments.rubric.read_bytes()).hexdigest() if arguments.rubric else None
+            hashlib.sha256(arguments.rubric.read_bytes().replace(b"\r\n", b"\n")).hexdigest()
+            if arguments.rubric
+            else None
         )
         template = claims_template(census, run_paths=run_paths, rubric_sha256=rubric)
         arguments.claims_template.parent.mkdir(parents=True, exist_ok=True)
