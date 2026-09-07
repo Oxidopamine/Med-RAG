@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "written_at": "2026-09-06T19:50:02+00:00",
+  "written_at": "2026-09-07T00:23:22+00:00",
   "note": "A data-dependent design parameter fixed before the comparison arm is unblinded, labelled that way and not as fixed a priori. Non-significant results are reported as Tango intervals, never as the MDE.",
   "mde": {
     "n": 164,
@@ -64,47 +64,47 @@
     }
   },
   "expected_half_widths": {
-    "claims": 190,
-    "answered_records": 73,
-    "mean_claims_per_record": 2.6,
+    "claims": 176,
+    "answered_records": 70,
+    "mean_claims_per_record": 2.51,
     "design_effect_assumed": 1.5,
     "grid": {
       "0.05": {
-        "q2_half_width": 0.039,
-        "expected_non_attributable_claims": 10,
-        "q3_sensitivity_half_width_at_0.75": 0.227
+        "q2_half_width": 0.042,
+        "expected_non_attributable_claims": 9,
+        "q3_sensitivity_half_width_at_0.75": 0.242
       },
       "0.10": {
-        "q2_half_width": 0.053,
-        "expected_non_attributable_claims": 19,
-        "q3_sensitivity_half_width_at_0.75": 0.185
+        "q2_half_width": 0.056,
+        "expected_non_attributable_claims": 18,
+        "q3_sensitivity_half_width_at_0.75": 0.181
       },
       "0.15": {
-        "q2_half_width": 0.062,
-        "expected_non_attributable_claims": 28,
-        "q3_sensitivity_half_width_at_0.75": 0.153
+        "q2_half_width": 0.065,
+        "expected_non_attributable_claims": 26,
+        "q3_sensitivity_half_width_at_0.75": 0.155
       },
       "0.20": {
-        "q2_half_width": 0.069,
-        "expected_non_attributable_claims": 38,
-        "q3_sensitivity_half_width_at_0.75": 0.135
+        "q2_half_width": 0.072,
+        "expected_non_attributable_claims": 35,
+        "q3_sensitivity_half_width_at_0.75": 0.14
       },
       "0.25": {
-        "q2_half_width": 0.075,
-        "expected_non_attributable_claims": 48,
-        "q3_sensitivity_half_width_at_0.75": 0.119
+        "q2_half_width": 0.077,
+        "expected_non_attributable_claims": 44,
+        "q3_sensitivity_half_width_at_0.75": 0.124
       },
       "0.30": {
-        "q2_half_width": 0.079,
-        "expected_non_attributable_claims": 57,
-        "q3_sensitivity_half_width_at_0.75": 0.109
+        "q2_half_width": 0.082,
+        "expected_non_attributable_claims": 53,
+        "q3_sensitivity_half_width_at_0.75": 0.113
       },
       "0.35": {
-        "q2_half_width": 0.082,
-        "expected_non_attributable_claims": 66,
-        "q3_sensitivity_half_width_at_0.75": 0.101
+        "q2_half_width": 0.085,
+        "expected_non_attributable_claims": 62,
+        "q3_sensitivity_half_width_at_0.75": 0.107
       }
     }
   },
-  "half_width_source": "stage-2 placeholders"
+  "half_width_source": "production A"
 }

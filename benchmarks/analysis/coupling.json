@@ -1,0 +1,1342 @@
+{
+  "token_rule": "alphabetic tokens longer than three characters, casefolded, substring match",
+  "tercile_boundaries": [
+    0.625,
+    0.75
+  ],
+  "questions": {
+    "MVPQ-C2-003": {
+      "coupling": 0.5455,
+      "retrieved": 10,
+      "outcome": "ANSWERED",
+      "source_term_overlap": 0.455,
+      "chapter_no": 2,
+      "tercile": 1
+    },
+    "MVPQ-C2-004": {
+      "coupling": 0.6667,
+      "retrieved": 10,
+      "outcome": "ANSWERED",
+      "source_term_overlap": 0.222,
+      "chapter_no": 2,
+      "tercile": 2
+    },
+    "MVPQ-C2-006": {
+      "coupling": 0.9,
+      "retrieved": 10,
+      "outcome": "ANSWERED",
+      "source_term_overlap": 0.2,
+      "chapter_no": 2,
+      "tercile": 3
+    },
+    "MVPQ-C2-009": {
+      "coupling": 0.7857,
+      "retrieved": 10,
+      "outcome": "ABSTAINED",
+      "source_term_overlap": 0.071,
+      "chapter_no": 2,
+      "tercile": 3
+    },
+    "MVPQ-C2-012": {
+      "coupling": 0.6364,
+      "retrieved": 10,
+      "outcome": "ANSWERED",
+      "source_term_overlap": 0.0,
+      "chapter_no": 2,
+      "tercile": 2
+    },
+    "MVPQ-C2-013": {
+      "coupling": 0.6667,
+      "retrieved": 10,
+      "outcome": "ANSWERED",
+      "source_term_overlap": 0.333,
+      "chapter_no": 2,
+      "tercile": 2
+    },
+    "MVPQ-C2-016": {
+      "coupling": 0.7143,
+      "retrieved": 10,
+      "outcome": "ABSTAINED",
+      "source_term_overlap": 0.0,
+      "chapter_no": 2,
+      "tercile": 2
+    },
+    "MVPQ-C2-017": {
+      "coupling": 0.5385,
+      "retrieved": 10,
+      "outcome": "ABSTAINED",
+      "source_term_overlap": 0.231,
+      "chapter_no": 2,
+      "tercile": 1
+    },
+    "MVPQ-C2-018": {
+      "coupling": 1.0,
+      "retrieved": 10,
+      "outcome": "ANSWERED",
+      "source_term_overlap": 0.455,
+      "chapter_no": 2,
+      "tercile": 3
+    },
+    "MVPQ-C2-019": {
+      "coupling": 0.5455,
+      "retrieved": 10,
+      "outcome": "ANSWERED",
+      "source_term_overlap": 0.182,
+      "chapter_no": 2,
+      "tercile": 1
+    },
+    "MVPQ-C2-020": {
+      "coupling": 0.8,
+      "retrieved": 10,
+      "outcome": "ANSWERED",
+      "source_term_overlap": 0.2,
+      "chapter_no": 2,
+      "tercile": 3
+    },
+    "MVPQ-C2-021": {
+      "coupling": 0.75,
+      "retrieved": 10,
+      "outcome": "ANSWERED",
+      "source_term_overlap": 0.5,
+      "chapter_no": 2,
+      "tercile": 2
+    },
+    "MVPQ-C2-022": {
+      "coupling": 0.5385,
+      "retrieved": 10,
+      "outcome": "ABSTAINED",
+      "source_term_overlap": 0.231,
+      "chapter_no": 2,
+      "tercile": 1
+    },
+    "MVPQ-C2-025": {
+      "coupling": 0.7778,
+      "retrieved": 10,
+      "outcome": "ABSTAINED",
+      "source_term_overlap": 0.222,
+      "chapter_no": 2,
+      "tercile": 3
+    },
+    "MVPQ-C2-026": {
+      "coupling": 0.75,
+      "retrieved": 10,
+      "outcome": "ABSTAINED",
+      "source_term_overlap": 0.25,
+      "chapter_no": 2,
+      "tercile": 2
+    },
+    "MVPQ-C2-027": {
+      "coupling": 0.8462,
+      "retrieved": 10,
+      "outcome": "ABSTAINED",
+      "source_term_overlap": 0.154,
+      "chapter_no": 2,
+      "tercile": 3
+    },
+    "MVPQ-C2-028": {
+      "coupling": 0.7273,
+      "retrieved": 10,
+      "outcome": "ABSTAINED",
+      "source_term_overlap": 0.545,
+      "chapter_no": 2,
+      "tercile": 2
+    },
+    "MVPQ-C2-030": {
+      "coupling": 0.8571,
+      "retrieved": 10,
+      "outcome": "ANSWERED",
+      "source_term_overlap": 0.857,
+      "chapter_no": 2,
+      "tercile": 3
+    },
+    "MVPQ-C2-031": {
+      "coupling": 0.6,
+      "retrieved": 10,
+      "outcome": "ANSWERED",
+      "source_term_overlap": 0.2,
+      "chapter_no": 2,
+      "tercile": 1
+    },
+    "MVPQ-C2-035": {
+      "coupling": 0.7273,
+      "retrieved": 10,
+      "outcome": "ANSWERED",
+      "source_term_overlap": 0.273,
+      "chapter_no": 2,
+      "tercile": 2
+    },
+    "MVPQ-C2-036": {
+      "coupling": 0.7273,
+      "retrieved": 10,
+      "outcome": "ABSTAINED",
+      "source_term_overlap": 0.182,
+      "chapter_no": 2,
+      "tercile": 2
+    },
+    "MVPQ-C2-040": {
+      "coupling": 0.875,
+      "retrieved": 10,
+      "outcome": "ANSWERED",
+      "source_term_overlap": 0.375,
+      "chapter_no": 2,
+      "tercile": 3
+    },
+    "MVPQ-C2-041": {
+      "coupling": 0.6923,
+      "retrieved": 10,
+      "outcome": "ABSTAINED",
+      "source_term_overlap": 0.308,
+      "chapter_no": 2,
+      "tercile": 2
+    },
+    "MVPQ-C2-049": {
+      "coupling": 0.7273,
+      "retrieved": 10,
+      "outcome": "ANSWERED",
+      "source_term_overlap": 0.182,
+      "chapter_no": 2,
+      "tercile": 2
+    },
+    "MVPQ-C2-050": {
+      "coupling": 0.7143,
+      "retrieved": 10,
+      "outcome": "ANSWERED",
+      "source_term_overlap": 0.429,
+      "chapter_no": 2,
+      "tercile": 2
+    },
+    "MVPQ-C2-051": {
+      "coupling": 0.9,
+      "retrieved": 10,
+      "outcome": "ANSWERED",
+      "source_term_overlap": 0.2,
+      "chapter_no": 2,
+      "tercile": 3
+    },
+    "MVPQ-C2-052": {
+      "coupling": 1.0,
+      "retrieved": 10,
+      "outcome": "ANSWERED",
+      "source_term_overlap": 0.222,
+      "chapter_no": 2,
+      "tercile": 3
+    },
+    "MVPQ-C2-054": {
+      "coupling": 0.6667,
+      "retrieved": 10,
+      "outcome": "ABSTAINED",
+      "source_term_overlap": 0.25,
+      "chapter_no": 2,
+      "tercile": 2
+    },
+    "MVPQ-C3-057": {
+      "coupling": 0.7,
+      "retrieved": 10,
+      "outcome": "ANSWERED",
+      "source_term_overlap": 0.2,
+      "chapter_no": 3,
+      "tercile": 2
+    },
+    "MVPQ-C3-059": {
+      "coupling": 0.7273,
+      "retrieved": 10,
+      "outcome": "ANSWERED",
+      "source_term_overlap": 0.182,
+      "chapter_no": 3,
+      "tercile": 2
+    },
+    "MVPQ-C3-062": {
+      "coupling": 0.5,
+      "retrieved": 10,
+      "outcome": "ANSWERED",
+      "source_term_overlap": 0.1,
+      "chapter_no": 3,
+      "tercile": 1
+    },
+    "MVPQ-C3-063": {
+      "coupling": 0.75,
+      "retrieved": 10,
+      "outcome": "ANSWERED",
+      "source_term_overlap": 0.0,
+      "chapter_no": 3,
+      "tercile": 2
+    },
+    "MVPQ-C3-065": {
+      "coupling": 0.875,
+      "retrieved": 10,
+      "outcome": "ANSWERED",
+      "source_term_overlap": 0.625,
+      "chapter_no": 3,
+      "tercile": 3
+    },
+    "MVPQ-C3-066": {
+      "coupling": 0.8,
+      "retrieved": 10,
+      "outcome": "ANSWERED",
+      "source_term_overlap": 0.2,
+      "chapter_no": 3,
+      "tercile": 3
+    },
+    "MVPQ-C3-067": {
+      "coupling": 0.6667,
+      "retrieved": 10,
+      "outcome": "ANSWERED",
+      "source_term_overlap": 0.222,
+      "chapter_no": 3,
+      "tercile": 2
+    },
+    "MVPQ-C3-068": {
+      "coupling": 0.7,
+      "retrieved": 10,
+      "outcome": "ANSWERED",
+      "source_term_overlap": 0.1,
+      "chapter_no": 3,
+      "tercile": 2
+    },
+    "MVPQ-C3-072": {
+      "coupling": 0.6923,
+      "retrieved": 10,
+      "outcome": "ABSTAINED",
+      "source_term_overlap": 0.231,
+      "chapter_no": 3,
+      "tercile": 2
+    },
+    "MVPQ-C3-073": {
+      "coupling": 0.875,
+      "retrieved": 10,
+      "outcome": "ABSTAINED",
+      "source_term_overlap": 0.75,
+      "chapter_no": 3,
+      "tercile": 3
+    },
+    "MVPQ-C3-075": {
+      "coupling": 0.7778,
+      "retrieved": 10,
+      "outcome": "ABSTAINED",
+      "source_term_overlap": 0.333,
+      "chapter_no": 3,
+      "tercile": 3
+    },
+    "MVPQ-C4-078": {
+      "coupling": 0.8,
+      "retrieved": 10,
+      "outcome": "ABSTAINED",
+      "source_term_overlap": 0.3,
+      "chapter_no": 4,
+      "tercile": 3
+    },
+    "MVPQ-C4-080": {
+      "coupling": 0.5556,
+      "retrieved": 10,
+      "outcome": "ANSWERED",
+      "source_term_overlap": 0.111,
+      "chapter_no": 4,
+      "tercile": 1
+    },
+    "MVPQ-C4-085": {
+      "coupling": 0.6,
+      "retrieved": 10,
+      "outcome": "ABSTAINED",
+      "source_term_overlap": 0.3,
+      "chapter_no": 4,
+      "tercile": 1
+    },
+    "MVPQ-C4-086": {
+      "coupling": 0.7143,
+      "retrieved": 10,
+      "outcome": "ABSTAINED",
+      "source_term_overlap": 0.571,
+      "chapter_no": 4,
+      "tercile": 2
+    },
+    "MVPQ-C4-092": {
+      "coupling": 0.75,
+      "retrieved": 10,
+      "outcome": "ABSTAINED",
+      "source_term_overlap": 0.417,
+      "chapter_no": 4,
+      "tercile": 2
+    },
+    "MVPQ-C4-095": {
+      "coupling": 0.6667,
+      "retrieved": 10,
+      "outcome": "ANSWERED",
+      "source_term_overlap": 0.667,
+      "chapter_no": 4,
+      "tercile": 2
+    },
+    "MVPQ-C4-098": {
+      "coupling": 0.4545,
+      "retrieved": 10,
+      "outcome": "ABSTAINED",
+      "source_term_overlap": 0.182,
+      "chapter_no": 4,
+      "tercile": 1
+    },
+    "MVPQ-C4-100": {
+      "coupling": 0.75,
+      "retrieved": 10,
+      "outcome": "ANSWERED",
+      "source_term_overlap": 0.75,
+      "chapter_no": 4,
+      "tercile": 2
+    },
+    "MVPQ-C4-101": {
+      "coupling": 0.7,
+      "retrieved": 10,
+      "outcome": "ABSTAINED",
+      "source_term_overlap": 0.3,
+      "chapter_no": 4,
+      "tercile": 2
+    },
+    "MVPQ-C4-102": {
+      "coupling": 0.8333,
+      "retrieved": 10,
+      "outcome": "ANSWERED",
+      "source_term_overlap": 0.5,
+      "chapter_no": 4,
+      "tercile": 3
+    },
+    "MVPQ-C4-105": {
+      "coupling": 0.7143,
+      "retrieved": 10,
+      "outcome": "ABSTAINED",
+      "source_term_overlap": 0.429,
+      "chapter_no": 4,
+      "tercile": 2
+    },
+    "MVPQ-C4-106": {
+      "coupling": 0.3333,
+      "retrieved": 10,
+      "outcome": "ANSWERED",
+      "source_term_overlap": 0.0,
+      "chapter_no": 4,
+      "tercile": 1
+    },
+    "MVPQ-C4-107": {
+      "coupling": 0.5385,
+      "retrieved": 10,
+      "outcome": "ABSTAINED",
+      "source_term_overlap": 0.077,
+      "chapter_no": 4,
+      "tercile": 1
+    },
+    "MVPQ-C4-109": {
+      "coupling": 0.6667,
+      "retrieved": 10,
+      "outcome": "ANSWERED",
+      "source_term_overlap": 0.222,
+      "chapter_no": 4,
+      "tercile": 2
+    },
+    "MVPQ-C4-110": {
+      "coupling": 0.5333,
+      "retrieved": 10,
+      "outcome": "ABSTAINED",
+      "source_term_overlap": 0.267,
+      "chapter_no": 4,
+      "tercile": 1
+    },
+    "MVPQ-C4-113": {
+      "coupling": 0.5833,
+      "retrieved": 10,
+      "outcome": "ANSWERED",
+      "source_term_overlap": 0.333,
+      "chapter_no": 4,
+      "tercile": 1
+    },
+    "MVPQ-C5-115": {
+      "coupling": 0.7273,
+      "retrieved": 10,
+      "outcome": "ANSWERED",
+      "source_term_overlap": 0.182,
+      "chapter_no": 5,
+      "tercile": 2
+    },
+    "MVPQ-C5-116": {
+      "coupling": 0.4545,
+      "retrieved": 10,
+      "outcome": "ABSTAINED",
+      "source_term_overlap": 0.545,
+      "chapter_no": 5,
+      "tercile": 1
+    },
+    "MVPQ-C5-117": {
+      "coupling": 0.4615,
+      "retrieved": 10,
+      "outcome": "ANSWERED",
+      "source_term_overlap": 0.077,
+      "chapter_no": 5,
+      "tercile": 1
+    },
+    "MVPQ-C5-122": {
+      "coupling": 0.75,
+      "retrieved": 10,
+      "outcome": "ANSWERED",
+      "source_term_overlap": 0.312,
+      "chapter_no": 5,
+      "tercile": 2
+    },
+    "MVPQ-C5-124": {
+      "coupling": 0.7,
+      "retrieved": 10,
+      "outcome": "ABSTAINED",
+      "source_term_overlap": 0.5,
+      "chapter_no": 5,
+      "tercile": 2
+    },
+    "MVPQ-C5-125": {
+      "coupling": 0.8,
+      "retrieved": 10,
+      "outcome": "ABSTAINED",
+      "source_term_overlap": 0.6,
+      "chapter_no": 5,
+      "tercile": 3
+    },
+    "MVPQ-C5-127": {
+      "coupling": 0.75,
+      "retrieved": 10,
+      "outcome": "ABSTAINED",
+      "source_term_overlap": 0.25,
+      "chapter_no": 5,
+      "tercile": 2
+    },
+    "MVPQ-C5-128": {
+      "coupling": 0.7273,
+      "retrieved": 10,
+      "outcome": "ABSTAINED",
+      "source_term_overlap": 0.182,
+      "chapter_no": 5,
+      "tercile": 2
+    },
+    "MVPQ-C5-129": {
+      "coupling": 0.5,
+      "retrieved": 10,
+      "outcome": "ABSTAINED",
+      "source_term_overlap": 0.5,
+      "chapter_no": 5,
+      "tercile": 1
+    },
+    "MVPQ-C5-130": {
+      "coupling": 0.3636,
+      "retrieved": 10,
+      "outcome": "ANSWERED",
+      "source_term_overlap": 0.364,
+      "chapter_no": 5,
+      "tercile": 1
+    },
+    "MVPQ-C5-131": {
+      "coupling": 0.6,
+      "retrieved": 10,
+      "outcome": "ABSTAINED",
+      "source_term_overlap": 0.4,
+      "chapter_no": 5,
+      "tercile": 1
+    },
+    "MVPQ-C5-132": {
+      "coupling": 0.8571,
+      "retrieved": 10,
+      "outcome": "ABSTAINED",
+      "source_term_overlap": 0.286,
+      "chapter_no": 5,
+      "tercile": 3
+    },
+    "MVPQ-C5-134": {
+      "coupling": 0.8889,
+      "retrieved": 10,
+      "outcome": "ABSTAINED",
+      "source_term_overlap": 0.222,
+      "chapter_no": 5,
+      "tercile": 3
+    },
+    "MVPQ-C5-136": {
+      "coupling": 0.4545,
+      "retrieved": 10,
+      "outcome": "ABSTAINED",
+      "source_term_overlap": 0.273,
+      "chapter_no": 5,
+      "tercile": 1
+    },
+    "MVPQ-C5-137": {
+      "coupling": 0.5,
+      "retrieved": 10,
+      "outcome": "ABSTAINED",
+      "source_term_overlap": 0.333,
+      "chapter_no": 5,
+      "tercile": 1
+    },
+    "MVPQ-C5-138": {
+      "coupling": 1.0,
+      "retrieved": 10,
+      "outcome": "ABSTAINED",
+      "source_term_overlap": 0.5,
+      "chapter_no": 5,
+      "tercile": 3
+    },
+    "MVPQ-C6-139": {
+      "coupling": 0.625,
+      "retrieved": 10,
+      "outcome": "ABSTAINED",
+      "source_term_overlap": 0.5,
+      "chapter_no": 6,
+      "tercile": 1
+    },
+    "MVPQ-C6-140": {
+      "coupling": 0.5,
+      "retrieved": 10,
+      "outcome": "ABSTAINED",
+      "source_term_overlap": 0.1,
+      "chapter_no": 6,
+      "tercile": 1
+    },
+    "MVPQ-C6-141": {
+      "coupling": 0.9,
+      "retrieved": 10,
+      "outcome": "ABSTAINED",
+      "source_term_overlap": 0.4,
+      "chapter_no": 6,
+      "tercile": 3
+    },
+    "MVPQ-C6-144": {
+      "coupling": 0.8,
+      "retrieved": 10,
+      "outcome": "ABSTAINED",
+      "source_term_overlap": 0.6,
+      "chapter_no": 6,
+      "tercile": 3
+    },
+    "MVPQ-C6-145": {
+      "coupling": 0.7143,
+      "retrieved": 10,
+      "outcome": "ABSTAINED",
+      "source_term_overlap": 0.286,
+      "chapter_no": 6,
+      "tercile": 2
+    },
+    "MVPQ-C6-147": {
+      "coupling": 0.5,
+      "retrieved": 10,
+      "outcome": "ABSTAINED",
+      "source_term_overlap": 0.25,
+      "chapter_no": 6,
+      "tercile": 1
+    },
+    "MVPQ-C6-148": {
+      "coupling": 0.375,
+      "retrieved": 10,
+      "outcome": "ABSTAINED",
+      "source_term_overlap": 0.25,
+      "chapter_no": 6,
+      "tercile": 1
+    },
+    "MVPQ-C6-149": {
+      "coupling": 0.8,
+      "retrieved": 10,
+      "outcome": "ABSTAINED",
+      "source_term_overlap": 0.3,
+      "chapter_no": 6,
+      "tercile": 3
+    },
+    "MVPQ-C6-150": {
+      "coupling": 0.75,
+      "retrieved": 10,
+      "outcome": "ANSWERED",
+      "source_term_overlap": 0.25,
+      "chapter_no": 6,
+      "tercile": 2
+    },
+    "MVPQ-C6-151": {
+      "coupling": 0.5385,
+      "retrieved": 10,
+      "outcome": "ANSWERED",
+      "source_term_overlap": 0.231,
+      "chapter_no": 6,
+      "tercile": 1
+    },
+    "MVPQ-C6-152": {
+      "coupling": 0.6923,
+      "retrieved": 10,
+      "outcome": "ABSTAINED",
+      "source_term_overlap": 0.231,
+      "chapter_no": 6,
+      "tercile": 2
+    },
+    "MVPQ-C6-153": {
+      "coupling": 0.5,
+      "retrieved": 10,
+      "outcome": "ABSTAINED",
+      "source_term_overlap": 0.25,
+      "chapter_no": 6,
+      "tercile": 1
+    },
+    "MVPQ-C6-154": {
+      "coupling": 0.6667,
+      "retrieved": 10,
+      "outcome": "ANSWERED",
+      "source_term_overlap": 0.667,
+      "chapter_no": 6,
+      "tercile": 2
+    },
+    "MVPQ-C6-155": {
+      "coupling": 0.375,
+      "retrieved": 10,
+      "outcome": "ABSTAINED",
+      "source_term_overlap": 0.375,
+      "chapter_no": 6,
+      "tercile": 1
+    },
+    "MVPQ-C6-156": {
+      "coupling": 0.75,
+      "retrieved": 10,
+      "outcome": "ABSTAINED",
+      "source_term_overlap": 0.25,
+      "chapter_no": 6,
+      "tercile": 2
+    },
+    "MVPQ-C6-157": {
+      "coupling": 0.7778,
+      "retrieved": 10,
+      "outcome": "ABSTAINED",
+      "source_term_overlap": 0.111,
+      "chapter_no": 6,
+      "tercile": 3
+    },
+    "MVPQ-C6-158": {
+      "coupling": 0.8333,
+      "retrieved": 10,
+      "outcome": "ANSWERED",
+      "source_term_overlap": 0.5,
+      "chapter_no": 6,
+      "tercile": 3
+    },
+    "MVPQ-C6-159": {
+      "coupling": 0.6,
+      "retrieved": 10,
+      "outcome": "ABSTAINED",
+      "source_term_overlap": 0.6,
+      "chapter_no": 6,
+      "tercile": 1
+    },
+    "MVPQ-C6-160": {
+      "coupling": 0.6,
+      "retrieved": 10,
+      "outcome": "ABSTAINED",
+      "source_term_overlap": 0.2,
+      "chapter_no": 6,
+      "tercile": 1
+    },
+    "MVPQ-C6-161": {
+      "coupling": 0.75,
+      "retrieved": 10,
+      "outcome": "ANSWERED",
+      "source_term_overlap": 0.625,
+      "chapter_no": 6,
+      "tercile": 2
+    },
+    "MVPQ-C6-162": {
+      "coupling": 0.4,
+      "retrieved": 10,
+      "outcome": "ANSWERED",
+      "source_term_overlap": 0.1,
+      "chapter_no": 6,
+      "tercile": 1
+    },
+    "MVPQ-C6-163": {
+      "coupling": 0.7143,
+      "retrieved": 10,
+      "outcome": "ANSWERED",
+      "source_term_overlap": 0.143,
+      "chapter_no": 6,
+      "tercile": 2
+    },
+    "MVPQ-C6-164": {
+      "coupling": 0.4444,
+      "retrieved": 10,
+      "outcome": "ABSTAINED",
+      "source_term_overlap": 0.444,
+      "chapter_no": 6,
+      "tercile": 1
+    },
+    "MVPQ-C6-165": {
+      "coupling": 0.625,
+      "retrieved": 10,
+      "outcome": "ANSWERED",
+      "source_term_overlap": 0.5,
+      "chapter_no": 6,
+      "tercile": 1
+    },
+    "MVPQ-C6-166": {
+      "coupling": 0.6364,
+      "retrieved": 10,
+      "outcome": "ABSTAINED",
+      "source_term_overlap": 0.545,
+      "chapter_no": 6,
+      "tercile": 2
+    },
+    "MVPQ-C6-167": {
+      "coupling": 0.8571,
+      "retrieved": 10,
+      "outcome": "ABSTAINED",
+      "source_term_overlap": 0.429,
+      "chapter_no": 6,
+      "tercile": 3
+    },
+    "MVPQ-C6-169": {
+      "coupling": 0.625,
+      "retrieved": 10,
+      "outcome": "ANSWERED",
+      "source_term_overlap": 0.375,
+      "chapter_no": 6,
+      "tercile": 1
+    },
+    "MVPQ-C6-170": {
+      "coupling": 0.5833,
+      "retrieved": 10,
+      "outcome": "ANSWERED",
+      "source_term_overlap": 0.25,
+      "chapter_no": 6,
+      "tercile": 1
+    },
+    "MVPQ-C6-171": {
+      "coupling": 0.6667,
+      "retrieved": 10,
+      "outcome": "ABSTAINED",
+      "source_term_overlap": 0.417,
+      "chapter_no": 6,
+      "tercile": 2
+    },
+    "MVPQ-C6-173": {
+      "coupling": 0.625,
+      "retrieved": 10,
+      "outcome": "ANSWERED",
+      "source_term_overlap": 0.125,
+      "chapter_no": 6,
+      "tercile": 1
+    },
+    "MVPQ-C6-174": {
+      "coupling": 0.3,
+      "retrieved": 10,
+      "outcome": "ABSTAINED",
+      "source_term_overlap": 0.1,
+      "chapter_no": 6,
+      "tercile": 1
+    },
+    "MVPQ-C6-175": {
+      "coupling": 0.5,
+      "retrieved": 10,
+      "outcome": "ABSTAINED",
+      "source_term_overlap": 0.5,
+      "chapter_no": 6,
+      "tercile": 1
+    },
+    "MVPQ-C6-176": {
+      "coupling": 0.7143,
+      "retrieved": 10,
+      "outcome": "ANSWERED",
+      "source_term_overlap": 0.714,
+      "chapter_no": 6,
+      "tercile": 2
+    },
+    "MVPQ-C6-177": {
+      "coupling": 0.6667,
+      "retrieved": 10,
+      "outcome": "ABSTAINED",
+      "source_term_overlap": 0.667,
+      "chapter_no": 6,
+      "tercile": 2
+    },
+    "MVPQ-C6-178": {
+      "coupling": 0.6,
+      "retrieved": 10,
+      "outcome": "ABSTAINED",
+      "source_term_overlap": 0.6,
+      "chapter_no": 6,
+      "tercile": 1
+    },
+    "MVPQ-C6-179": {
+      "coupling": 1.0,
+      "retrieved": 10,
+      "outcome": "ABSTAINED",
+      "source_term_overlap": 0.5,
+      "chapter_no": 6,
+      "tercile": 3
+    },
+    "MVPQ-C6-180": {
+      "coupling": 0.75,
+      "retrieved": 10,
+      "outcome": "ABSTAINED",
+      "source_term_overlap": 0.0,
+      "chapter_no": 6,
+      "tercile": 2
+    },
+    "MVPQ-C6-181": {
+      "coupling": 0.75,
+      "retrieved": 10,
+      "outcome": "ABSTAINED",
+      "source_term_overlap": 0.75,
+      "chapter_no": 6,
+      "tercile": 2
+    },
+    "MVPQ-C6-182": {
+      "coupling": 0.7143,
+      "retrieved": 10,
+      "outcome": "ABSTAINED",
+      "source_term_overlap": 0.429,
+      "chapter_no": 6,
+      "tercile": 2
+    },
+    "MVPQ-C6-183": {
+      "coupling": 0.8571,
+      "retrieved": 10,
+      "outcome": "ANSWERED",
+      "source_term_overlap": 0.571,
+      "chapter_no": 6,
+      "tercile": 3
+    },
+    "MVPQ-C6-203": {
+      "coupling": 0.75,
+      "retrieved": 10,
+      "outcome": "ABSTAINED",
+      "source_term_overlap": 0.5,
+      "chapter_no": 6,
+      "tercile": 2
+    },
+    "MVPQ-C6-207": {
+      "coupling": 0.6,
+      "retrieved": 10,
+      "outcome": "ABSTAINED",
+      "source_term_overlap": 0.4,
+      "chapter_no": 6,
+      "tercile": 1
+    },
+    "MVPQ-C6-211": {
+      "coupling": 0.6667,
+      "retrieved": 10,
+      "outcome": "ANSWERED",
+      "source_term_overlap": 0.0,
+      "chapter_no": 6,
+      "tercile": 2
+    },
+    "MVPQ-C6-215": {
+      "coupling": 0.5833,
+      "retrieved": 10,
+      "outcome": "ABSTAINED",
+      "source_term_overlap": 0.417,
+      "chapter_no": 6,
+      "tercile": 1
+    },
+    "MVPQ-C6-217": {
+      "coupling": 1.0,
+      "retrieved": 10,
+      "outcome": "ANSWERED",
+      "source_term_overlap": 0.455,
+      "chapter_no": 6,
+      "tercile": 3
+    },
+    "MVPQ-C6-219": {
+      "coupling": 0.6667,
+      "retrieved": 10,
+      "outcome": "ABSTAINED",
+      "source_term_overlap": 0.267,
+      "chapter_no": 6,
+      "tercile": 2
+    },
+    "MVPQ-C6-220": {
+      "coupling": 0.4286,
+      "retrieved": 10,
+      "outcome": "ABSTAINED",
+      "source_term_overlap": 0.429,
+      "chapter_no": 6,
+      "tercile": 1
+    },
+    "MVPQ-C6-222": {
+      "coupling": 0.25,
+      "retrieved": 10,
+      "outcome": "ABSTAINED",
+      "source_term_overlap": 0.375,
+      "chapter_no": 6,
+      "tercile": 1
+    },
+    "MVPQ-C6-223": {
+      "coupling": 0.75,
+      "retrieved": 10,
+      "outcome": "ANSWERED",
+      "source_term_overlap": 0.5,
+      "chapter_no": 6,
+      "tercile": 2
+    },
+    "MVPQ-C6-225": {
+      "coupling": 0.375,
+      "retrieved": 10,
+      "outcome": "ANSWERED",
+      "source_term_overlap": 0.125,
+      "chapter_no": 6,
+      "tercile": 1
+    },
+    "MVPQ-C6-228": {
+      "coupling": 0.6364,
+      "retrieved": 10,
+      "outcome": "ANSWERED",
+      "source_term_overlap": 0.364,
+      "chapter_no": 6,
+      "tercile": 2
+    },
+    "MVPQ-C6-229": {
+      "coupling": 0.6,
+      "retrieved": 10,
+      "outcome": "ANSWERED",
+      "source_term_overlap": 0.3,
+      "chapter_no": 6,
+      "tercile": 1
+    },
+    "MVPQ-C6-231": {
+      "coupling": 0.8,
+      "retrieved": 10,
+      "outcome": "ABSTAINED",
+      "source_term_overlap": 0.4,
+      "chapter_no": 6,
+      "tercile": 3
+    },
+    "MVPQ-C6-232": {
+      "coupling": 0.4444,
+      "retrieved": 10,
+      "outcome": "ABSTAINED",
+      "source_term_overlap": 0.333,
+      "chapter_no": 6,
+      "tercile": 1
+    },
+    "MVPQ-C6-233": {
+      "coupling": 0.6667,
+      "retrieved": 10,
+      "outcome": "ABSTAINED",
+      "source_term_overlap": 0.111,
+      "chapter_no": 6,
+      "tercile": 2
+    },
+    "MVPQ-C6-237": {
+      "coupling": 0.375,
+      "retrieved": 10,
+      "outcome": "ABSTAINED",
+      "source_term_overlap": 0.125,
+      "chapter_no": 6,
+      "tercile": 1
+    },
+    "MVPQ-C6-239": {
+      "coupling": 0.7778,
+      "retrieved": 10,
+      "outcome": "ANSWERED",
+      "source_term_overlap": 0.444,
+      "chapter_no": 6,
+      "tercile": 3
+    },
+    "MVPQ-C6-243": {
+      "coupling": 0.8571,
+      "retrieved": 10,
+      "outcome": "ANSWERED",
+      "source_term_overlap": 0.286,
+      "chapter_no": 6,
+      "tercile": 3
+    },
+    "MVPQ-C6-245": {
+      "coupling": 0.5714,
+      "retrieved": 10,
+      "outcome": "ABSTAINED",
+      "source_term_overlap": 0.571,
+      "chapter_no": 6,
+      "tercile": 1
+    },
+    "MVPQ-C6-246": {
+      "coupling": 0.6667,
+      "retrieved": 10,
+      "outcome": "ABSTAINED",
+      "source_term_overlap": 0.556,
+      "chapter_no": 6,
+      "tercile": 2
+    },
+    "MVPQ-C6-247": {
+      "coupling": 0.6667,
+      "retrieved": 10,
+      "outcome": "ABSTAINED",
+      "source_term_overlap": 0.5,
+      "chapter_no": 6,
+      "tercile": 2
+    },
+    "MVPQ-C6-248": {
+      "coupling": 0.6,
+      "retrieved": 10,
+      "outcome": "ABSTAINED",
+      "source_term_overlap": 0.3,
+      "chapter_no": 6,
+      "tercile": 1
+    },
+    "MVPQ-C6-249": {
+      "coupling": 0.75,
+      "retrieved": 10,
+      "outcome": "ABSTAINED",
+      "source_term_overlap": 0.375,
+      "chapter_no": 6,
+      "tercile": 2
+    },
+    "MVPQ-C6-250": {
+      "coupling": 0.875,
+      "retrieved": 10,
+      "outcome": "ANSWERED",
+      "source_term_overlap": 0.5,
+      "chapter_no": 6,
+      "tercile": 3
+    },
+    "MVPQ-C6-252": {
+      "coupling": 0.5714,
+      "retrieved": 10,
+      "outcome": "ABSTAINED",
+      "source_term_overlap": 0.714,
+      "chapter_no": 6,
+      "tercile": 1
+    },
+    "MVPQ-C6-253": {
+      "coupling": 0.4444,
+      "retrieved": 10,
+      "outcome": "ABSTAINED",
+      "source_term_overlap": 0.444,
+      "chapter_no": 6,
+      "tercile": 1
+    },
+    "MVPQ-C6-254": {
+      "coupling": 0.2857,
+      "retrieved": 10,
+      "outcome": "ABSTAINED",
+      "source_term_overlap": 0.571,
+      "chapter_no": 6,
+      "tercile": 1
+    },
+    "MVPQ-C6-255": {
+      "coupling": 0.4444,
+      "retrieved": 10,
+      "outcome": "ABSTAINED",
+      "source_term_overlap": 0.333,
+      "chapter_no": 6,
+      "tercile": 1
+    },
+    "MVPQ-C6-258": {
+      "coupling": 0.7273,
+      "retrieved": 10,
+      "outcome": "ABSTAINED",
+      "source_term_overlap": 0.364,
+      "chapter_no": 6,
+      "tercile": 2
+    },
+    "MVPQ-C6-259": {
+      "coupling": 0.6429,
+      "retrieved": 10,
+      "outcome": "ABSTAINED",
+      "source_term_overlap": 0.429,
+      "chapter_no": 6,
+      "tercile": 2
+    },
+    "MVPQ-C6-262": {
+      "coupling": 1.0,
+      "retrieved": 10,
+      "outcome": "ABSTAINED",
+      "source_term_overlap": 0.714,
+      "chapter_no": 6,
+      "tercile": 3
+    },
+    "MVPQ-C7-267": {
+      "coupling": 0.5714,
+      "retrieved": 10,
+      "outcome": "ANSWERED",
+      "source_term_overlap": 0.214,
+      "chapter_no": 7,
+      "tercile": 1
+    },
+    "MVPQ-C7-276": {
+      "coupling": 0.6667,
+      "retrieved": 10,
+      "outcome": "ABSTAINED",
+      "source_term_overlap": 0.0,
+      "chapter_no": 7,
+      "tercile": 2
+    },
+    "MVPQ-C7-278": {
+      "coupling": 1.0,
+      "retrieved": 10,
+      "outcome": "ANSWERED",
+      "source_term_overlap": 0.333,
+      "chapter_no": 7,
+      "tercile": 3
+    },
+    "MVPQ-C7-280": {
+      "coupling": 0.7143,
+      "retrieved": 10,
+      "outcome": "ABSTAINED",
+      "source_term_overlap": 0.0,
+      "chapter_no": 7,
+      "tercile": 2
+    },
+    "MVPQ-C7-282": {
+      "coupling": 0.5714,
+      "retrieved": 10,
+      "outcome": "ANSWERED",
+      "source_term_overlap": 0.143,
+      "chapter_no": 7,
+      "tercile": 1
+    },
+    "MVPQ-C7-284": {
+      "coupling": 1.0,
+      "retrieved": 10,
+      "outcome": "ANSWERED",
+      "source_term_overlap": 0.143,
+      "chapter_no": 7,
+      "tercile": 3
+    },
+    "MVPQ-C7-286": {
+      "coupling": 0.7778,
+      "retrieved": 10,
+      "outcome": "ANSWERED",
+      "source_term_overlap": 0.222,
+      "chapter_no": 7,
+      "tercile": 3
+    },
+    "MVPQ-C7-290": {
+      "coupling": 0.75,
+      "retrieved": 10,
+      "outcome": "ABSTAINED",
+      "source_term_overlap": 0.25,
+      "chapter_no": 7,
+      "tercile": 2
+    },
+    "MVPQ-C7-295": {
+      "coupling": 1.0,
+      "retrieved": 10,
+      "outcome": "ABSTAINED",
+      "source_term_overlap": 0.25,
+      "chapter_no": 7,
+      "tercile": 3
+    },
+    "MVPQ-C7-297": {
+      "coupling": 0.6667,
+      "retrieved": 10,
+      "outcome": "ANSWERED",
+      "source_term_overlap": 0.333,
+      "chapter_no": 7,
+      "tercile": 2
+    },
+    "MVPQ-C7-301": {
+      "coupling": 1.0,
+      "retrieved": 10,
+      "outcome": "ANSWERED",
+      "source_term_overlap": 0.5,
+      "chapter_no": 7,
+      "tercile": 3
+    },
+    "MVPQ-C7-305": {
+      "coupling": 0.8,
+      "retrieved": 10,
+      "outcome": "ABSTAINED",
+      "source_term_overlap": 0.2,
+      "chapter_no": 7,
+      "tercile": 3
+    },
+    "MVPQ-C7-307": {
+      "coupling": 0.8,
+      "retrieved": 10,
+      "outcome": "ABSTAINED",
+      "source_term_overlap": 0.2,
+      "chapter_no": 7,
+      "tercile": 3
+    },
+    "MVPQ-C7-308": {
+      "coupling": 1.0,
+      "retrieved": 10,
+      "outcome": "ABSTAINED",
+      "source_term_overlap": 0.571,
+      "chapter_no": 7,
+      "tercile": 3
+    },
+    "MVPQ-C7-310": {
+      "coupling": 0.8571,
+      "retrieved": 10,
+      "outcome": "ANSWERED",
+      "source_term_overlap": 0.429,
+      "chapter_no": 7,
+      "tercile": 3
+    },
+    "MVPQ-C7-311": {
+      "coupling": 0.8,
+      "retrieved": 10,
+      "outcome": "ANSWERED",
+      "source_term_overlap": 0.2,
+      "chapter_no": 7,
+      "tercile": 3
+    },
+    "MVPQ-C7-312": {
+      "coupling": 1.0,
+      "retrieved": 10,
+      "outcome": "ANSWERED",
+      "source_term_overlap": 0.429,
+      "chapter_no": 7,
+      "tercile": 3
+    },
+    "MVPQ-C7-313": {
+      "coupling": 0.4,
+      "retrieved": 10,
+      "outcome": "ABSTAINED",
+      "source_term_overlap": 0.5,
+      "chapter_no": 7,
+      "tercile": 1
+    },
+    "MVPQ-C7-315": {
+      "coupling": 0.625,
+      "retrieved": 10,
+      "outcome": "ABSTAINED",
+      "source_term_overlap": 0.25,
+      "chapter_no": 7,
+      "tercile": 1
+    },
+    "MVPQ-C7-318": {
+      "coupling": 0.7,
+      "retrieved": 10,
+      "outcome": "ABSTAINED",
+      "source_term_overlap": 0.7,
+      "chapter_no": 7,
+      "tercile": 2
+    },
+    "MVPQ-C7-320": {
+      "coupling": 0.7,
+      "retrieved": 10,
+      "outcome": "ANSWERED",
+      "source_term_overlap": 0.4,
+      "chapter_no": 7,
+      "tercile": 2
+    },
+    "MVPQ-C7-321": {
+      "coupling": 0.7692,
+      "retrieved": 10,
+      "outcome": "ANSWERED",
+      "source_term_overlap": 0.154,
+      "chapter_no": 7,
+      "tercile": 3
+    }
+  },
+  "passages_without_bundle_text": 0,
+  "summary": {
+    "questions": 164,
+    "mean": 0.6841,
+    "median": 0.7,
+    "mean_by_outcome": {
+      "ABSTAINED": 0.6589,
+      "ANSWERED": 0.7179
+    },
+    "tercile_sizes": {
+      "1": 56,
+      "2": 62,
+      "3": 46
+    }
+  },
+  "schema_version": 1,
+  "written_at": "2026-09-07T01:05:15+00:00",
+  "run": "data\\local\\cm\\production-a.json",
+  "run_label": "production-a",
+  "bundle_sha256": "a1d009bfd6704afd96985c8a0288ac8220b4d00b160677800a2a07f46bf10e32",
+  "note": "Coupling, not leakage and not contamination: computed and written before any label is viewed; every headline is stratified by these terciles."
+}

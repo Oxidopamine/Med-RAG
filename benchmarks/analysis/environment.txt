@@ -23,7 +23,7 @@ fsspec==2026.7.0
 google-auth==2.57.0
 google-genai==2.20.0
 greenlet==3.5.5
--e git+https://github.com/Oxidopamine/Med-RAG.git@ea36aa5a77d5a65e54480c61ea2414193cce245a#egg=guideline_evidence_api&subdirectory=apps\api
+-e git+https://github.com/Oxidopamine/Med-RAG.git@63deb1f851cf13b46cb5ca12adf4e05981d0dcac#egg=guideline_evidence_api&subdirectory=apps\api
 h11==0.16.0
 hf-xet==1.6.0
 httpcore==1.0.9

@@ -1,0 +1,468 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-09-07T01:17:07+00:00",
+  "seed": 20260906,
+  "bootstrap_resamples": 10000,
+  "software": {
+    "python": "3.10.11",
+    "numpy": "2.2.6",
+    "scipy": "1.15.3",
+    "statsmodels": "0.15.0"
+  },
+  "sections": {
+    "placeholders": {
+      "recomputed": {
+        "abstained_gate_blocked": 14,
+        "abstained_model_declared": 80,
+        "answered": 70,
+        "chapter_2_answered": 17,
+        "chapter_3_answered": 8,
+        "chapter_4_answered": 7,
+        "chapter_5_answered": 4,
+        "chapter_6_answered": 22,
+        "chapter_7_answered": 12,
+        "claims": 176,
+        "distinct_cited_ids": 117,
+        "draw_answered": 66,
+        "draw_claims": 164,
+        "draw_pairs": 282,
+        "draw_questions": 149,
+        "high_overlap_answered": 7,
+        "multi_citation_claims": 80,
+        "pairs": 300,
+        "premise_DATA_DICTIONARY_ENTRY": 34,
+        "premise_DECISION_RULE": 58,
+        "premise_INDICATOR_DEFINITION": 19,
+        "premise_NARRATIVE": 128,
+        "premise_SCHEDULE_ENTRY": 61,
+        "questions": 164
+      },
+      "premise_split_other": {},
+      "citations_per_claim": {
+        "1": 96,
+        "2": 50,
+        "3": 21,
+        "4": 6,
+        "5": 1,
+        "6": 2
+      },
+      "error_records_by_class": {},
+      "strata": {
+        "chapter": {
+          "2": {
+            "answered": 17,
+            "total": 28
+          },
+          "3": {
+            "answered": 8,
+            "total": 11
+          },
+          "4": {
+            "answered": 7,
+            "total": 16
+          },
+          "5": {
+            "answered": 4,
+            "total": 16
+          },
+          "6": {
+            "answered": 22,
+            "total": 71
+          },
+          "7": {
+            "answered": 12,
+            "total": 22
+          }
+        },
+        "ely_form": {
+          "1": {
+            "answered": 8,
+            "total": 13
+          },
+          "3": {
+            "answered": 21,
+            "total": 41
+          },
+          "4": {
+            "answered": 0,
+            "total": 4
+          },
+          "5": {
+            "answered": 1,
+            "total": 14
+          },
+          "6": {
+            "answered": 40,
+            "total": 90
+          },
+          "8": {
+            "answered": 0,
+            "total": 2
+          }
+        }
+      },
+      "derived_sizes": {
+        "model_declared_subsample_m": 20,
+        "model_declared_subsample_m_if_wall_clock_allows": 30,
+        "mislead_controls": 30,
+        "retest_records": 40,
+        "inter_rater_pairs": 50,
+        "inter_rater_claims": 50,
+        "clinician_cap_claims": 90
+      },
+      "moves": {
+        "questions": {
+          "stage2_placeholder": 164,
+          "production_a": 164,
+          "relative_move": 0.0,
+          "enter_in_section_11": false
+        },
+        "answered": {
+          "stage2_placeholder": 73,
+          "production_a": 70,
+          "relative_move": 0.041,
+          "enter_in_section_11": false
+        },
+        "abstained_model_declared": {
+          "stage2_placeholder": 77,
+          "production_a": 80,
+          "relative_move": 0.039,
+          "enter_in_section_11": false
+        },
+        "abstained_gate_blocked": {
+          "stage2_placeholder": 14,
+          "production_a": 14,
+          "relative_move": 0.0,
+          "enter_in_section_11": false
+        },
+        "claims": {
+          "stage2_placeholder": 190,
+          "production_a": 176,
+          "relative_move": 0.074,
+          "enter_in_section_11": false
+        },
+        "pairs": {
+          "stage2_placeholder": 316,
+          "production_a": 300,
+          "relative_move": 0.051,
+          "enter_in_section_11": false
+        },
+        "distinct_cited_ids": {
+          "stage2_placeholder": 125,
+          "production_a": 117,
+          "relative_move": 0.064,
+          "enter_in_section_11": false
+        },
+        "multi_citation_claims": {
+          "stage2_placeholder": 83,
+          "production_a": 80,
+          "relative_move": 0.036,
+          "enter_in_section_11": false
+        },
+        "draw_questions": {
+          "stage2_placeholder": 149,
+          "production_a": 149,
+          "relative_move": 0.0,
+          "enter_in_section_11": false
+        },
+        "draw_answered": {
+          "stage2_placeholder": 69,
+          "production_a": 66,
+          "relative_move": 0.043,
+          "enter_in_section_11": false
+        },
+        "draw_claims": {
+          "stage2_placeholder": 178,
+          "production_a": 164,
+          "relative_move": 0.079,
+          "enter_in_section_11": false
+        },
+        "draw_pairs": {
+          "stage2_placeholder": 299,
+          "production_a": 282,
+          "relative_move": 0.057,
+          "enter_in_section_11": false
+        },
+        "premise_NARRATIVE": {
+          "stage2_placeholder": 128,
+          "production_a": 128,
+          "relative_move": 0.0,
+          "enter_in_section_11": false
+        },
+        "premise_DECISION_RULE": {
+          "stage2_placeholder": 64,
+          "production_a": 58,
+          "relative_move": 0.094,
+          "enter_in_section_11": false
+        },
+        "premise_SCHEDULE_ENTRY": {
+          "stage2_placeholder": 63,
+          "production_a": 61,
+          "relative_move": 0.032,
+          "enter_in_section_11": false
+        },
+        "premise_DATA_DICTIONARY_ENTRY": {
+          "stage2_placeholder": 38,
+          "production_a": 34,
+          "relative_move": 0.105,
+          "enter_in_section_11": true
+        },
+        "premise_INDICATOR_DEFINITION": {
+          "stage2_placeholder": 23,
+          "production_a": 19,
+          "relative_move": 0.174,
+          "enter_in_section_11": true
+        },
+        "chapter_2_answered": {
+          "stage2_placeholder": 19,
+          "production_a": 17,
+          "relative_move": 0.105,
+          "enter_in_section_11": true
+        },
+        "chapter_3_answered": {
+          "stage2_placeholder": 8,
+          "production_a": 8,
+          "relative_move": 0.0,
+          "enter_in_section_11": false
+        },
+        "chapter_4_answered": {
+          "stage2_placeholder": 9,
+          "production_a": 7,
+          "relative_move": 0.222,
+          "enter_in_section_11": true
+        },
+        "chapter_5_answered": {
+          "stage2_placeholder": 4,
+          "production_a": 4,
+          "relative_move": 0.0,
+          "enter_in_section_11": false
+        },
+        "chapter_6_answered": {
+          "stage2_placeholder": 21,
+          "production_a": 22,
+          "relative_move": 0.048,
+          "enter_in_section_11": false
+        },
+        "chapter_7_answered": {
+          "stage2_placeholder": 12,
+          "production_a": 12,
+          "relative_move": 0.0,
+          "enter_in_section_11": false
+        },
+        "high_overlap_answered": {
+          "stage2_placeholder": 7,
+          "production_a": 7,
+          "relative_move": 0.0,
+          "enter_in_section_11": false
+        }
+      },
+      "moved_beyond_tolerance": [
+        "premise_DATA_DICTIONARY_ENTRY",
+        "premise_INDICATOR_DEFINITION",
+        "chapter_2_answered",
+        "chapter_4_answered"
+      ]
+    },
+    "3.5": {
+      "error_guards": [
+        {
+          "run": "production_a",
+          "questions": 164,
+          "error_records": 0,
+          "error_share": 0.0,
+          "valid_under_5_percent_rule": true
+        },
+        {
+          "run": "production_b",
+          "questions": 164,
+          "error_records": 0,
+          "error_share": 0.0,
+          "valid_under_5_percent_rule": true
+        },
+        {
+          "run": "naive",
+          "questions": 164,
+          "error_records": 0,
+          "error_share": 0.0,
+          "valid_under_5_percent_rule": true
+        }
+      ],
+      "noise_floor": {
+        "pairs": 164,
+        "error_pairs_excluded": 0,
+        "answered_versus_abstained_disagreement": {
+          "count": 0,
+          "total": 164,
+          "rate": 0.0,
+          "interval_95": [
+            0.0,
+            0.018
+          ],
+          "method": "wilson lower, exact one-sided upper"
+        },
+        "answered_in_both": 70,
+        "claim_count_changed_among_answered_in_both": {
+          "count": 0,
+          "total": 70,
+          "rate": 0.0,
+          "interval_95": [
+            0.0,
+            0.042
+          ],
+          "method": "wilson lower, exact one-sided upper"
+        },
+        "reading": "One replicate pair is one realisation of run-to-run variability. Run noise does not bias the exact tests, whose null is symmetric discordance; its role is to explain the limited power of Q5 and to caveat single-question claims."
+      },
+      "negative_control_a_versus_b": {
+        "n": 164,
+        "table": {
+          "both": 70,
+          "first_only": 0,
+          "second_only": 0,
+          "neither": 94
+        },
+        "rate_first": 0.427,
+        "rate_second": 0.427,
+        "difference": 0.0,
+        "tango_95": [
+          -0.023,
+          0.023
+        ],
+        "newcombe_95": [
+          -0.012,
+          0.012
+        ],
+        "mcnemar_exact_p": 1.0,
+        "discordant": 0
+      },
+      "q5_production_a_versus_naive": {
+        "n": 164,
+        "table": {
+          "both": 66,
+          "first_only": 4,
+          "second_only": 4,
+          "neither": 90
+        },
+        "rate_first": 0.427,
+        "rate_second": 0.427,
+        "difference": 0.0,
+        "tango_95": [
+          -0.04,
+          0.04
+        ],
+        "newcombe_95": [
+          -0.036,
+          0.036
+        ],
+        "mcnemar_exact_p": 1.0,
+        "discordant": 8,
+        "error_pairs_excluded": 0,
+        "reading": "Reported as the Tango interval for the coverage cost of the chain, never as the MDE. The naive arm still carries the model's own refusal, so this is the pipeline's marginal cost on top of a model that declines on its own."
+      },
+      "stage2_versus_a_upper_bound": {
+        "pairs": 164,
+        "error_pairs_excluded": 0,
+        "disagreement": {
+          "count": 5,
+          "total": 164,
+          "rate": 0.03,
+          "interval_95": [
+            0.013,
+            0.069
+          ],
+          "method": "wilson"
+        },
+        "reading": "An upper bound that also contains day-to-day drift, a seed difference and two hand-handled retries; not an input to anything."
+      },
+      "mde": {
+        "n": 164,
+        "alpha": 0.05,
+        "power_target": 0.8,
+        "corrected": {
+          "anchor": {
+            "discordant": 2,
+            "trials": 48,
+            "pi0": 0.0417
+          },
+          "primary": {
+            "parameterisation": "p_b = pi0/2 + delta, p_c = pi0/2, trinomial enumerated unconditionally",
+            "power_by_delta": {
+              "0.03": 0.205,
+              "0.04": 0.338,
+              "0.05": 0.483,
+              "0.06": 0.62,
+              "0.07": 0.736,
+              "0.08": 0.825,
+              "0.09": 0.89,
+              "0.10": 0.934
+            },
+            "mde_at_80_percent": 0.08
+          }
+        },
+        "uncorrected": {
+          "anchor": {
+            "discordant": 3,
+            "trials": 49,
+            "pi0": 0.0612
+          },
+          "primary": {
+            "parameterisation": "p_b = pi0/2 + delta, p_c = pi0/2, trinomial enumerated unconditionally",
+            "power_by_delta": {
+              "0.03": 0.173,
+              "0.04": 0.282,
+              "0.05": 0.406,
+              "0.06": 0.531,
+              "0.07": 0.646,
+              "0.08": 0.745,
+              "0.09": 0.824,
+              "0.10": 0.884
+            },
+            "mde_at_80_percent": 0.09
+          },
+          "secondary": {
+            "parameterisation": "p_b + p_c fixed at pi0, only the direction varies; caps delta at pi0 and drives p_c toward zero, which is the source of its optimism",
+            "power_by_delta": {
+              "0.03": 0.232,
+              "0.04": 0.439,
+              "0.05": 0.697,
+              "0.06": 0.92,
+              "0.07": null,
+              "0.08": null,
+              "0.09": null,
+              "0.10": null
+            },
+            "mde_at_80_percent": 0.06
+          }
+        }
+      },
+      "multiplicity": "Findings paper: Q5 alone, unadjusted. Journal paper: Q4 on clinician-adjudicated labels and Q5 under Holm."
+    }
+  },
+  "rubric_check": {
+    "rubric": "docs\\correctness-measurement-plan.md",
+    "sha256": "8c5e59bdf54043ddadb3ba4de6a9e23b56cc84597b0ae6f5c0688a710f53ab67",
+    "files": {}
+  },
+  "inputs": {
+    "production_a": {
+      "path": "benchmarks\\results\\coverage-production-a.json",
+      "sha256": "3cd20aae988c6d421b11348b15d0854cd5c8d286780f421aea030d42a66cddd9"
+    },
+    "questions": {
+      "path": "C:\\Users\\arsal\\Projects\\Med-RAG\\benchmarks\\questions\\mvp-coverage-who-hiv-v2.json",
+      "sha256": "b276f945cf480ae081239084f062159b0f72c18a61f8e9f1ff7b3a6b80100913"
+    },
+    "production_b": {
+      "path": "benchmarks\\results\\coverage-production-b.json",
+      "sha256": "3e55939b7bee5d1f610827523d109267d7ea92bd84a9a8226378e8cbbcbc58ed"
+    },
+    "naive": {
+      "path": "benchmarks\\results\\coverage-naive-164.json",
+      "sha256": "236e9d92756db5e5c27c2b4b682df8a64ca85b476c1855174861ac383d031939"
+    },
+    "stage2": {
+      "path": "benchmarks\\results\\coverage-stage2-gemini-3.7-flash.json",
+      "sha256": "40ed096c659cf800cc5bee4c7f914f33959e0a2f9ea33f9e8b2d9caca8cb11dd"
+    }
+  }
+}

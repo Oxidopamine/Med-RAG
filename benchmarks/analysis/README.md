@@ -16,6 +16,7 @@ and every `coverage-` JSON is a redacted run. The files below are neither.
 | File | Written by | What it is |
 |---|---|---|
 | `retrieval-overlap-stage2.json` | `scripts/retrieval_overlap.py` | The four retrieval-concentration figures of plan Section 5.1, recomputed from the published stage-2 run |
+| `retrieval-overlap-production-a.json` | `scripts/retrieval_overlap.py` | The same four figures over production A's retrieved sets |
 | `mde.json` | `scripts/cm_statistics.py --write-mde` | The minimum detectable effect tables of Section 3.5 and the prior-grid half-widths of Section 5.2, timestamped before the naive file is opened |
 | `coupling.json` | `scripts/lexical_coupling.py` | Question-to-retrieved-passage lexical coupling per question with tercile boundaries, computed before any label is viewed |
 | `environment.txt` | `pip freeze` | The Python environment the statistics ran in |

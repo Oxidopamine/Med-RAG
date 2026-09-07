@@ -1,0 +1,31 @@
+{
+  "questions": 164,
+  "slots": 1640,
+  "distinct_evidence_ids": 784,
+  "recurring_slots": 1178,
+  "recurring_slot_share": 0.7183,
+  "question_pairs": 13366,
+  "question_pairs_sharing_a_passage": 1628,
+  "pair_sharing_rate": 0.1218,
+  "mean_per_pair_collision_probability": 0.021,
+  "questions_per_evidence_id": {
+    "1": 462,
+    "2": 153,
+    "3": 57,
+    "4": 46,
+    "5": 23,
+    "6": 8,
+    "7": 11,
+    "8": 5,
+    "9": 5,
+    "10": 4,
+    "11": 1,
+    "13": 3,
+    "14": 2,
+    "15": 1,
+    "17": 1,
+    "21": 2
+  },
+  "reading": "The recurring-slot share characterises the corpus and says how permissive the evidence-ID membership predicate is; the per-pair collision rate is the chance that one particular other question's set contains a given ID. Neither bounds the intra-question failure, a claim citing a retrieved passage that does not support it, which only the human attribution labels measure.",
+  "run": "data\\local\\cm\\production-a.json"
+}

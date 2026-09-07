@@ -59,6 +59,10 @@ measured, not publisher content.
 | `coverage-stage1-gemini-3.7-flash.json` | 49 | 20 | 0.4082 — the **0.408** in §7.2, and the production row of the §7.7 ablation |
 | `coverage-stage1-naive-baseline.json` | 49 | 21 | Same 49 questions, **every safety mechanism disabled**: 0.4286. The "every mechanism off" row of §7.7 |
 | `coverage-stage2-gemini-3.7-flash.json` | 164 | 73 | Stage 2, full frame. Yields **69/149 = 0.4631** on the pre-registered prefix and **73/164 = 0.4451** as a census. README §7.2 |
+| `coverage-production-a.json` | 164 | 70 | Production replicate A of the correctness measurement plan (2026-09-07, seed 20260906): the run the census is labelled on (176 claims) |
+| `coverage-naive-164.json` | 164 | 70 | Naive baseline on all 164 questions, same session and seed: the Q5 comparison arm (174 claims) |
+| `coverage-production-b.json` | 164 | 70 | Production replicate B, same session and seed: the noise floor and negative control (176 claims) |
+| `coverage-closed-book-164.json` | 164 | 135 | Closed-book arm, no retrieval, same session and seed: the Q4 comparison arm; redacts nothing because it retrieves nothing (420 claims) |
 
 ### Recomputing the headline coverage figure
 

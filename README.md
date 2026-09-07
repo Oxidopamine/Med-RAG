@@ -967,6 +967,28 @@ same-session, same-seed runs of
 [docs/correctness-measurement-plan.md](docs/correctness-measurement-plan.md) Section 3 supersede
 it; the figures stay here because they are what the repository published.
 
+<!-- cm-paired-runs:start -->
+**The paired runs of the plan's Section 3 (2026-09-07, seed 20260906, one session, all 164
+questions).** On the same questions, production A answered 70 of 164 and the
+naive arm answered 70 of 164; 4 answered by production only and 4 by the
+naive arm only. The
+paired difference (production minus naive) is +0.000, Tango 95% [-0.040, 0.040],
+exact McNemar p = 1.0, so this design excludes a coverage cost of the chain
+larger than 4.0 points. In the same session, production B answered 70 of 164, and
+replicates A and B disagree on 0 of 164 questions on
+answered-versus-abstained (Wilson 95% [0.0, 0.018]);
+among the 70 questions both replicates answered, the claim count changed on
+0. The negative control, the same exact test on A against B, gives p = 1.0.
+Without retrieval, the closed-book arm answered 135 of 164; its agreement
+labels do not yet exist, so it is descriptive here. Error records: 0,
+0, 0 and 0 in the four runs.
+The minimum detectable effect was fixed before the naive file was opened: eight percentage points
+at 80% power at the error-corrected stage-1 anchor. Statistics:
+[`cm-statistics-horizon1.json`](benchmarks/analysis/cm-statistics-horizon1.json); runs:
+[A](benchmarks/results/coverage-production-a.json), [naive](benchmarks/results/coverage-naive-164.json),
+[B](benchmarks/results/coverage-production-b.json), [closed-book](benchmarks/results/coverage-closed-book-164.json).
+<!-- cm-paired-runs:end -->
+
 **McNemar exact p = 1.0.** Turning the entire chain off moves coverage by one question. Underneath:
 
 - **The claim-grounding check had no occasion to fire.** It tests evidence-ID membership, never
