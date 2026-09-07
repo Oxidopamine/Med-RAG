@@ -3248,7 +3248,8 @@
 }
 
 .rail-item.selected .rail-locator,
-.rail-item.selected .rail-source {
+.rail-item.selected .rail-source,
+.rail-item.selected .rail-flags {
   color: var(--ink-on);
 }
 
@@ -5412,4 +5413,176 @@ button.provenance-fact:hover {
 /* The focus ring is tuned for dark text on light surfaces and vanishes against ink. */
 .app-footer a:focus-visible {
   outline-color: var(--ink-on);
+}
+
+/*
+ * The question bank.
+ *
+ * A second disclosure beside the source control, drawn with the same summary so the two
+ * read as one row of quiet controls. The panel is wider than the scope panel because a
+ * question is a sentence, and it scrolls because the bank is long: a list that grew the
+ * page would push the result off screen every time it opened.
+ */
+.bank-details {
+  position: relative;
+}
+
+.bank-details summary {
+  min-height: var(--control-sm);
+  padding: 0 var(--s-2);
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--text-secondary);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  font-size: var(--t-xs);
+  list-style: none;
+  cursor: pointer;
+}
+
+.bank-details summary::-webkit-details-marker {
+  display: none;
+}
+
+.bank-details summary:hover {
+  background: var(--bg-sunk);
+  border-color: var(--border-strong);
+}
+
+.bank-details[open] .scope-chevron {
+  transform: rotate(180deg);
+}
+
+.bank-panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 20;
+  width: min(600px, calc(100vw - var(--s-8)));
+  max-height: min(70vh, 640px);
+  padding: var(--s-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+  overflow: hidden;
+  background: var(--bg-overlay);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-xl);
+}
+
+.bank-panel .scope-panel-heading p {
+  margin-bottom: 0;
+}
+
+.bank-controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--s-2);
+}
+
+.bank-search {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 var(--s-2);
+  color: var(--text-faint);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-sunk);
+}
+
+.bank-search:focus-within {
+  border-color: var(--border-strong);
+}
+
+.bank-search input {
+  min-width: 0;
+  flex: 1;
+  min-height: var(--control-sm);
+  padding: 0;
+  color: var(--text-primary);
+  background: transparent;
+  border: 0;
+  font-size: var(--t-sm);
+}
+
+.bank-search input:focus {
+  outline: none;
+}
+
+.bank-area {
+  min-height: var(--control-sm);
+  max-width: 220px;
+  padding: 0 var(--s-2);
+  color: var(--text-primary);
+  background: var(--bg-overlay);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  font-size: var(--t-xs);
+}
+
+.bank-count {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--t-2xs);
+}
+
+.bank-list {
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.bank-list button {
+  width: 100%;
+  padding: var(--s-2) var(--s-3);
+  display: grid;
+  gap: 2px;
+  color: var(--text-primary);
+  text-align: left;
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  font-size: var(--t-sm);
+  line-height: 1.4;
+  cursor: pointer;
+}
+
+.bank-list button:hover:not(:disabled),
+.bank-list button:focus-visible {
+  background: var(--bg-sunk);
+  border-color: var(--border-strong);
+}
+
+.bank-list button:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.bank-list button small {
+  color: var(--text-muted);
+  font-size: var(--t-2xs);
+}
+
+.bank-empty {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--t-xs);
+}
+
+@media (max-width: 640px) {
+  .bank-controls {
+    grid-template-columns: 1fr;
+  }
+
+  .bank-area {
+    max-width: none;
+  }
 }

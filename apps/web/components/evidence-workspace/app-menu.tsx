@@ -41,7 +41,9 @@ export function AppMenu() {
       triggerRef.current?.focus();
     }
 
-    function onPointerDown(event: PointerEvent) {
+    // The outside click, not pointerdown: closing before the click completes can move the
+    // control under the pointer, and the click then lands on whatever took its place.
+    function onOutsideClick(event: MouseEvent) {
       const target = event.target;
       if (!(target instanceof Node)) return;
       if (containerRef.current?.contains(target)) return;
@@ -49,10 +51,10 @@ export function AppMenu() {
     }
 
     document.addEventListener("keydown", onKeyDown);
-    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("click", onOutsideClick);
     return () => {
       document.removeEventListener("keydown", onKeyDown);
-      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("click", onOutsideClick);
     };
   }, [open]);
 

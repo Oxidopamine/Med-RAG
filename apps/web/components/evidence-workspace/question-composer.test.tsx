@@ -167,13 +167,13 @@ describe("QuestionComposer", () => {
     // claim to narrow. Coverage is stated instead, and travels unchanged to the request.
     expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
 
-    // The panel names every guideline body this product intends to cover and marks the
+    // The panel names every guideline source this product intends to cover and marks the
     // ones that are not served yet, so the corpus boundary is visible rather than implied
     // by an empty answer. None of them is selectable.
-    const bodies = screen.getByRole("list", { name: "Guideline bodies" });
-    expect(within(bodies).getByText("World Health Organization")).toBeInTheDocument();
+    const bodies = screen.getByRole("list", { name: "Guideline sources" });
+    expect(within(bodies).getByText("WHO HIV guidelines")).toBeInTheDocument();
     expect(within(bodies).getByText("Active")).toBeInTheDocument();
-    expect(within(bodies).getAllByText("Coming soon")).toHaveLength(4);
+    expect(within(bodies).getAllByText("Coming soon")).toHaveLength(3);
     expect(within(bodies).queryByRole("button")).not.toBeInTheDocument();
     expect(within(bodies).queryByRole("checkbox")).not.toBeInTheDocument();
 

@@ -461,10 +461,10 @@ test("starts empty and progressively discloses guidance, examples, scope, and sa
   // filter: every record is scoped WORLD and the serving path widens any selection to
   // include it, so a jurisdiction control could only claim to narrow.
   await page.locator("summary").filter({ hasText: "Sources" }).click();
-  const bodies = page.getByRole("list", { name: "Guideline bodies" });
-  await expect(bodies.getByText("World Health Organization")).toBeVisible();
+  const bodies = page.getByRole("list", { name: "Guideline sources" });
+  await expect(bodies.getByText("WHO HIV guidelines")).toBeVisible();
   await expect(bodies.getByText("Active")).toBeVisible();
-  await expect(bodies.getByText("Coming soon")).toHaveCount(4);
+  await expect(bodies.getByText("Coming soon")).toHaveCount(3);
   await expect(page.getByRole("checkbox")).toHaveCount(0);
 
   await expectNoAxeViolations(page);
@@ -521,8 +521,12 @@ test("connects verified claims to exact and restricted source evidence", async (
   await page.getByRole("textbox", { name: "Organizations" }).blur();
   await ask(page);
 
-  await expect(page.getByText("Evidence review ready", { exact: true })).toBeVisible();
+  // The result is persistent; the completion notice is transient, so it is asserted
+  // second and within the window it stays on screen.
   await expect(page.getByText("Evidence-gated result", { exact: true })).toBeVisible();
+  await expect(page.getByText("Evidence review ready", { exact: true })).toBeVisible({
+    timeout: 5000,
+  });
   await expect(page.getByText("Approved corpus release", { exact: true })).toBeVisible();
   await expect(page.getByText("guidelines-2026-08", { exact: false }).first()).toBeVisible();
   expect(run.submittedBodies).toEqual([
@@ -537,9 +541,7 @@ test("connects verified claims to exact and restricted source evidence", async (
 
   const sourceInspector = page.getByRole("region", { name: "Source inspector" });
 
-  await expect(
-    page.getByRole("heading", { name: "Exact guideline quotation" }),
-  ).toBeVisible();
+  // The passage is read in the inspector alone; the claim-linked quotation panel is gone.
   await expect(page.getByRole("heading", { name: "Source inspector" })).toBeVisible();
   await expect(page.locator("mark")).toHaveText(
     "Viral load should be measured at six months and twelve months after starting antiretroviral therapy, and every twelve months thereafter once suppressed.",
@@ -568,18 +570,20 @@ test("connects verified claims to exact and restricted source evidence", async (
     anchorViewer.getByText("10.0%, 20.0% to 90.0%, 35.0% of the page"),
   ).toBeVisible();
   await expect(
-    anchorViewer.getByRole("img", {
+    anchorViewer.getByRole("figure", { name: "Printed page 231 · PDF page 47 of 2021 edition" }),
+  ).toBeVisible();
+  await expect(
+    anchorViewer.getByRole("group", {
       name: /Printed page 231 \(PDF page 47\), exact region — Consolidated guidelines on HIV prevention, testing, treatment and service delivery, 2021 edition \(source-who-hiv-2021\)/,
     }),
   ).toBeVisible();
 
   await page.getByRole("button", { name: "Next ranked result" }).click();
   await expect(page.getByText("Record 2 of 3", { exact: true })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Evidence provenance" })).toBeVisible();
-  // The same licence decision governs the claim-linked panel and the source inspector.
+  // The licence decision is stated where the passage would have been read.
   await expect(
-    page.getByText("Licence does not permit showing this passage"),
-  ).toHaveCount(2);
+    sourceInspector.getByText("Licence does not permit showing this passage"),
+  ).toBeVisible();
   await expect(
     sourceInspector.getByText("Not available", { exact: true }).first(),
   ).toBeVisible();
@@ -601,19 +605,10 @@ test("connects verified claims to exact and restricted source evidence", async (
     anchorViewer.getByText("Cell C4 of table FollowUpSchedule in 2026"),
   ).toBeVisible();
   await expect(anchorViewer.getByText("FollowUpSchedule!C4")).toBeVisible();
-  await expect(
-    page.getByRole("heading", { name: "Retrieved passage, not cited" }),
-  ).toBeVisible();
   await expect(page.getByRole("button", { name: "Next ranked result" })).toBeDisabled();
-  // Cited and uncited passages are one ranking now, split by a labelled boundary rather
-  // than by two separately-numbered panels - so where the gate stopped citing is visible.
-  await expect(
-    page.getByRole("heading", { name: "Retrieved for this question" }),
-  ).toBeVisible();
-  await expect(page.getByText("Citation stops here", { exact: true })).toBeVisible();
-  await expect(
-    page.getByText("1 retrieved, none carried a claim", { exact: true }),
-  ).toBeVisible();
+  // Cited and uncited passages are one ranking, split by a labelled boundary rather than
+  // by two separately-numbered panels - so where the gate stopped citing is visible.
+  await expect(sourceInspector.getByText("Not cited", { exact: true })).toBeVisible();
 
   const secondClaim = page
     .getByRole("listitem")
@@ -677,6 +672,34 @@ test("falls back to polling when the progress stream is unavailable", async ({ p
   await expect(page.getByText("Answer gate blocked", { exact: true })).toBeVisible();
 });
 
+test("fills the composer from the question bank without submitting", async ({ page }) => {
+  await mockReadiness(page, true);
+  const run = await mockRun(page, verifiedResult);
+  await page.goto("/");
+
+  const bank = page.locator("summary").filter({ hasText: "Question bank" });
+  await bank.click();
+  const search = page.getByRole("searchbox", { name: "Search questions" });
+  await search.fill("straight away");
+  const choice = page.getByRole("list", { name: "Questions" }).getByRole("button").first();
+  await expect(choice).toContainText("diagnosed this morning");
+  await choice.click();
+
+  const textbox = page.getByRole("textbox", { name: "Guideline question" });
+  await expect(textbox).toHaveValue(/diagnosed this morning/);
+  await expect(textbox).toBeFocused();
+  await expect(page.locator("details").filter({ hasText: "Question bank" })).not.toHaveAttribute(
+    "open",
+    "",
+  );
+  expect(run.attempts()).toBe(0);
+
+  await bank.click();
+  await page.keyboard.press("Escape");
+  await expect(bank).toBeFocused();
+  await expectNoAxeViolations(page);
+});
+
 test("keeps the evidence composer usable at a 320px viewport", async ({
   browserName,
   page,
@@ -732,13 +755,14 @@ test("keeps the verified workflow ordered, operable, and accessible on mobile", 
   await page.goto("/");
   await ask(page);
 
+  // The exact-quotation panel was removed: the passage is read in the inspector alone.
+  // What has to stay ordered on a narrow screen is answer, verification, inspector.
   const headings = [
     page.getByRole("heading", { name: "Answer" }),
     page.getByRole("heading", { name: "Verification" }),
-    page.getByRole("heading", { name: "Exact guideline quotation" }),
     page.getByRole("heading", { name: "Source inspector" }),
   ];
-  await expect(headings[3]).toBeVisible();
+  await expect(headings[2]).toBeVisible();
   const positions = await Promise.all(
     headings.map(async (heading) => (await heading.boundingBox())?.y ?? Number.POSITIVE_INFINITY),
   );

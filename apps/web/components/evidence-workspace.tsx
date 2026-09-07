@@ -149,7 +149,10 @@ export function EvidenceWorkspace({
   );
 
   const showTransient = useCallback(
-    (tone: FeedbackTone, title: string, message: string, duration = 4500) => {
+    // Six seconds rather than four and a half: the completion notice arrives after a
+    // review that took minutes, and a reader who looked away for a moment should still
+    // see it. Errors never time out.
+    (tone: FeedbackTone, title: string, message: string, duration = 6000) => {
       if (feedbackTimerRef.current !== null) window.clearTimeout(feedbackTimerRef.current);
       feedbackIdRef.current += 1;
       setTransientFeedback({ id: feedbackIdRef.current, message, title, tone });

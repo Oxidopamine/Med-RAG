@@ -139,10 +139,23 @@ The auto-growing textarea has a 4,000-character limit and grows from 60px to 144
 before scrolling. `Ctrl+Enter` or `Command+Enter` submits; ordinary Enter remains
 available for multiline questions. Compact topic examples fill the field, return
 focus to the end of the inserted question, and never submit without user action. The
-examples are drawn from what the active release can answer - viral-load monitoring,
-treatment failure, PrEP eligibility, testing services - because an example the corpus is
+examples are the featured entries of the question bank in `lib/question-bank.ts` and are
+drawn from what the active release can answer - testing services, PrEP, same-day
+initiation, viral-load monitoring, advanced disease - because an example the corpus is
 guaranteed to abstain on teaches the reader the product is broken rather than out of
 scope.
+
+The question bank itself is a disclosure beside the source control. It lists the full
+bank grouped by clinical area, with a text search and an area filter, and marks areas
+whose release is still planned so that an abstention there reads as expected rather than
+as a fault. Choosing an entry fills the question field and closes the panel; it never
+submits, because the reader may want to edit the population or the decision first, and
+because a bank that fires reviews on click would make a mis-click cost a run. The panel
+follows the source control's behaviour: a native `details` element, closed by Escape or
+by a click outside it, with focus returned to its summary. Both panels close on the
+outside click rather than on pointerdown: closing early shrinks the page while the
+control under the pointer is still waiting for its click, and a submit pressed with a
+panel open was lost that way.
 
 The composer follows this quality bar:
 

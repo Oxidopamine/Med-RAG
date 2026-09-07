@@ -29,40 +29,24 @@ import {
   detectIdentifiers,
   stripIdentifiers,
 } from "@/lib/identifiers";
+import { FEATURED_QUESTIONS } from "@/lib/question-bank";
 import type { SourceFilters } from "@/lib/types";
 
+import { QuestionBank } from "./question-bank";
 import styles from "./workspace.module.css";
 
 /*
  * Examples the active corpus can actually answer.
  *
- * The MVP release is WHO SMART HIV. Offering questions about anticoagulation or
- * colorectal screening taught readers to ask things this corpus is guaranteed to abstain
- * on, and an abstention a person was invited into reads as a broken product rather than
- * an out-of-scope one.
+ * Drawn from the question bank's featured entries, which sit in areas the active release
+ * serves. Offering questions the corpus is guaranteed to abstain on taught readers to ask
+ * them, and an abstention a person was invited into reads as a broken product rather than
+ * an out-of-scope one. The bank itself is the place for the harder questions.
  */
-export const EXAMPLES = [
-  {
-    label: "Viral load monitoring",
-    question:
-      "How often should viral load be monitored for an adult established on antiretroviral therapy?",
-  },
-  {
-    label: "Treatment failure",
-    question:
-      "What do current guidelines recommend when an adult on first-line ART has a confirmed high viral load?",
-  },
-  {
-    label: "PrEP eligibility",
-    question:
-      "Which adults do current guidelines recommend be offered pre-exposure prophylaxis, and what testing is required first?",
-  },
-  {
-    label: "Testing services",
-    question:
-      "What retesting do current guidelines recommend after a reactive HIV rapid diagnostic test?",
-  },
-];
+export const EXAMPLES = FEATURED_QUESTIONS.map((entry) => ({
+  label: entry.purpose,
+  question: entry.question,
+}));
 
 export const EXAMPLE_QUESTIONS = EXAMPLES.map((example) => example.question);
 
@@ -77,33 +61,27 @@ export const EXAMPLE_QUESTIONS = EXAMPLES.map((example) => example.question);
  */
 const SOURCE_BODIES = [
   {
-    id: "WHO",
-    name: "World Health Organization",
-    detail: "Consolidated HIV guidelines, testing services, SMART adaptation kit",
+    id: "WHO_HIV",
+    name: "WHO HIV guidelines",
+    detail: "Consolidated HIV guidelines, testing services and SMART adaptation kits",
     available: true,
   },
   {
-    id: "CDC",
-    name: "US Centers for Disease Control",
-    detail: "HIV treatment, prevention and PrEP clinical guidance",
+    id: "WHO_HYPERTENSION",
+    name: "WHO hypertension guideline",
+    detail: "Pharmacological treatment of hypertension in adults; the first narrative release",
     available: false,
   },
   {
-    id: "DHHS",
-    name: "US DHHS / NIH",
-    detail: "Antiretroviral guidelines for adults, adolescents and pregnancy",
+    id: "WHO_CHRONIC_CARE",
+    name: "WHO chronic-care guidelines",
+    detail: "Adult non-communicable disease and chronic-care guidelines from the WHO catalogue",
     available: false,
   },
   {
-    id: "EACS",
-    name: "European AIDS Clinical Society",
-    detail: "European HIV treatment and comorbidity guidelines",
-    available: false,
-  },
-  {
-    id: "BHIVA",
-    name: "British HIV Association",
-    detail: "UK treatment, monitoring and PrEP guidelines",
+    id: "WHO_CATALOGUE",
+    name: "WHO guideline catalogue",
+    detail: "The approved catalogue in full, minus records whose licence reserves all rights",
     available: false,
   },
 ];
@@ -184,7 +162,11 @@ export function QuestionComposer({
   }, [question]);
 
   useEffect(() => {
-    function handlePointerDown(event: PointerEvent) {
+    // Closed on the outside click rather than on pointerdown. Closing on pointerdown
+    // shrinks the document while the button under the pointer is still waiting for its
+    // pointerup: the page re-scrolls, the button moves, and the click lands on whatever
+    // took its place. A submit pressed with the panel open was silently lost that way.
+    function handleOutsideClick(event: MouseEvent) {
       const details = scopeDetailsRef.current;
       if (details?.open && event.target instanceof Node && !details.contains(event.target)) {
         details.open = false;
@@ -199,10 +181,10 @@ export function QuestionComposer({
       scopeSummaryRef.current?.focus();
     }
 
-    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("click", handleOutsideClick);
     document.addEventListener("keydown", handleEscape);
     return () => {
-      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("click", handleOutsideClick);
       document.removeEventListener("keydown", handleEscape);
     };
   }, []);
@@ -375,7 +357,7 @@ export function QuestionComposer({
             onKeyDown={handleQuestionKeyDown}
             maxLength={4000}
             rows={1}
-            placeholder="e.g., For an adult on first-line ART with a viral load of 1200 copies/mL, what do guidelines recommend?"
+            placeholder="e.g., For a pregnant adult newly starting treatment, which regimen and monitoring schedule do current guidelines recommend?"
             aria-describedby={describedBy}
             aria-invalid={Boolean(questionError)}
             aria-keyshortcuts="Control+Enter Meta+Enter"
@@ -472,7 +454,7 @@ export function QuestionComposer({
                   WORLD, and the serving path widens any selection to include it, so the
                   filter could narrow nothing - it only claimed to. What the corpus does
                   and does not carry is stated instead. */}
-              <ul className={styles["source-bodies"]} aria-label="Guideline bodies">
+              <ul className={styles["source-bodies"]} aria-label="Guideline sources">
                 {SOURCE_BODIES.map((body) => (
                   <li
                     className={body.available ? undefined : styles["source-planned"]}
@@ -559,6 +541,8 @@ export function QuestionComposer({
               </div>
             </div>
           </details>
+
+          <QuestionBank disabled={isBusy} onChoose={chooseExample} />
 
           <div className={styles["composer-utility"]}>
             {isBusy ? (

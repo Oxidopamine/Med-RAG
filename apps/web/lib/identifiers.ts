@@ -53,6 +53,20 @@ const NOT_A_NAME = new Set([
   "prophylaxis", "exposure", "testing", "services", "diagnostic", "monitoring",
   "first", "second", "third", "line", "dose", "dosing", "copies", "count", "confirmed",
   "hiv", "aids", "art", "prep", "pep", "tb", "who", "cdc", "nih", "dhhs", "eacs", "bhiva",
+  // The releases beyond HIV: hypertension, chronic care, the wider WHO catalogue.
+  "blood", "pressure", "hypertension", "hypertensive", "systolic", "diastolic", "target",
+  "targets", "diabetes", "diabetic", "kidney", "renal", "chronic", "acute", "disease",
+  "diseases", "cardiovascular", "heart", "stroke", "coronary", "artery", "atrial",
+  "fibrillation", "obstructive", "pulmonary", "asthma", "cancer", "cervical", "screening",
+  "risk", "assessment", "management", "medication", "medications", "medicine", "medicines",
+  "pharmacological", "lifestyle", "salt", "sodium", "glucose", "cholesterol", "lipid",
+  "lipids", "statin", "statins", "thiazide", "calcium", "channel", "blocker", "blockers",
+  "ace", "inhibitor", "inhibitors", "angiotensin", "receptor", "beta", "hepatitis",
+  "tuberculosis", "preventive", "cryptococcal", "meningitis", "syphilis", "sexually",
+  "transmitted", "infection", "infections", "pregnancy", "pregnant", "breastfeeding",
+  "antenatal", "postnatal", "prevention", "advanced", "package", "care", "primary",
+  "communicable", "noncommunicable", "non-communicable", "digital", "adaptation", "kit",
+  "type", "stage", "grade", "mmhg", "bmi", "ncd", "ncds", "smart",
 ]);
 
 function isNameWord(word: string): boolean {

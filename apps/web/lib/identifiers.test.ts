@@ -31,6 +31,9 @@ describe("detectIdentifiers", () => {
       "Which adults should be offered pre-exposure prophylaxis, and what testing is required first?",
       "Does the World Health Organization recommend retesting after a reactive HIV rapid diagnostic test?",
       "For an adult with a CD4 count of 180 cells/mm3, what prophylaxis is recommended?",
+      "For an adult with Chronic Kidney Disease and Type 2 Diabetes, what Blood Pressure target do the guidelines set?",
+      "Should Tuberculosis Preventive Treatment be offered to an adult with Advanced HIV Disease?",
+      "Is a Calcium Channel Blocker or a Thiazide Diuretic the preferred first medicine for Grade 1 Hypertension?",
     ]) {
       expect(detectIdentifiers(question)).toEqual([]);
     }
