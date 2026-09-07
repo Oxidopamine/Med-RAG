@@ -244,6 +244,19 @@ async function mockRun(
   let attempts = 0;
   const submittedBodies: unknown[] = [];
 
+  // The inspector asks for page images and table rows as the reader moves through the
+  // ranking. Left unmocked, the refused connection lands as an error state, and how soon
+  // it lands depends on the host: fast enough on Linux to beat the assertions, slow
+  // enough on Windows to lose to them. A 404 is the API's stable answer for a page that
+  // has no image, so the frames settle the same way everywhere.
+  await page.route(`${API_URL}/v1/sources/**`, async (route) => {
+    await route.fulfill({
+      contentType: "application/json",
+      status: 404,
+      body: JSON.stringify({ detail: "No rendering for this source page" }),
+    });
+  });
+
   await page.route(`${API_URL}/v1/questions`, async (route) => {
     attempts += 1;
     submittedBodies.push(route.request().postDataJSON());
