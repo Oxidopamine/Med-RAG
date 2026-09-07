@@ -423,6 +423,35 @@ class CorpusReleaseEvidenceRow(Base):
     )
 
 
+class CorpusReleaseMemberRow(Base):
+    """Which decided QA runs compose a composite release.
+
+    Answerable from the registry rather than by reading and trusting a manifest.
+    """
+
+    __tablename__ = "corpus_release_members"
+    __table_args__ = (
+        CheckConstraint(
+            "length(assembly_sha256) = 64",
+            name="ck_corpus_release_members_assembly_digest",
+        ),
+    )
+
+    corpus_release_id: Mapped[str] = mapped_column(
+        ForeignKey("corpus_releases.corpus_release_id", ondelete="RESTRICT"),
+        primary_key=True,
+    )
+    # The QA run, not a member release: a member has no release of its own, which is the
+    # point of DECIDED. Unique across the whole table, because a run composed into two
+    # releases would be indexed and activated under two identities.
+    qa_run_id: Mapped[str] = mapped_column(
+        ForeignKey("corpus_qa_runs.qa_run_id", ondelete="RESTRICT"),
+        primary_key=True,
+        unique=True,
+    )
+    assembly_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+
+
 class CorpusReleaseExceptionRow(Base):
     __tablename__ = "corpus_release_exceptions"
     __table_args__ = (
@@ -538,11 +567,12 @@ class StewardArtifactRow(Base):
         CheckConstraint(
             "kind IN ('INVENTORY_RESPONSE', 'INVENTORY_MANIFEST', 'SOURCE', "
             "'RELEASE_CANDIDATE', 'STRUCTURED_REPORT', 'DEPENDENCY_METADATA', "
-            "'DEPENDENCY_PACKAGE', 'NARRATIVE_SOURCE', 'INPUT_CLOSURE_REPORT', "
+            "'DEPENDENCY_PACKAGE', 'NARRATIVE_SOURCE', 'NARRATIVE_ANALYSIS_REPORT', "
+            "'INPUT_CLOSURE_REPORT', "
             "'AUTHORITY_BINDING', 'EVIDENCE_RECORD', 'MATERIALIZATION_REPORT', "
             "'CORPUS_RELEASE_CANDIDATE', 'EVIDENCE_ARTIFACT_MANIFEST', "
             "'QA_DECISION_BATCH', 'CANONICAL_EVIDENCE_RECORD', "
-            "'CORPUS_RELEASE_BUNDLE', 'BENCHMARK_ACCESS_POLICY', "
+            "'CORPUS_RELEASE_BUNDLE', 'RELEASE_ASSEMBLY', 'BENCHMARK_ACCESS_POLICY', "
             "'BENCHMARK_ADJUDICATION_POLICY', 'BENCHMARK_THRESHOLD_POLICY', "
             "'BENCHMARK_REVIEW_DECISION', 'BENCHMARK_RESOLUTION', "
             "'BENCHMARK_ADJUDICATION_RECORD', 'BENCHMARK_SUITE', "
@@ -927,6 +957,81 @@ class StructuredNarrativeLinkRow(Base):
     status: Mapped[str] = mapped_column(String(64), nullable=False)
 
 
+class NarrativeAnalysisRunRow(Base):
+    """The narrative-topology peer of `structured_package_runs`.
+
+    Keyed the same way - one run per (candidate, item, processor, version) - because the
+    narrative topology is the multi-item one and a census that ignored `inventory_item_id`
+    would return the first document's report for every other document, which is the exact
+    defect recorded against the structured materializer.
+    """
+
+    __tablename__ = "narrative_analysis_runs"
+    __table_args__ = (
+        UniqueConstraint(
+            "reconciliation_candidate_id",
+            "inventory_item_id",
+            "processor_name",
+            "processor_version",
+        ),
+        CheckConstraint(
+            "state IN ('VALIDATED', 'BLOCKED')",
+            name="ck_narrative_analysis_runs_state",
+        ),
+        CheckConstraint(
+            "length(report_sha256) = 64", name="ck_narrative_analysis_runs_report_digest"
+        ),
+        CheckConstraint(
+            "(structured_input_run_id IS NULL AND input_closure_sha256 IS NULL) OR "
+            "(structured_input_run_id IS NOT NULL AND length(input_closure_sha256) = 64)",
+            name="ck_narrative_analysis_runs_input_closure",
+        ),
+        CheckConstraint(
+            "unit_count_total >= 0 AND document_count >= 0",
+            name="ck_narrative_analysis_runs_counts",
+        ),
+    )
+
+    narrative_run_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    reconciliation_candidate_id: Mapped[str] = mapped_column(
+        ForeignKey("reconciliation_release_candidates.candidate_id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    trust_root_id: Mapped[str] = mapped_column(
+        ForeignKey("trust_roots.trust_root_id", ondelete="RESTRICT"), nullable=False
+    )
+    trust_root_sha256: Mapped[str] = mapped_column(
+        ForeignKey("trust_root_revisions.definition_sha256", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    inventory_item_id: Mapped[str] = mapped_column(String(512), nullable=False)
+    source_artifact_sha256: Mapped[str] = mapped_column(
+        ForeignKey("steward_artifacts.sha256", ondelete="RESTRICT"), nullable=False
+    )
+    structured_input_run_id: Mapped[str | None] = mapped_column(
+        ForeignKey("structured_input_runs.input_run_id", ondelete="RESTRICT"),
+        nullable=True,
+    )
+    input_closure_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    processor_name: Mapped[str] = mapped_column(String(100), nullable=False)
+    processor_version: Mapped[str] = mapped_column(String(100), nullable=False)
+    state: Mapped[str] = mapped_column(String(32), nullable=False)
+    report_sha256: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    report: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
+    report_artifact_sha256: Mapped[str] = mapped_column(
+        ForeignKey("steward_artifacts.sha256", ondelete="RESTRICT"), nullable=False
+    )
+    attestation_id: Mapped[str] = mapped_column(
+        ForeignKey("cryptographic_attestations.attestation_id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    document_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    unit_count_total: Mapped[int] = mapped_column(Integer, nullable=False)
+    blockers: Mapped[list[str]] = mapped_column(JSON, nullable=False)
+    completed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
 class StructuredInputRunRow(Base):
     __tablename__ = "structured_input_runs"
     __table_args__ = (
@@ -1060,8 +1165,16 @@ class StructuredNarrativeArtifactRow(Base):
 class MaterializationRunRow(Base):
     __tablename__ = "materialization_runs"
     __table_args__ = (
+        # The item is part of the key. The structured materializer derives one run per
+        # candidate and guards against multi-item candidates at the service level; the
+        # narrative materializer derives one run per (candidate, item) because the
+        # narrative topology is the multi-item one. Keying on the candidate alone would
+        # return the first document's run as every other document's.
         UniqueConstraint(
-            "reconciliation_candidate_id", "materializer_name", "materializer_version"
+            "reconciliation_candidate_id",
+            "inventory_item_id",
+            "materializer_name",
+            "materializer_version",
         ),
         CheckConstraint(
             "state IN ('READY_FOR_QA', 'BLOCKED')",
@@ -1072,6 +1185,13 @@ class MaterializationRunRow(Base):
             name="ck_materialization_runs_digests",
         ),
         CheckConstraint("evidence_count >= 0", name="ck_materialization_runs_evidence_count"),
+        # A run belongs to exactly one topology. Both set would mean a run claiming to
+        # descend from a FHIR package and a narrative census at once; neither would mean a
+        # run with no prior structural statement to have been checked against.
+        CheckConstraint(
+            "(structured_run_id IS NULL) <> (narrative_run_id IS NULL)",
+            name="ck_materialization_runs_one_topology",
+        ),
     )
 
     materialization_run_id: Mapped[str] = mapped_column(String(64), primary_key=True)
@@ -1084,10 +1204,15 @@ class MaterializationRunRow(Base):
         ForeignKey("structured_input_runs.input_run_id", ondelete="RESTRICT"),
         nullable=False,
     )
-    structured_run_id: Mapped[str] = mapped_column(
+    structured_run_id: Mapped[str | None] = mapped_column(
         ForeignKey("structured_package_runs.structured_run_id", ondelete="RESTRICT"),
-        nullable=False,
+        nullable=True,
     )
+    narrative_run_id: Mapped[str | None] = mapped_column(
+        ForeignKey("narrative_analysis_runs.narrative_run_id", ondelete="RESTRICT"),
+        nullable=True,
+    )
+    inventory_item_id: Mapped[str] = mapped_column(String(512), nullable=False)
     materializer_name: Mapped[str] = mapped_column(String(100), nullable=False)
     materializer_version: Mapped[str] = mapped_column(String(100), nullable=False)
     state: Mapped[str] = mapped_column(String(32), nullable=False)
@@ -1150,8 +1275,17 @@ class CorpusQARunRow(Base):
     __tablename__ = "corpus_qa_runs"
     __table_args__ = (
         CheckConstraint(
-            "state IN ('PREPARED', 'VALIDATED')",
+            "state IN ('PREPARED', 'DECIDED', 'VALIDATED')",
             name="ck_corpus_qa_runs_state",
+        ),
+        # A run is VALIDATED exactly when it has been promoted into a release. DECIDED is
+        # the durable condition of a member waiting for the rest of its composite: every
+        # check a VALIDATED run has passed, but not yet told which release it belongs to.
+        CheckConstraint(
+            "(state = 'VALIDATED') = ("
+            "corpus_release_id IS NOT NULL AND bundle_sha256 IS NOT NULL "
+            "AND bundle_artifact_sha256 IS NOT NULL)",
+            name="ck_corpus_qa_runs_promotion",
         ),
         CheckConstraint(
             "evidence_count > 0 AND approved_count >= 0 AND quarantined_count >= 0",
@@ -1200,7 +1334,10 @@ class CorpusQARunRow(Base):
     corpus_release_id: Mapped[str | None] = mapped_column(
         ForeignKey("corpus_releases.corpus_release_id", ondelete="RESTRICT"), nullable=True
     )
-    bundle_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True, unique=True)
+    # Not unique. One run meant one bundle until composite promotion, where every member
+    # of a release shares the one bundle the composite produced. Uniqueness here would
+    # admit only the first member and reject the rest.
+    bundle_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
     bundle_artifact_sha256: Mapped[str | None] = mapped_column(
         ForeignKey("steward_artifacts.sha256", ondelete="RESTRICT"), nullable=True
     )

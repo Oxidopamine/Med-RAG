@@ -6,6 +6,7 @@ import re
 from collections import defaultdict
 from datetime import datetime
 
+from app.corpus_steward.embedding_adapters import unicode_medical_tokens
 from app.corpus_steward.materialization_schemas import (
     MaterializedEvidenceRecord,
 )
@@ -112,6 +113,55 @@ _CARE_SETTING_PATTERNS = (
 )
 
 
+# Narrative block-grouped units, the shape `NarrativeSourceExtractor` emits.
+_NARRATIVE_UNIT = re.compile(r"^pdf:page:(?P<page>\d+):block:(?P<block>\d+)$", re.IGNORECASE)
+
+# Both GRADE registers. "We recommend" is strong and "we suggest" is conditional, and a
+# vocabulary carrying only the first silently discards every conditional recommendation in
+# the corpus - measured on the WHO 2021 consolidated guidelines, that was 8 of 165 known
+# recommendations and the whole difference between recall 0.952 and 1.000. See
+# docs/narrative-role-classification.md.
+_DEONTIC = re.compile(
+    r"\b(should|must|shall|is recommended|are recommended|recommends?|suggests?|"
+    r"be offered|be provided|be given|be started|be initiated|be used|be considered|"
+    r"may be offered|is advised)\b",
+    re.IGNORECASE,
+)
+# Structure that is never a recommendation however it is worded. Shape, never meaning -
+# a rule that decided what a passage *means* would be the relevance judgement D5 refuses.
+_NARRATIVE_NON_EVIDENCE = re.compile(
+    r"^\s*(contents|table of contents|acknowledgements?|abbreviations|acronyms|"
+    r"references|bibliography|annex(?:es)?|appendix|glossary|foreword|preface|"
+    r"list of (?:tables|figures|boxes|contributors)|isbn|sales, rights|"
+    r"web annex|declarations? of interest)\b",
+    re.IGNORECASE,
+)
+_REFERENCE_ENTRY = re.compile(
+    r"^\s*\d{1,3}\.\s+\S.{0,80}?\b(et al|WHO|Geneva|doi:|https?://)", re.IGNORECASE
+)
+# A recommendation is a statement, not a caption or a running fragment. The same floor the
+# published sampling frame used, so the classifier and the measurement agree about shape.
+_MIN_STATEMENT_CHARS = 120
+
+# Population and care-setting language read from the passage itself. The DAK path matches a
+# fixed HIV vocabulary, which on any other disease area yields no population, no
+# APPLICABILITY role, and a role gate that can never pass.
+_NARRATIVE_POPULATION = re.compile(
+    r"\b(adults?|adolescents?|children|infants?|neonates?|newborns?|older people|"
+    r"pregnant (?:people|women)|breastfeeding (?:people|women)|"
+    r"people (?:living )?with [a-z][a-z\- ]{2,40}?|patients? with [a-z][a-z\- ]{2,40}?|"
+    r"women|men|people who [a-z ]{3,30})\b",
+    re.IGNORECASE,
+)
+_NARRATIVE_SETTING = re.compile(
+    r"\b(primary (?:health )?care|secondary care|tertiary care|community(?:-based)? "
+    r"(?:care|settings?)|outpatient (?:care|clinics?|settings?)|inpatient (?:care|settings?)|"
+    r"health facilit(?:y|ies)|hospitals?|antenatal care|postnatal care|"
+    r"laboratory services|emergency (?:care|departments?)|low-resource settings?)\b",
+    re.IGNORECASE,
+)
+
+
 def automated_decision_batch(
     classification_input: QAClassificationInput,
     materialized: dict[str, MaterializedEvidenceRecord],
@@ -197,6 +247,21 @@ def _classify(
             ["unstable-spreadsheet-formula"],
         )
 
+    # A unit that tokenizes to nothing carries no retrievable signal and cannot be
+    # indexed: the sparse adapter refuses it outright ("BM25 input contains no
+    # searchable terms after tokenization"), and BM25 release statistics refuse the
+    # whole release over it. Approving such a unit therefore produces a release that
+    # looks valid and cannot be built. The WHO composite carries three of them - PDF
+    # table-of-contents dot leaders extracted as RATIONALE evidence - and they blocked
+    # vector production 9,240 records in. The same tokenizer the adapter uses decides
+    # it here, so QA and the encoder cannot disagree about what is searchable.
+    if not unicode_medical_tokens(text):
+        return _quarantine(
+            item,
+            [QAQuarantineReason.NON_EVIDENCE],
+            ["content-free-unit"],
+        )
+
     administrative = _administrative_classification(
         content.asset_id, content.source_unit_id, lowered, len(text)
     )
@@ -204,7 +269,8 @@ def _classify(
         reason, rule = administrative
         return _quarantine(item, [reason], [rule])
 
-    roles, base_rule = _base_roles(content.asset_id, content.source_unit_id)
+    narrative = bool(_NARRATIVE_UNIT.match(content.source_unit_id))
+    roles, base_rule = _base_roles(content.asset_id, content.source_unit_id, text)
     if not roles:
         return _quarantine(
             item,
@@ -213,7 +279,7 @@ def _classify(
         )
     rules.append(base_rule)
 
-    applicability = _applicability(text)
+    applicability = _narrative_applicability(text) if narrative else _applicability(text)
     if any(
         (
             applicability.population,
@@ -285,7 +351,19 @@ def _administrative_classification(
     return None
 
 
-def _base_roles(asset_id: str, source_unit_id: str) -> tuple[set[EvidenceRole], str]:
+def _base_roles(
+    asset_id: str, source_unit_id: str, text: str = ""
+) -> tuple[set[EvidenceRole], str]:
+    """Roles for one evidence record.
+
+    The DAK branch reads the *asset*, which is what F2 measured as wrong on 91% of the
+    records it labelled - but it is committed to signed history and cannot move. The
+    narrative branch reads the *passage*, because a narrative asset carries no
+    asset-level signal to abuse: one document is the whole corpus contribution.
+    """
+
+    if _NARRATIVE_UNIT.match(source_unit_id):
+        return _narrative_roles(text)
     if asset_id.endswith("ANNEX_A"):
         return {EvidenceRole.PRIMARY_SUPPORT}, "who-data-dictionary"
     if asset_id.endswith("ANNEX_B"):
@@ -303,6 +381,51 @@ def _base_roles(asset_id: str, source_unit_id: str) -> tuple[set[EvidenceRole], 
             return {EvidenceRole.MONITORING}, "who-indicator-narrative"
         return {EvidenceRole.PRIMARY_SUPPORT}, "who-controlling-narrative"
     return set(), "unknown-source-classification"
+
+
+def _narrative_roles(text: str) -> tuple[set[EvidenceRole], str]:
+    """Decide from the passage's shape and its deontic register, never from its meaning.
+
+    Errs toward labelling, and the asymmetry is deliberate: a missed recommendation is a
+    coverage hole that tells a reader the corpus has nothing, while a wrongly labelled
+    methods paragraph is a retrieval problem the answer lane already handles - a claim
+    whose cited passages do not support it is discarded whole. The role gate proves
+    completeness of kind, never of subject.
+    """
+
+    body = text.strip()
+    if _NARRATIVE_NON_EVIDENCE.match(body) or _REFERENCE_ENTRY.match(body):
+        return set(), "narrative-structural-non-evidence"
+    if len(body) < _MIN_STATEMENT_CHARS:
+        return set(), "narrative-below-statement-length"
+    if _DEONTIC.search(body):
+        return {EvidenceRole.PRIMARY_SUPPORT}, "narrative-deontic-statement"
+    # Prose that carries no obligation is context: it can support applicability, dosing or
+    # monitoring claims alongside a recommendation, but it cannot be the recommendation.
+    return {EvidenceRole.RATIONALE}, "narrative-supporting-prose"
+
+
+def _narrative_applicability(text: str) -> ApplicabilityScope:
+    """Applicability read from the passage rather than from a fixed disease vocabulary."""
+
+    population = {
+        match.group(0).strip().lower() for match in _NARRATIVE_POPULATION.finditer(text)
+    }
+    settings = {match.group(0).strip().lower() for match in _NARRATIVE_SETTING.finditer(text)}
+    exclusion: set[str] = set()
+    for match in re.finditer(
+        r"\b(?:contraindicated (?:for|in)|should not be (?:used|offered|given)|"
+        r"is not recommended (?:for|in)?|not eligible (?:for|if)?)\s+(.{1,140}?)(?=[.;]|$)",
+        text,
+        re.IGNORECASE,
+    ):
+        exclusion.add(match.group(0).strip())
+    return ApplicabilityScope(
+        population=tuple(sorted(population)),
+        care_settings=tuple(sorted(settings)),
+        inclusion_criteria=(),
+        exclusion_criteria=tuple(sorted(exclusion)),
+    )
 
 
 def _applicability(text: str) -> ApplicabilityScope:

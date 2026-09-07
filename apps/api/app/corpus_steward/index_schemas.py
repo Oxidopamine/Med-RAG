@@ -178,6 +178,13 @@ class IndexAttestationContent(CanonicalModel):
     qdrant_collection: str = Field(min_length=1, max_length=255)
     validation_report_sha256: str = Field(pattern=SHA256_PATTERN)
     qa_run_id: str = Field(min_length=1, max_length=64)
+    # A composite release has one QA run per member document, so `qa_run_id` alone cannot
+    # describe what was attested. This lists every member run; it stays empty for a
+    # single-document release, which keeps the 1.0.0 contract additive. The version is not
+    # bumped on purpose: it is shared with the sealed vector batch and is written into
+    # every Qdrant payload as `index_schema_version`, so raising it would invalidate
+    # already-sealed vectors and already-attested collections.
+    qa_run_ids: tuple[str, ...] = ()
     materialized_count: int = Field(gt=0)
     approved_count: int = Field(gt=0)
     quarantined_count: int = Field(ge=0)
@@ -191,6 +198,13 @@ class IndexAttestationContent(CanonicalModel):
             raise ValueError("index attestation QA counts do not reconcile")
         if self.point_count != self.approved_count:
             raise ValueError("index point count must equal the approved evidence count")
+        if self.qa_run_ids:
+            if len(set(self.qa_run_ids)) != len(self.qa_run_ids):
+                raise ValueError("index attestation repeats a QA run")
+            if tuple(sorted(self.qa_run_ids)) != self.qa_run_ids:
+                raise ValueError("index attestation QA runs must be ordered")
+            if self.qa_run_id != self.qa_run_ids[0]:
+                raise ValueError("index attestation QA run is not the first member run")
         return self
 
 

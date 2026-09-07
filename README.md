@@ -10,7 +10,7 @@
 [![License](https://img.shields.io/badge/license-Apache--2.0-green)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.10%2B-3776AB)](apps/api/pyproject.toml)
 [![Node](https://img.shields.io/badge/node-20%2B-339933)](package.json)
-[![Tests](https://img.shields.io/badge/API%20tests-579-success)](#96-checks)
+[![Tests](https://img.shields.io/badge/API%20tests-645-success)](#96-checks)
 [![Corpus](https://img.shields.io/badge/corpus-WHO%20SMART%20HIV-orange)](docs/corpus-steward.md)
 [![Serving](https://img.shields.io/badge/serving-RESEARCH__UNACTIVATED-lightgrey)](#9-reproducibility)
 
@@ -307,7 +307,7 @@ in a modern RAG stack, which is why the list is conservative.
 | Local inference | Torch + Transformers | `torch>=2.5,<3` | Runs against verified local model bytes: the artifact manifest pins a SHA-256 over the model root, and the adapter refuses to load anything else |
 | Optional CPU optimization | OpenVINO + NNCF + optimum-intel | `openvino>=2025.0` | An int8 export path exists for the dense lane; per the runtime contract an optimized runtime may not reuse the float32 vector-batch attestation and must be re-measured with a newly sealed batch |
 | Generation | `anthropic[vertex]`, `anthropic` + boto3, `google-genai` | optional extras | The lane is provider-swappable through a sealed parameter file. Two platform limits are handled explicitly: automatic prompt caching is unavailable on Bedrock and Vertex, so the cache breakpoint is placed on the frozen instruction block; server-side refusal fallbacks are unavailable on both, so a refusal becomes an abstention rather than a silent retry |
-| Tests / lint | pytest, pytest-asyncio, aiosqlite, ruff | `pytest>=8.3,<9` | 579 API tests, including executable safety fixtures: the applicability cases are data files run as tests, so a behaviour change breaks a test rather than a comment |
+| Tests / lint | pytest, pytest-asyncio, aiosqlite, ruff | `pytest>=8.3,<9` | 645 API tests, including executable safety fixtures: the applicability cases are data files run as tests, so a behaviour change breaks a test rather than a comment |
 
 ### 4.2 Web client
 
@@ -1158,7 +1158,7 @@ so startup is slow and the first question is not the one to time.
 ### 9.6 Checks
 
 ```powershell
-.\.venv\Scripts\python -m pytest apps/api/tests     # 579 tests incl. executable safety fixtures
+.\.venv\Scripts\python -m pytest apps/api/tests     # 645 tests incl. executable safety fixtures
 .\.venv\Scripts\python -m ruff check apps/api
 .\.venv\Scripts\python scripts\check_readme_figures.py   # stated figures vs. published runs
 npm run typecheck:web ; npm run test:web ; npm run build:web
@@ -1220,7 +1220,7 @@ apps/
     app/verification/      deterministic required-check gate
     app/reasoning/         retrieval_service, presentation, answer_service, ablation, serving pipeline
     app/corpus_steward/    connectors, ledgers, crypto, QA, indexing, benchmarking, narrative, CLI
-    tests/                 safety + unit suites (~14.4k LOC, 579 tests)
+    tests/                 safety + unit suites (~14.4k LOC, 645 tests)
   web/                     Next.js evidence workspace (~16.7k LOC TS/TSX, excluding generated)
     components/evidence-workspace/   panels, anchor/source viewers, SSE orchestration
     lib/                   generated OpenAPI types, Zod contracts, presentation helpers
@@ -1245,6 +1245,10 @@ scripts/                   ask.py, coverage pipeline, correctness measurement to
 | [docs/roadmap.md](docs/roadmap.md) | Decisions taken, findings, and what is deliberately deferred |
 | [docs/rendering-licence.md](docs/rendering-licence.md) | The three rendering acts and which are permitted |
 | [docs/narrative-only-materialization.md](docs/narrative-only-materialization.md) | How a PDF-only publisher reaches a signed input closure |
+| [docs/narrative-corpus-composition.md](docs/narrative-corpus-composition.md) | One composite release, and the extraction granularity that enters signed history with it |
+| [docs/narrative-role-classification.md](docs/narrative-role-classification.md) | How `evidence_roles` is decided for prose, measured before deciding |
+| [docs/qa-promotion-separation.md](docs/qa-promotion-separation.md) | The `DECIDED` state that separates QA's decision from promotion |
+| [docs/narrative-coverage-frame.md](docs/narrative-coverage-frame.md) | Where coverage questions come from when the corpus is the guideline |
 | [docs/autonomous-guideline-corpus-plan.md](docs/autonomous-guideline-corpus-plan.md) | The target multi-publisher corpus architecture, wider than the current MVP |
 | [docs/frontend.md](docs/frontend.md) | Client workflow, contracts and the workspace |
 | [docs/ingestion.md](docs/ingestion.md) | The authenticated source workflow |
@@ -1255,8 +1259,7 @@ scripts/                   ask.py, coverage pipeline, correctness measurement to
 
 F1 to F3 point the same way: the DAK is operational and tabular, and the clinical assertions a
 reader wants are in its parent narrative guidelines. The current branch builds that path. It is
-recorded here as in-flight work, not as a result, and its design documents are added to the index
-above as they are committed.
+recorded here as in-flight work, not as a result; its design documents are in the index above.
 
 | Piece | Status |
 |---|---|

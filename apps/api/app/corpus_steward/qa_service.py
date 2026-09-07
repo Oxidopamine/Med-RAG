@@ -8,7 +8,11 @@ from app.corpus.releases import SQLCorpusReleaseRepository
 from app.corpus_steward.crypto import Ed25519Signer
 from app.corpus_steward.evidence_extractor import DAKSourceExtractor
 from app.corpus_steward.ledger import SQLReconciliationLedger
-from app.corpus_steward.materialization_schemas import MaterializedEvidenceRecord
+from app.corpus_steward.materialization_schemas import (
+    MaterializedEvidenceRecord,
+    SignedNarrativeAuthorityBinding,
+)
+from app.corpus_steward.narrative_extractor import NarrativeSourceExtractor
 from app.corpus_steward.qa_classification import automated_decision_batch
 from app.corpus_steward.qa_repository import (
     QACandidateContext,
@@ -18,6 +22,8 @@ from app.corpus_steward.qa_repository import (
 )
 from app.corpus_steward.qa_schemas import (
     AnchorReplayResult,
+    CompositeEvidenceVerificationAttestationContent,
+    CompositeMemberVerification,
     EvidenceArtifactManifestContent,
     EvidenceArtifactReference,
     EvidenceVerificationAttestationContent,
@@ -65,6 +71,12 @@ INVENTORY_ATTESTATION_PREDICATE = (
 )
 EVIDENCE_ATTESTATION_PREDICATE = "https://med-rag.local/attestations/release/EVIDENCE_VERIFICATION"
 RELEASE_POLICY_ATTESTATION_PREDICATE = "https://med-rag.local/attestations/release/RELEASE_POLICY"
+# A distinct predicate, because the statement has a different shape: it names every
+# member run rather than one. A verifier that fetched a composite statement expecting
+# the single-run schema should fail on the predicate, not on the parse.
+COMPOSITE_EVIDENCE_ATTESTATION_PREDICATE = (
+    "https://med-rag.local/attestations/release/COMPOSITE_EVIDENCE_VERIFICATION"
+)
 
 
 class QAService:
@@ -79,6 +91,7 @@ class QAService:
         artifacts: ImmutableStewardArtifactStore,
         extractor: DAKSourceExtractor,
         signer: Ed25519Signer,
+        narrative_extractor: NarrativeSourceExtractor | None = None,
     ) -> None:
         self._repository = repository
         self._releases = releases
@@ -87,6 +100,7 @@ class QAService:
         self._ledger = ledger
         self._artifacts = artifacts
         self._extractor = extractor
+        self._narrative_extractor = narrative_extractor or NarrativeSourceExtractor()
         self._signer = signer
 
     async def qa(
@@ -95,7 +109,16 @@ class QAService:
         *,
         release_policy: ReleasePolicy | None = None,
         previous_release_id: str | None = None,
+        promote: bool = True,
     ) -> QAResult:
+        """Decide, and by default promote the result into a release.
+
+        `promote=False` stops at a sealed decision batch. That is what every member of a
+        composite release does: promotion binds evidence to a release id inside the signed
+        record, so a member that promoted itself could never be re-pointed at the composite.
+        The default is `True` so no existing caller changes and the single-document path is
+        the same sequence of calls it has always been. See docs/qa-promotion-separation.md.
+        """
         context = await self._repository.candidate_context(corpus_candidate_id)
         trust_root = await self._trust_roots.get_revision(
             context.authority_binding.content.licensing_trust_root_sha256,
@@ -125,6 +148,11 @@ class QAService:
                 raise RuntimeError("stored corpus release bundle digest is inconsistent")
             return self._result(stored, replays, bundle=bundle)
 
+        if stored.state is QARunState.DECIDED and not promote:
+            # Already decided and not being asked to promote: idempotent, like the
+            # VALIDATED branch above.
+            return self._result(stored, replays, bundle=None)
+
         classification_input = self._classification_input(
             context, stored.qa_run_id, stored.manifest, replays
         )
@@ -146,6 +174,15 @@ class QAService:
             kind=ArtifactKind.QA_DECISION_BATCH,
         )
         await self._ledger.record_artifact(batch_artifact)
+
+        if not promote:
+            await self._repository.record_decision(
+                batch=batch, batch_artifact_sha256=batch_artifact.sha256
+            )
+            decided = await self._repository.existing(corpus_candidate_id)
+            if decided is None:
+                raise RuntimeError("decided QA run was not persisted")
+            return self._result(decided, replays, bundle=None)
 
         approved, decision_digests, canonical_artifacts = self._promote(context, replays, batch)
         await self._ledger.record_artifacts(canonical_artifacts)
@@ -204,6 +241,227 @@ class QAService:
             raise RuntimeError("completed QA run was not persisted")
         return self._result(completed, replays, bundle=bundle)
 
+    async def promote_decided(
+        self,
+        qa_run_ids: tuple[str, ...],
+        *,
+        release_id: str,
+        qdrant_collection: str,
+        release_policy: ReleasePolicy | None = None,
+        previous_release_id: str | None = None,
+    ) -> CorpusReleaseBundle:
+        """Promote several DECIDED runs into one release.
+
+        The composite counterpart of the tail of `qa()`. Every member has already replayed
+        its anchors and sealed a complete decision batch; this binds them to one release id,
+        signs attestations over the union, and registers once through the same registrar a
+        single-document release goes through.
+
+        All members must share one reconciliation candidate. In the narrative topology they
+        do by construction - thirteen guidelines are thirteen *items* of one candidate - and
+        requiring it is what lets the inventory attestation describe the composite honestly
+        rather than describe one member and be signed as if it covered the rest.
+        """
+
+        if not qa_run_ids:
+            raise ValueError("a composite release needs at least one QA run")
+        members = []
+        for qa_run_id in qa_run_ids:
+            candidate_id = await self._repository.candidate_id_for_run(qa_run_id)
+            context = await self._repository.candidate_context(candidate_id)
+            stored = await self._repository.existing(candidate_id)
+            if stored is None or stored.decision_batch is None:
+                raise ValueError(f"QA run {qa_run_id} has no sealed decision batch")
+            if stored.state is not QARunState.DECIDED:
+                raise ValueError(
+                    f"QA run {qa_run_id} is {stored.state.value}, not DECIDED; only a run "
+                    "that decided without promoting can join a composite"
+                )
+            replays = await self._repository.replays(stored.qa_run_id)
+            members.append((context, stored, replays))
+
+        reconciliations = {
+            context.reconciliation.candidate_sha256 for context, _, _ in members
+        }
+        if len(reconciliations) != 1:
+            raise ValueError(
+                "composed QA runs come from different reconciliation candidates; their "
+                "inventory attestation could not describe all of them"
+            )
+
+        approved: list[CorpusEvidenceRecord] = []
+        decision_digests: dict[str, str] = {}
+        artifacts = []
+        verifications = []
+        per_member_approved: list[tuple[QACandidateContext, tuple[CorpusEvidenceRecord, ...]]] = []
+        for context, stored, replays in members:
+            batch = stored.decision_batch
+            member_approved, member_digests, member_artifacts = self._promote(
+                context, replays, batch, release_id=release_id
+            )
+            approved.extend(member_approved)
+            decision_digests.update(member_digests)
+            artifacts.extend(member_artifacts)
+            per_member_approved.append((context, member_approved))
+            verifications.append(
+                CompositeMemberVerification(
+                    qa_run_id=stored.qa_run_id,
+                    corpus_release_candidate_id=(
+                        stored.manifest.content.corpus_release_candidate_id
+                    ),
+                    evidence_artifact_manifest_sha256=(
+                        batch.content.evidence_artifact_manifest_sha256
+                    ),
+                    replay_set_sha256=batch.content.replay_set_sha256,
+                    decision_batch_sha256=batch.batch_sha256,
+                    materialized_count=len(batch.content.decisions),
+                    approved_count=len(member_approved),
+                    quarantined_count=len(batch.content.decisions) - len(member_approved),
+                )
+            )
+        collisions = len(approved) - len({item.evidence_id for item in approved})
+        if collisions:
+            raise ValueError(
+                f"{collisions} evidence ID(s) appear in more than one composed member"
+            )
+        await self._ledger.record_artifacts(tuple(artifacts))
+        approved_tuple = tuple(sorted(approved, key=lambda item: item.evidence_id))
+
+        policy = release_policy or ReleasePolicy()
+        primary_context, primary_stored, _ = members[0]
+        attestations = await self._composite_attestations(
+            context=primary_context,
+            verifications=tuple(verifications),
+            approved=approved_tuple,
+            policy=policy,
+            release_id=release_id,
+            qdrant_collection=qdrant_collection,
+            attested_at=primary_stored.decision_batch.content.decided_at,
+        )
+        bundle = self._bundle(
+            context=primary_context,
+            approved=approved_tuple,
+            decision_digests=decision_digests,
+            policy=policy,
+            release_id=release_id,
+            qdrant_collection=qdrant_collection,
+            attestations=attestations,
+            previous_release_id=previous_release_id,
+            created_at=primary_stored.decision_batch.content.decided_at,
+        )
+        if bundle.activation_blockers():
+            raise RuntimeError(
+                "composite promotion produced a non-activatable release contract: "
+                + ", ".join(bundle.activation_blockers())
+            )
+        trust_root = await self._trust_roots.get_revision(
+            primary_context.authority_binding.content.licensing_trust_root_sha256,
+            trust_root_id=primary_context.reconciliation.content.snapshot.trust_root_id,
+        )
+        # Per member, not once over the union: each member's authority binding names only
+        # its own asset, and `register_promoted_sources` resolves every record's source back
+        # to an asset in the binding it is given. Passing one member's binding for all of
+        # them fails to resolve the others - loudly, but only because that lookup happens to
+        # be strict.
+        for member_context, member_approved in per_member_approved:
+            await self._repository.register_promoted_sources(
+                evidence=member_approved,
+                authority_binding=member_context.authority_binding,
+                trust_root=trust_root,
+            )
+        await self._releases.register_candidate(bundle)
+
+        bundle_bytes = canonical_json_bytes(bundle)
+        bundle_artifact = self._artifacts.put(
+            bundle_bytes,
+            media_type="application/vnd.med-rag.corpus-release-bundle+json",
+            kind=ArtifactKind.CORPUS_RELEASE_BUNDLE,
+        )
+        await self._ledger.record_artifact(bundle_artifact)
+        bundle_sha256 = hashlib.sha256(bundle_bytes).hexdigest()
+        for _context, stored, _replays in members:
+            await self._repository.record_completion(
+                batch=stored.decision_batch,
+                batch_artifact_sha256=stored.decision_batch_artifact_sha256,
+                bundle=bundle,
+                bundle_sha256=bundle_sha256,
+                bundle_artifact_sha256=bundle_artifact.sha256,
+            )
+        return bundle
+
+    async def _composite_attestations(
+        self,
+        *,
+        context: QACandidateContext,
+        verifications: tuple[CompositeMemberVerification, ...],
+        approved: tuple[CorpusEvidenceRecord, ...],
+        policy: ReleasePolicy,
+        release_id: str,
+        qdrant_collection: str,
+        attested_at,
+    ) -> tuple[AttestationReference, ...]:
+        """The three required release attestations, signed over the composite's own content."""
+
+        snapshot = context.reconciliation.content.snapshot
+        reconcile_reference = next(
+            item
+            for item in context.reconciliation.content.stage_attestations
+            if item.predicate_type.rsplit("/", 1)[-1] == "RECONCILE"
+        )
+        inventory_content = InventoryReconciliationAttestationContent(
+            corpus_release_id=release_id,
+            reconciliation_candidate_id=context.reconciliation.content.candidate_id,
+            reconciliation_candidate_sha256=context.reconciliation.candidate_sha256,
+            inventory_snapshot_sha256=canonical_sha256(snapshot),
+            upstream_reconcile_attestation_id=reconcile_reference.attestation_id,
+            complete=True,
+            attested_at=attested_at,
+        )
+        inventory = await self._attestations.record_and_verify(
+            inventory_content,
+            self._signer.sign(canonical_json_bytes(inventory_content)),
+            purpose=AttestationPurpose.STAGE,
+            predicate_type=INVENTORY_ATTESTATION_PREDICATE,
+        )
+        verification_content = CompositeEvidenceVerificationAttestationContent(
+            corpus_release_id=release_id,
+            members=verifications,
+            canonical_evidence_set_sha256=canonical_sha256(
+                {"evidence": [(item.evidence_id, item.sha256) for item in approved]}
+            ),
+            materialized_count=sum(item.materialized_count for item in verifications),
+            approved_count=sum(item.approved_count for item in verifications),
+            quarantined_count=sum(item.quarantined_count for item in verifications),
+            attested_at=attested_at,
+        )
+        verification = await self._attestations.record_and_verify(
+            verification_content,
+            self._signer.sign(canonical_json_bytes(verification_content)),
+            purpose=AttestationPurpose.STAGE,
+            predicate_type=COMPOSITE_EVIDENCE_ATTESTATION_PREDICATE,
+        )
+        policy_content = ReleasePolicyAttestationContent(
+            corpus_release_id=release_id,
+            release_policy_sha256=policy.sha256,
+            inventory_attestation_sha256=inventory.statement_sha256,
+            evidence_verification_attestation_sha256=verification.statement_sha256,
+            qdrant_collection=qdrant_collection,
+            release_contract_validated=True,
+            retrieval_index_status="NOT_BUILT",
+            attested_at=attested_at,
+        )
+        policy_reference = await self._attestations.record_and_verify(
+            policy_content,
+            self._signer.sign(canonical_json_bytes(policy_content)),
+            purpose=AttestationPurpose.STAGE,
+            predicate_type=RELEASE_POLICY_ATTESTATION_PREDICATE,
+        )
+        return (
+            self._manifest_attestation(AttestationStage.INVENTORY_RECONCILIATION, inventory),
+            self._manifest_attestation(AttestationStage.EVIDENCE_VERIFICATION, verification),
+            self._manifest_attestation(AttestationStage.RELEASE_POLICY, policy_reference),
+        )
+
     async def _prepare(
         self, context: QACandidateContext
     ) -> tuple[SignedEvidenceArtifactManifest, str, tuple[AnchorReplayResult, ...]]:
@@ -250,6 +508,20 @@ class QAService:
     def _replay(
         self, context: QACandidateContext, *, replayed_at
     ) -> tuple[AnchorReplayResult, ...]:
+        """Re-extract the preserved bytes and require the stored records to match.
+
+        The extractor is chosen by the run's topology, because replay only means anything
+        when it runs the extractor that produced the evidence. A narrative release replayed
+        with the DAK page extractor finds no `pdf:page:N:block:M` unit for any record, so
+        every record fails replay and quarantines - the check would report a corrupted
+        corpus on a correct one, which is worse than not running it.
+        """
+
+        extractor = (
+            self._narrative_extractor
+            if isinstance(context.authority_binding, SignedNarrativeAuthorityBinding)
+            else self._extractor
+        )
         by_source: dict[str, list] = {}
         for item in context.evidence:
             by_source.setdefault(item.record.content.source_artifact_sha256, []).append(item)
@@ -267,7 +539,7 @@ class QAService:
                 if asset.asset_id == first.asset_id
             )
             try:
-                extracted = self._extractor.extract(
+                extracted = extractor.extract(
                     source_bytes,
                     media_type=binding_asset.media_type,
                     source_uri=binding_asset.source_uri,
@@ -429,6 +701,7 @@ class QAService:
         context: QACandidateContext,
         replays: tuple[AnchorReplayResult, ...],
         batch: SignedQADecisionBatch,
+        release_id: str | None = None,
     ) -> tuple[
         tuple[CorpusEvidenceRecord, ...],
         dict[str, str],
@@ -436,7 +709,12 @@ class QAService:
     ]:
         records = {item.record.content.evidence_id: item.record for item in context.evidence}
         replay_map = {item.evidence_id: item for item in replays}
-        release_id = self._release_id(context.candidate.candidate_sha256, batch.batch_sha256)
+        # A composite passes its own id in; single-document QA derives the one committed
+        # to signed history. The derivation is untouched so the HIV release's identity
+        # cannot move.
+        release_id = release_id or self._release_id(
+            context.candidate.candidate_sha256, batch.batch_sha256
+        )
         promoted: list[CorpusEvidenceRecord] = []
         artifacts = []
         decision_digests = {item.evidence_id: item.sha256 for item in batch.content.decisions}

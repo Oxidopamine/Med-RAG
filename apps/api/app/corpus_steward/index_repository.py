@@ -36,11 +36,22 @@ class IndexReleaseBasis:
     release: CorpusReleaseRecord
     bundle: CorpusReleaseBundle
     bundle_sha256: str
-    qa_run_id: str
+    qa_run_ids: tuple[str, ...]
     materialized_count: int
     approved_count: int
     quarantined_count: int
     source_classes: dict[str, str]
+
+    @property
+    def qa_run_id(self) -> str:
+        """The first member run.
+
+        A composite release is QA'd per document, so it has one run per member and no
+        single run describes it. Callers that predate composites read this; the full
+        membership travels in ``qa_run_ids`` and is what the attestation records.
+        """
+
+        return self.qa_run_ids[0]
 
 
 def _as_utc(value: datetime | None) -> datetime | None:
@@ -61,13 +72,21 @@ class SQLIndexBasisRepository:
             if release_row is None:
                 raise IndexBasisError(f"corpus release not found: {corpus_release_id}")
 
-            qa_run = await session.scalar(
-                select(CorpusQARunRow).where(
-                    CorpusQARunRow.corpus_release_id == corpus_release_id
+            # A composite release is QA'd one document at a time, so it has one VALIDATED
+            # run per member. Selecting a single run here silently compared one member's
+            # decisions against the whole release and refused every multi-document build.
+            qa_runs = (
+                await session.scalars(
+                    select(CorpusQARunRow)
+                    .where(CorpusQARunRow.corpus_release_id == corpus_release_id)
+                    .order_by(CorpusQARunRow.qa_run_id)
                 )
-            )
-            if qa_run is None or qa_run.state != "VALIDATED":
+            ).all()
+            if not qa_runs:
                 raise IndexBasisError("validated QA run is missing for the corpus release")
+            if any(run.state != "VALIDATED" for run in qa_runs):
+                raise IndexBasisError("validated QA run is missing for the corpus release")
+            qa_run_ids = tuple(run.qa_run_id for run in qa_runs)
 
             evidence_rows = (
                 await session.scalars(
@@ -86,7 +105,7 @@ class SQLIndexBasisRepository:
             decision_rows = (
                 await session.scalars(
                     select(EvidenceQADecisionRow)
-                    .where(EvidenceQADecisionRow.qa_run_id == qa_run.qa_run_id)
+                    .where(EvidenceQADecisionRow.qa_run_id.in_(qa_run_ids))
                     .order_by(EvidenceQADecisionRow.evidence_id)
                 )
             ).all()
@@ -137,9 +156,11 @@ class SQLIndexBasisRepository:
             bundle_sha256 = canonical_sha256(bundle)
             if release_row.manifest_sha256 != bundle.manifest.manifest_sha256:
                 raise IndexBasisError("release manifest digest does not match the database")
-            if qa_run.bundle_sha256 != bundle_sha256:
+            # Every member of a composite is promoted against the same assembled bundle,
+            # so all of them must agree with it, not merely one.
+            if any(run.bundle_sha256 != bundle_sha256 for run in qa_runs):
                 raise IndexBasisError("QA bundle digest does not match registered evidence")
-            if qa_run.bundle_artifact_sha256 != bundle_sha256:
+            if any(run.bundle_artifact_sha256 != bundle_sha256 for run in qa_runs):
                 raise IndexBasisError(
                     "QA bundle artifact digest does not match registered evidence"
                 )
@@ -154,12 +175,15 @@ class SQLIndexBasisRepository:
                 raise IndexBasisError("QA ledger decides an evidence record more than once")
             if approved_decisions != {item.evidence_id for item in bundle.evidence}:
                 raise IndexBasisError("approved QA decisions do not match release membership")
-            if len(decision_rows) != qa_run.evidence_count:
+            materialized_count = sum(run.evidence_count for run in qa_runs)
+            member_approved = sum(run.approved_count for run in qa_runs)
+            member_quarantined = sum(run.quarantined_count for run in qa_runs)
+            if len(decision_rows) != materialized_count:
                 raise IndexBasisError("QA decision rows do not cover every materialized record")
             if (
-                len(approved_decisions) != qa_run.approved_count
-                or len(quarantined_decisions) != qa_run.quarantined_count
-                or qa_run.approved_count + qa_run.quarantined_count != qa_run.evidence_count
+                len(approved_decisions) != member_approved
+                or len(quarantined_decisions) != member_quarantined
+                or member_approved + member_quarantined != materialized_count
             ):
                 raise IndexBasisError("QA approved/quarantined counts do not reconcile")
 
@@ -184,10 +208,10 @@ class SQLIndexBasisRepository:
                 release=release,
                 bundle=bundle,
                 bundle_sha256=bundle_sha256,
-                qa_run_id=qa_run.qa_run_id,
-                materialized_count=qa_run.evidence_count,
-                approved_count=qa_run.approved_count,
-                quarantined_count=qa_run.quarantined_count,
+                qa_run_ids=qa_run_ids,
+                materialized_count=materialized_count,
+                approved_count=member_approved,
+                quarantined_count=member_quarantined,
                 source_classes=source_classes,
             )
 

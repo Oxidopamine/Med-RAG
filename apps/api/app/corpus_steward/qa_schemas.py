@@ -29,7 +29,16 @@ QA_WORKFLOW_VERSION = "1.0.0"
 
 
 class QARunState(str, Enum):
+    """Where a QA run sits between anchors replayed and evidence promoted.
+
+    `DECIDED` exists because deciding and promoting are different acts. A composite release
+    binds evidence to one release id, and `CorpusEvidenceRecord.corpus_release_id` is inside
+    the signed record, so a member cannot promote itself and then be re-pointed. It stops
+    here instead, with its decision batch sealed, until assembly promotes the whole set.
+    """
+
     PREPARED = "PREPARED"
+    DECIDED = "DECIDED"
     VALIDATED = "VALIDATED"
 
 
@@ -239,6 +248,73 @@ class InventoryReconciliationAttestationContent(CanonicalModel):
     attested_at: datetime
 
 
+class CompositeMemberVerification(CanonicalModel):
+    """One decided QA run's contribution to a composite release's verification."""
+
+    qa_run_id: str = Field(min_length=1, max_length=64)
+    corpus_release_candidate_id: str = Field(min_length=1, max_length=64)
+    evidence_artifact_manifest_sha256: str = Field(pattern=SHA256_PATTERN)
+    replay_set_sha256: str = Field(pattern=SHA256_PATTERN)
+    decision_batch_sha256: str = Field(pattern=SHA256_PATTERN)
+    materialized_count: int = Field(gt=0)
+    approved_count: int = Field(gt=0)
+    quarantined_count: int = Field(ge=0)
+
+    @model_validator(mode="after")
+    def verify_accounting(self) -> CompositeMemberVerification:
+        if self.approved_count + self.quarantined_count != self.materialized_count:
+            raise ValueError("member verification counts do not reconcile")
+        return self
+
+
+class CompositeEvidenceVerificationAttestationContent(CanonicalModel):
+    """Evidence verification for a release composed from several QA runs.
+
+    A sibling of :class:`EvidenceVerificationAttestationContent`, never a replacement.
+    That model binds one `qa_run_id`, one decision batch and one replay set, because a
+    single-document release has exactly one of each - and it is committed to signed
+    history, so it cannot grow a tuple.
+
+    A composite has one per member, and the manifest admits one attestation per stage, so
+    the composite's statement has to name every member it covers. This is what makes the
+    signature cover what the release actually contains rather than one member of it.
+    `AttestationReference` carries only the stage and the digests, so the manifest is
+    satisfied by either shape.
+    """
+
+    schema_version: Literal[STEWARD_CONTRACT_VERSION] = STEWARD_CONTRACT_VERSION
+    corpus_release_id: str = Field(min_length=1, max_length=64)
+    members: tuple[CompositeMemberVerification, ...] = Field(min_length=1)
+    canonical_evidence_set_sha256: str = Field(pattern=SHA256_PATTERN)
+    materialized_count: int = Field(gt=0)
+    approved_count: int = Field(gt=0)
+    quarantined_count: int = Field(ge=0)
+    attested_at: datetime
+
+    @field_validator("members")
+    @classmethod
+    def sort_unique_members(
+        cls, value: tuple[CompositeMemberVerification, ...]
+    ) -> tuple[CompositeMemberVerification, ...]:
+        runs = [item.qa_run_id for item in value]
+        if len(runs) != len(set(runs)):
+            raise ValueError("a composite verification cannot name a QA run twice")
+        return tuple(sorted(value, key=lambda item: item.qa_run_id))
+
+    @model_validator(mode="after")
+    def verify_accounting(self) -> CompositeEvidenceVerificationAttestationContent:
+        if self.approved_count + self.quarantined_count != self.materialized_count:
+            raise ValueError("composite verification counts do not reconcile")
+        for field, total in (
+            ("materialized_count", self.materialized_count),
+            ("approved_count", self.approved_count),
+            ("quarantined_count", self.quarantined_count),
+        ):
+            if sum(getattr(item, field) for item in self.members) != total:
+                raise ValueError(f"composite {field} must equal the sum of its members")
+        return self
+
+
 class EvidenceVerificationAttestationContent(CanonicalModel):
     schema_version: Literal[STEWARD_CONTRACT_VERSION] = STEWARD_CONTRACT_VERSION
     corpus_release_id: str = Field(min_length=1, max_length=64)
@@ -310,15 +386,20 @@ class QAResult(CanonicalModel):
         if self.state is QARunState.PREPARED:
             if decided or self.decision_batch_sha256 or self.corpus_release_bundle:
                 raise ValueError("a prepared QA result cannot contain decisions or a release")
-        else:
-            if decided != self.evidence_count:
-                raise ValueError("validated QA result must decide every materialized record")
-            if not all(
-                (
-                    self.decision_batch_sha256,
-                    self.corpus_release_bundle,
-                    self.bundle_artifact_sha256,
-                )
-            ):
-                raise ValueError("validated QA result requires a registered release bundle")
+            return self
+        # Both DECIDED and VALIDATED have decided every record - that is what makes them
+        # different from PREPARED, and a DECIDED run is not a partial decision.
+        if decided != self.evidence_count:
+            raise ValueError("a decided QA result must decide every materialized record")
+        if not self.decision_batch_sha256:
+            raise ValueError("a decided QA result requires a sealed decision batch")
+        if self.state is QARunState.DECIDED:
+            # Deliberately symmetric with the VALIDATED case below: a run that has not been
+            # promoted must not carry a release, or the state would be a label rather than
+            # a fact about what happened.
+            if self.corpus_release_bundle or self.bundle_artifact_sha256:
+                raise ValueError("a decided QA result has not been promoted to a release")
+            return self
+        if not all((self.corpus_release_bundle, self.bundle_artifact_sha256)):
+            raise ValueError("validated QA result requires a registered release bundle")
         return self

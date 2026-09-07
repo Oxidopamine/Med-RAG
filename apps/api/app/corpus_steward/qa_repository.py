@@ -38,6 +38,17 @@ from app.persistence.models import (
 from app.schemas.corpus import CorpusEvidenceRecord, CorpusReleaseBundle
 from app.schemas.domain import utc_now
 
+# `ArtifactKind` records *how bytes were acquired*, not whether they may become
+# clinical evidence. The DAK topology acquires its narratives as side-channel
+# NARRATIVE_SOURCE assets; the narrative topology's guideline *is* the inventory
+# SOURCE artifact, and re-acquiring it under a second kind is refused by the ledger
+# because the same bytes must not carry two provenance stories. Widening this check
+# is safe for the same reason `artifact_storage_keys` could be widened: what protects
+# clinical content is the per-asset `evidence_materialization_allowed` policy and the
+# authority binding, both of which run unchanged.
+
+SOURCE_ARTIFACT_KINDS = frozenset({"NARRATIVE_SOURCE", "SOURCE"})
+
 
 class QARepositoryError(RuntimeError):
     pass
@@ -79,6 +90,7 @@ class StoredQARun:
     corpus_release_id: str | None
     bundle_sha256: str | None
     bundle_artifact_sha256: str | None
+    decision_batch_artifact_sha256: str | None
 
 
 def canonical_source_id(asset_id: str) -> str:
@@ -97,6 +109,19 @@ def canonical_source_version_id(asset_id: str, materialized_version_id: str) -> 
 class SQLQARepository:
     def __init__(self, database: Database) -> None:
         self._database = database
+
+    async def candidate_id_for_run(self, qa_run_id: str) -> str:
+        """The corpus release candidate a QA run was taken over.
+
+        Composite promotion is given run ids, because that is what a member *is* once it has
+        decided; every other repository entry point is keyed by the candidate.
+        """
+
+        async with self._database.session() as session:
+            row = await session.get(CorpusQARunRow, qa_run_id)
+            if row is None:
+                raise QARepositoryError(f"QA run not found: {qa_run_id}")
+            return row.corpus_release_candidate_id
 
     async def candidate_context(self, corpus_candidate_id: str) -> QACandidateContext:
         async with self._database.session() as session:
@@ -186,7 +211,8 @@ class SQLQARepository:
                     or record.content.source_unit_id != row.source_unit_id
                     or record.content.source_artifact_sha256 != row.source_artifact_sha256
                     or artifacts[row.artifact_sha256].kind != "EVIDENCE_RECORD"
-                    or artifacts[row.source_artifact_sha256].kind != "NARRATIVE_SOURCE"
+                    or artifacts[row.source_artifact_sha256].kind
+                    not in SOURCE_ARTIFACT_KINDS
                 ):
                     raise QARepositoryError("materialized evidence row is inconsistent")
                 evidence.append(
@@ -242,6 +268,7 @@ class SQLQARepository:
                 corpus_release_id=row.corpus_release_id,
                 bundle_sha256=row.bundle_sha256,
                 bundle_artifact_sha256=row.bundle_artifact_sha256,
+                decision_batch_artifact_sha256=row.decision_batch_artifact_sha256,
             )
 
     async def replays(self, qa_run_id: str) -> tuple[AnchorReplayResult, ...]:
@@ -417,6 +444,50 @@ class SQLQARepository:
                     or not version.approved_for_retrieval
                 ):
                     raise QARepositoryConflictError("canonical source version metadata conflicts")
+
+    async def record_decision(
+        self,
+        *,
+        batch: SignedQADecisionBatch,
+        batch_artifact_sha256: str,
+    ) -> None:
+        """Store a sealed decision batch without promoting it into a release.
+
+        The run stops at DECIDED, which is where every member of a pending composite waits.
+        Deliberately shares nothing with `record_completion` except the columns it does not
+        touch: the release, bundle and their digests stay NULL, and the CHECK constraint
+        added in 0019 is what makes "DECIDED" and "carries no release" the same statement
+        rather than two that could drift apart.
+        """
+
+        content = batch.content
+        approved = sum(item.disposition.value == "APPROVE" for item in content.decisions)
+        quarantined = len(content.decisions) - approved
+        try:
+            async with self._database.session() as session:
+                run = await session.get(CorpusQARunRow, content.qa_run_id)
+                if run is None:
+                    raise QARepositoryError("QA run is missing")
+                if run.state == QARunState.VALIDATED.value:
+                    raise QARepositoryConflictError(
+                        "QA run is already promoted and cannot be reduced to a decision"
+                    )
+                if run.state == QARunState.DECIDED.value:
+                    if run.decision_batch_sha256 != batch.batch_sha256:
+                        raise QARepositoryConflictError(
+                            "QA run already carries a different decision batch"
+                        )
+                    return
+                run.decision_batch_sha256 = batch.batch_sha256
+                run.decision_batch = batch.model_dump(mode="json")
+                run.decision_batch_artifact_sha256 = batch_artifact_sha256
+                run.decision_batch_attestation_id = batch.attestation.attestation_id
+                run.approved_count = approved
+                run.quarantined_count = quarantined
+                run.state = QARunState.DECIDED.value
+                run.completed_at = content.decided_at
+        except IntegrityError as error:
+            raise QARepositoryConflictError("QA decision registry conflict") from error
 
     async def record_completion(
         self,

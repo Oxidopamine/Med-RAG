@@ -53,7 +53,13 @@ from app.schemas.corpus import SHA256_PATTERN, canonical_sha256
 from app.schemas.domain import CanonicalModel
 
 NARRATIVE_PROCESSOR_NAME = "narrative-document-native"
-NARRATIVE_PROCESSOR_VERSION = "1.0.0"
+# 2.0.0: the census moved from page enumeration to `NarrativeSourceExtractor`'s
+# block-grouped units, so a 2.0.0 `unit_inventory_sha256` and a 1.0.0 one over the same
+# bytes are *incomparable* rather than merely different. The report's shape did not change,
+# which is why this is recorded in the version rather than in the schema - and why the bump
+# is major: a minor one would suggest the two could be compared. No 1.0.0 analysis was ever
+# signed, so nothing stored is invalidated by the move.
+NARRATIVE_PROCESSOR_VERSION = "2.0.0"
 
 
 class NarrativeRunState(str, Enum):

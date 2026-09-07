@@ -16,6 +16,7 @@ from app.corpus_steward.materialization_schemas import (
     MaterializationState,
     MaterializedEvidenceArtifactEntry,
     MaterializedEvidenceRecord,
+    NarrativeAnalysisAttachment,
     SignedCorpusReleaseCandidate,
     StructuralMappingAttachment,
 )
@@ -48,15 +49,32 @@ class SQLMaterializationRepository:
     def __init__(self, database: Database) -> None:
         self._database = database
 
-    async def existing(self, candidate_id: str) -> StoredMaterialization | None:
+    async def existing(
+        self,
+        candidate_id: str,
+        *,
+        item_id: str | None = None,
+        materializer_name: str = MATERIALIZER_NAME,
+        materializer_version: str = MATERIALIZER_VERSION,
+    ) -> StoredMaterialization | None:
+        """Look up one stored run.
+
+        ``item_id`` is optional only because the structured path predates it and derives
+        one run per candidate, guarding multi-item candidates at the service level. The
+        narrative path always passes it: its candidates carry many items, and a lookup
+        that ignored the item would return the first document's run as the second
+        document's result.
+        """
+
         async with self._database.session() as session:
-            row = await session.scalar(
-                select(MaterializationRunRow).where(
-                    MaterializationRunRow.reconciliation_candidate_id == candidate_id,
-                    MaterializationRunRow.materializer_name == MATERIALIZER_NAME,
-                    MaterializationRunRow.materializer_version == MATERIALIZER_VERSION,
-                )
-            )
+            filters = [
+                MaterializationRunRow.reconciliation_candidate_id == candidate_id,
+                MaterializationRunRow.materializer_name == materializer_name,
+                MaterializationRunRow.materializer_version == materializer_version,
+            ]
+            if item_id is not None:
+                filters.append(MaterializationRunRow.inventory_item_id == item_id)
+            row = await session.scalar(select(MaterializationRunRow).where(*filters))
             if row is None:
                 return None
             report = MaterializationReport.model_validate(row.report)
@@ -139,6 +157,7 @@ class SQLMaterializationRepository:
         report_artifact_sha256: str,
         authority_binding_artifact_sha256: str,
         input_run_id: str,
+        inventory_item_id: str,
         corpus_candidate: SignedCorpusReleaseCandidate | None,
         candidate_artifact_sha256: str | None,
         evidence_artifact_sha256s: dict[str, str],
@@ -182,12 +201,27 @@ class SQLMaterializationRepository:
             )
         binding: AnyAuthorityBinding = content.authority_binding
         mapping = content.structural_mapping
-        if not isinstance(mapping, StructuralMappingAttachment):
-            # materialization_runs.structured_run_id is still NOT NULL. The narrative
-            # materializer lands with the migration that makes it nullable and adds
-            # narrative_run_id; until then this is a loud stop, not a silent one.
+        # One topology per run, decided by which attachment the report carries. The report
+        # has already validated that its materializer, binding and attachment agree
+        # (`verify_one_topology`), so reading the attachment here is reading a decision
+        # rather than making a second one.
+        structured_run_id = (
+            mapping.structured_run_id
+            if isinstance(mapping, StructuralMappingAttachment)
+            else None
+        )
+        narrative_run_id = (
+            mapping.narrative_run_id
+            if isinstance(mapping, NarrativeAnalysisAttachment)
+            else None
+        )
+        if (structured_run_id is None) == (narrative_run_id is None):
             raise MaterializationRepositoryError(
-                "narrative materialization runs need the nullable structured_run_id column"
+                "materialization run must descend from exactly one source analysis"
+            )
+        if inventory_item_id is None:
+            raise MaterializationRepositoryError(
+                "materialization runs must record the inventory item they cover"
             )
         try:
             async with self._database.session() as session:
@@ -203,7 +237,9 @@ class SQLMaterializationRepository:
                         materialization_run_id=content.materialization_run_id,
                         reconciliation_candidate_id=content.reconciliation_candidate_id,
                         input_run_id=input_run_id,
-                        structured_run_id=mapping.structured_run_id,
+                        structured_run_id=structured_run_id,
+                        narrative_run_id=narrative_run_id,
+                        inventory_item_id=inventory_item_id,
                         materializer_name=content.materializer_name,
                         materializer_version=content.materializer_version,
                         state=state.value,

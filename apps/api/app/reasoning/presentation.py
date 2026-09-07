@@ -66,6 +66,14 @@ class PassageKind(str, Enum):
     """What form a passage takes, read from its structure and never from its role label."""
 
     NARRATIVE = "NARRATIVE"
+    # Prose split by obligation. On the DAK the only narrative was the controlling
+    # narrative, so one NARRATIVE kind was enough; a guideline document is mostly prose
+    # that recommends nothing - methods, evidence summaries, references, front matter -
+    # and admitting all of it would leave the role gate unable to fail closed on the one
+    # corpus shape where it matters most.
+    NARRATIVE_RECOMMENDATION = "NARRATIVE_RECOMMENDATION"
+    NARRATIVE_SUPPORTING = "NARRATIVE_SUPPORTING"
+    NARRATIVE_STRUCTURAL = "NARRATIVE_STRUCTURAL"
     TABLE_NOTE = "TABLE_NOTE"
     DECISION_RULE = "DECISION_RULE"
     SCHEDULE_ENTRY = "SCHEDULE_ENTRY"
@@ -84,13 +92,67 @@ class PassageKind(str, Enum):
 # and the gate that consumes this exists to fail closed.
 RECOMMENDATION_BEARING_KINDS: frozenset[PassageKind] = frozenset(
     {
+        # Prose is admitted unless its *structure* rules a recommendation out - front
+        # matter, a reference entry, a fragment below statement length. That much is safe
+        # on both corpora and strictly more correct than admitting all prose.
+        #
+        # `NARRATIVE_SUPPORTING` - prose carrying no obligation - is deliberately still
+        # admitted. Excluding it would be the sharper gate, and on the narrative path QA
+        # roles already withhold `PRIMARY_SUPPORT` from it, so the gate does not rest on
+        # this. Doing it here as well would change what the *served HIV release* counts,
+        # and that release produced the 0.4631 coverage measurement; tightening it is a
+        # change to a measured system and belongs with a re-measurement, not with this.
         PassageKind.NARRATIVE,
+        PassageKind.NARRATIVE_RECOMMENDATION,
+        PassageKind.NARRATIVE_SUPPORTING,
         PassageKind.TABLE_NOTE,
         PassageKind.DECISION_RULE,
         PassageKind.SCHEDULE_ENTRY,
         PassageKind.INDICATOR_DEFINITION,
     }
 )
+
+
+# The serving-side twin of `qa_classification._narrative_roles`. Deliberately the same
+# shape rules: a passage the corpus labelled recommendation-bearing and the view then
+# refuses to count is a confusing outcome to debug, and a passage the view counts that QA
+# never labelled cannot reach a claim anyway. This one is a *view*, so it can be corrected
+# without a re-release - which is why the two are separate functions rather than one
+# shared import that would tie a view's correction to a corpus digest.
+_PROSE_DEONTIC = re.compile(
+    r"\b(should|must|shall|is recommended|are recommended|recommends?|suggests?|"
+    r"be offered|be provided|be given|be started|be initiated|be used|be considered|"
+    r"may be offered|is advised)\b",
+    re.IGNORECASE,
+)
+_PROSE_STRUCTURAL = re.compile(
+    r"^\s*(contents|table of contents|acknowledgements?|abbreviations|acronyms|"
+    r"references|bibliography|annex(?:es)?|appendix|glossary|foreword|preface|"
+    r"list of (?:tables|figures|boxes|contributors)|isbn|sales, rights|"
+    r"web annex|declarations? of interest)\b",
+    re.IGNORECASE,
+)
+_PROSE_REFERENCE = re.compile(
+    r"^\s*\d{1,3}\.\s+\S.{0,80}?\b(et al|WHO|Geneva|doi:|https?://)", re.IGNORECASE
+)
+
+
+def classify_prose(body: str) -> PassageKind:
+    """Which of the three narrative kinds a prose passage takes."""
+
+    text = body.strip()
+    if _PROSE_STRUCTURAL.match(text) or _PROSE_REFERENCE.match(text):
+        return PassageKind.NARRATIVE_STRUCTURAL
+    # No statement-length floor here, deliberately, though the QA-time twin has one.
+    # "Start ART in all adults." is 24 characters and is a recommendation. QA decides what
+    # *enters* the corpus, under the published frame definition that fixed >=120
+    # characters; a view decides what form a passage takes, and a short sentence is still
+    # a sentence. Applying the floor here would have made the served HIV release stop
+    # counting genuine short recommendations - caught by an existing test.
+    if _PROSE_DEONTIC.search(text):
+        return PassageKind.NARRATIVE_RECOMMENDATION
+    return PassageKind.NARRATIVE_SUPPORTING
+
 
 _KIND_TITLES = {
     PassageKind.DECISION_RULE: "decision rule",
@@ -601,9 +663,10 @@ class PassagePresenter:
             # Page text from a PDF, or any content the extractor did not cell-address.
             # It is already prose; normalising whitespace is the whole of the view.
             body = _normalize(record.content_exact)
+            kind = classify_prose(body)
             return RenderedPassage(
                 evidence_id=record.evidence_id,
-                kind=PassageKind.NARRATIVE,
+                kind=kind,
                 title="",
                 body=body,
                 fingerprint=_fingerprint([body.casefold()]),

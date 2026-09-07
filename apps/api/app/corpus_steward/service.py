@@ -39,6 +39,7 @@ from app.corpus_steward.schemas import (
     VerifiedAttestationReference,
 )
 from app.corpus_steward.storage import ImmutableStewardArtifactStore
+from app.corpus_steward.structured_input_service import NARRATIVE_ANCHORED
 from app.schemas.corpus import canonical_json_bytes, canonical_sha256
 from app.schemas.domain import utc_now
 
@@ -65,7 +66,25 @@ class ReconciliationService:
         self, trust_root_id: str, *, idempotency_key: str
     ) -> ReconciliationReport:
         trust_root = await self._trust_roots.get(trust_root_id)
-        if trust_root.asset_licensing:
+        # A plain comparison, not the validating helper. Reconciliation asks only whether
+        # this is the narrative topology; *validating* the field is the input closure's
+        # job, and raising here on an unrecognised value would move the fail-closed point
+        # to a stage that does not own the decision and change which stage reports it.
+        narrative_topology = (
+            trust_root.connector_config.get("source_topology") == NARRATIVE_ANCHORED
+        )
+        if trust_root.asset_licensing and narrative_topology:
+            # A narrative-anchored publisher has no structured companion to name: every
+            # inventory item *is* its own clinical asset. Acquisition permission is
+            # therefore a property of each licensed asset rather than of one named one,
+            # and the gate is a conjunction - a publisher one of whose documents may not
+            # be acquired does not get acquired on the strength of the others. Whether a
+            # given *item* is licensed at all is checked per item in `_fetch`, because
+            # the item list is not known until the connector has enumerated it.
+            acquisition_allowed = all(
+                policy.acquisition_allowed for policy in trust_root.asset_licensing
+            )
+        elif trust_root.asset_licensing:
             source_asset_id = trust_root.connector_config.get("structured_asset_id")
             if not isinstance(source_asset_id, str) or not source_asset_id:
                 raise ValueError(
@@ -307,7 +326,20 @@ class ReconciliationService:
         exceptions: list[SignedExceptionReference] = []
         blockers: list[str] = []
         content_changed_item_ids: list[str] = []
+        # In the narrative topology `asset_id == item_id`, so every enumerated item must
+        # carry its own licensing policy. `license_for_asset` raises for an item the
+        # trust root never licensed, which is the refusal that keeps an unlicensed
+        # document from ever reaching a closure.
+        narrative_topology = (
+            trust_root.connector_config.get("source_topology") == NARRATIVE_ANCHORED
+        )
         for item in enumeration.items:
+            if narrative_topology and trust_root.asset_licensing:
+                policy = trust_root.license_for_asset(item.item_id)
+                if not policy.acquisition_allowed:
+                    raise ValueError(
+                        f"licensing policy does not permit acquiring {item.item_id}"
+                    )
             previous = await self._ledger.previous_artifact(
                 trust_root.trust_root_id,
                 item.item_id,

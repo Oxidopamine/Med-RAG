@@ -66,6 +66,24 @@ NARRATIVE_ANCHORED = "NARRATIVE_ANCHORED"
 STRUCTURED_INPUT_ATTESTATION_PREDICATE = (
     "https://med-rag.local/attestations/structured/AUTHORITATIVE_INPUT_CLOSURE"
 )
+
+
+def source_topology(trust_root: TrustRootDefinition) -> str:
+    """Which acquisition topology this publisher uses.
+
+    Absent means today's DAK behaviour, so every existing signed trust root keeps
+    resolving exactly as before. ``NARRATIVE_ANCHORED`` is the inverse topology: the
+    inventory source artifact *is* the controlling clinical narrative, rather than a
+    FHIR package with narratives hanging off it as side-channel assets.
+
+    Module-level because more than one stage has to agree about the answer, and two
+    stages parsing the same field independently is how they quietly stop agreeing.
+    """
+
+    declared = trust_root.connector_config.get("source_topology", DAK_STRUCTURED)
+    if declared not in (DAK_STRUCTURED, NARRATIVE_ANCHORED):
+        raise ValueError(f"unknown source_topology: {declared!r}")
+    return str(declared)
 _PACKAGE_ID = re.compile(r"^[a-z][a-z0-9-]*(?:\.[a-z][a-z0-9-]*)+$")
 _EXACT_VERSION = re.compile(
     r"^(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)"
@@ -1004,18 +1022,7 @@ class StructuredInputClosureService:
 
     @staticmethod
     def _topology(trust_root: TrustRootDefinition) -> str:
-        """Which acquisition topology this publisher uses.
-
-        Absent means today's DAK behaviour, so every existing signed trust root keeps
-        resolving exactly as before. ``NARRATIVE_ANCHORED`` is the inverse topology: the
-        inventory source artifact *is* the controlling clinical narrative, rather than a
-        FHIR package with narratives hanging off it as side-channel assets.
-        """
-
-        declared = trust_root.connector_config.get("source_topology", DAK_STRUCTURED)
-        if declared not in (DAK_STRUCTURED, NARRATIVE_ANCHORED):
-            raise ValueError(f"unknown source_topology: {declared!r}")
-        return str(declared)
+        return source_topology(trust_root)
 
     @staticmethod
     def _policy(

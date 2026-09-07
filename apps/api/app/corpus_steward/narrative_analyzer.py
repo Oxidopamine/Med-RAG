@@ -8,11 +8,18 @@ wraps it supplies those, exactly as `StructuredPackageService` wraps `FHIRPackag
 
 The unit inventory this stage signs is only worth signing if materialization can recompute
 it and disagree. That requires both stages to enumerate units the same way, so the census
-runs `DAKSourceExtractor` rather than reimplementing page enumeration. The FHIR path has
-the identical relationship - `structured_service` and materialization both go through
+runs the same extractor rather than reimplementing enumeration. The FHIR path has the
+identical relationship - `structured_service` and materialization both go through
 `FHIRPackageParser` - and the check still catches the failures it exists for: bytes that
 changed between stages, an extractor version that moved underneath a signed report, or a
 materialization run pointed at a different artifact.
+
+That extractor is `NarrativeSourceExtractor`, not `DAKSourceExtractor`. The census is only
+ever run on the narrative topology, and narrative materialization emits block-grouped units
+(docs/narrative-corpus-composition.md, D2). Censusing pages while materialization extracts
+block groups would not weaken the comparison, it would invert it - the digests could never
+agree, so the check would fail on every correct run. The two must move together, and the
+processor version below is what records that they did.
 
 What it does *not* do is retain any clinical text. `unit_inventory_sha256` is a digest over
 ordered `(source_unit_id, sha256(content_exact))` pairs; the text is hashed and dropped.
@@ -31,21 +38,22 @@ conflict between two claims about the same asset.
 
 from __future__ import annotations
 
-import hashlib
 import re
 from dataclasses import dataclass
 
 import pymupdf
 
 from app.corpus_steward.evidence_extractor import (
-    DAKSourceExtractor,
     EvidenceExtractionError,
+)
+from app.corpus_steward.narrative_extractor import (
+    NarrativeSourceExtractor,
+    unit_inventory_digest,
 )
 from app.corpus_steward.narrative_schemas import (
     NarrativeDocumentAnalysis,
     NarrativeDocumentDeclaration,
 )
-from app.schemas.corpus import canonical_sha256
 
 PDF_MEDIA_TYPE = "application/pdf"
 
@@ -193,7 +201,7 @@ def analyse_narrative_document(
     artifact_sha256: str,
     media_type: str,
     source_uri: str,
-    extractor: DAKSourceExtractor | None = None,
+    extractor: NarrativeSourceExtractor | None = None,
 ) -> tuple[NarrativeDocumentAnalysis, DocumentSafetyFindings]:
     """Census one narrative asset. Returns the analysis and its safety findings."""
 
@@ -224,22 +232,17 @@ def analyse_narrative_document(
         # Only enumerate units for a document that passed safety. Running an extractor over
         # bytes already judged unsafe is the thing the safety check exists to prevent.
         try:
-            extracted = (extractor or DAKSourceExtractor()).extract(
+            extracted = (extractor or NarrativeSourceExtractor()).extract(
                 content, media_type=media_type, source_uri=source_uri
             )
         except EvidenceExtractionError as error:
             raise NarrativeAnalysisError(error.reason_code, str(error)) from error
-        pairs = [
-            {
-                "source_unit_id": unit.source_unit_id,
-                "content_sha256": hashlib.sha256(
-                    unit.content_exact.encode("utf-8")
-                ).hexdigest(),
-            }
-            for unit in extracted.units
-        ]
-        unit_count = len(pairs)
-        inventory_digest = canonical_sha256({"units": pairs}) if pairs else None
+        # The one spelling of this digest, shared with the materializer that must
+        # recompute and agree with it. Two implementations of "the same digest" drift, and
+        # the drift would surface as a false UNIT_INVENTORY_MISMATCH on every correct
+        # narrative materialization - a fail-closed gate firing on sound input.
+        unit_count = len(extracted.units)
+        inventory_digest = unit_inventory_digest(extracted.units) if unit_count else None
 
     analysis = NarrativeDocumentAnalysis(
         asset_id=asset_id,

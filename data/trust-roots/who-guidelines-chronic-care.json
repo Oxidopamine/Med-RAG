@@ -1,0 +1,180 @@
+{
+  "allowed_domains": [
+    "iris.who.int",
+    "who.int",
+    "www.who.int"
+  ],
+  "asset_licensing": [
+    {
+      "acquisition_allowed": true,
+      "asset_id": "1d90e72b-7821-4670-96c8-169527be111d",
+      "asset_kind": "NARRATIVE_SOURCE",
+      "credential_reference": null,
+      "evidence_materialization_allowed": true,
+      "license_id": "CC-BY-NC-SA-3.0-IGO",
+      "notes": "Pharmacological treatment of hypertension in adults (2021). Already ingested as CR_e043c79f575f5a54ed09cefaf53d5506. Catalogue Copyright field: (empty).",
+      "policy_url": "https://iris.who.int/handle/10665/344424",
+      "redistribution_allowed": false,
+      "render_allowed": false,
+      "source_declared_license_id": null
+    },
+    {
+      "acquisition_allowed": true,
+      "asset_id": "bc2678f7-6b06-46c0-85d5-026a956107ec",
+      "asset_kind": "NARRATIVE_SOURCE",
+      "credential_reference": null,
+      "evidence_materialization_allowed": true,
+      "license_id": "CC-BY-NC-SA-3.0-IGO",
+      "notes": "Clinical treatment guideline for tobacco cessation in adults (2024). Catalogue Copyright field: (empty).",
+      "policy_url": "https://iris.who.int/handle/10665/377825",
+      "redistribution_allowed": false,
+      "render_allowed": false,
+      "source_declared_license_id": null
+    },
+    {
+      "acquisition_allowed": true,
+      "asset_id": "5e38c3ec-f3ab-421e-82b1-2746b1557b64",
+      "asset_kind": "NARRATIVE_SOURCE",
+      "credential_reference": null,
+      "evidence_materialization_allowed": true,
+      "license_id": "CC-BY-NC-SA-3.0-IGO",
+      "notes": "Haemoglobin cutoffs to define anaemia (2024). Catalogue Copyright field: (empty).",
+      "policy_url": "https://iris.who.int/handle/10665/376196",
+      "redistribution_allowed": false,
+      "render_allowed": false,
+      "source_declared_license_id": null
+    },
+    {
+      "acquisition_allowed": true,
+      "asset_id": "5adb9d35-f0b5-402c-8b48-285e1ba034a0",
+      "asset_kind": "NARRATIVE_SOURCE",
+      "credential_reference": null,
+      "evidence_materialization_allowed": true,
+      "license_id": "CC-BY-NC-SA-3.0-IGO",
+      "notes": "Non-surgical management of chronic primary low back pain in adults (2023). Catalogue Copyright field: (empty).",
+      "policy_url": "https://iris.who.int/handle/10665/374726",
+      "redistribution_allowed": false,
+      "render_allowed": false,
+      "source_declared_license_id": null
+    },
+    {
+      "acquisition_allowed": true,
+      "asset_id": "8ccc77d1-74b5-4c3e-988f-9178d27ca837",
+      "asset_kind": "NARRATIVE_SOURCE",
+      "credential_reference": null,
+      "evidence_materialization_allowed": true,
+      "license_id": "CC-BY-NC-SA-3.0-IGO",
+      "notes": "Risk reduction of cognitive decline and dementia (2019). Catalogue Copyright field: World Health Organization 2019, License: CC BY-NC-SA 3.0 IGO.",
+      "policy_url": "https://iris.who.int/handle/10665/312180",
+      "redistribution_allowed": false,
+      "render_allowed": false,
+      "source_declared_license_id": "CC-BY-NC-SA-3.0-IGO"
+    },
+    {
+      "acquisition_allowed": true,
+      "asset_id": "7ba2d6e8-5a75-4366-bb42-21b08f483da6",
+      "asset_kind": "NARRATIVE_SOURCE",
+      "credential_reference": null,
+      "evidence_materialization_allowed": true,
+      "license_id": "CC-BY-NC-SA-3.0-IGO",
+      "notes": "Prevention and diagnosis of rheumatic fever and rheumatic heart disease (2024). Catalogue Copyright field: CC BY-NC-SA 3.0 IGO.",
+      "policy_url": "https://iris.who.int/handle/10665/379374",
+      "redistribution_allowed": false,
+      "render_allowed": false,
+      "source_declared_license_id": "CC-BY-NC-SA-3.0-IGO"
+    },
+    {
+      "acquisition_allowed": true,
+      "asset_id": "9cf5d50a-c8d1-41e7-b268-8fdde49e2c82",
+      "asset_kind": "NARRATIVE_SOURCE",
+      "credential_reference": null,
+      "evidence_materialization_allowed": true,
+      "license_id": "CC-BY-NC-SA-3.0-IGO",
+      "notes": "Pharmacological and radiotherapeutic management of cancer pain in adults (2019). Catalogue Copyright field: Some rights reserved..",
+      "policy_url": "https://iris.who.int/handle/10665/279700",
+      "redistribution_allowed": false,
+      "render_allowed": false,
+      "source_declared_license_id": null
+    },
+    {
+      "acquisition_allowed": true,
+      "asset_id": "7d024a2a-7e93-47f5-9d6c-a5773198d7b6",
+      "asset_kind": "NARRATIVE_SOURCE",
+      "credential_reference": null,
+      "evidence_materialization_allowed": true,
+      "license_id": "CC-BY-NC-SA-3.0-IGO",
+      "notes": "Use of lower-sodium salt substitutes (2025). Catalogue Copyright field: (empty).",
+      "policy_url": "https://iris.who.int/handle/10665/380227",
+      "redistribution_allowed": false,
+      "render_allowed": false,
+      "source_declared_license_id": null
+    },
+    {
+      "acquisition_allowed": true,
+      "asset_id": "ea6c99f0-3f26-45a6-87e2-5c32b548bb77",
+      "asset_kind": "NARRATIVE_SOURCE",
+      "credential_reference": null,
+      "evidence_materialization_allowed": true,
+      "license_id": "CC-BY-NC-SA-3.0-IGO",
+      "notes": "Integrated care for older people: community-level interventions (2017). Catalogue Copyright field: World Health Organization-Licence: CC BY-NC-SA 3.0 IGO.",
+      "policy_url": "https://iris.who.int/handle/10665/258981",
+      "redistribution_allowed": false,
+      "render_allowed": false,
+      "source_declared_license_id": "CC-BY-NC-SA-3.0-IGO"
+    },
+    {
+      "acquisition_allowed": true,
+      "asset_id": "15be49f4-4952-4167-a7aa-2b9963110de1",
+      "asset_kind": "NARRATIVE_SOURCE",
+      "credential_reference": null,
+      "evidence_materialization_allowed": true,
+      "license_id": "CC-BY-NC-SA-3.0-IGO",
+      "notes": "Global recommendations on physical activity for health (2010). Catalogue Copyright field: (empty).",
+      "policy_url": "https://iris.who.int/handle/10665/44399",
+      "redistribution_allowed": false,
+      "render_allowed": false,
+      "source_declared_license_id": null
+    }
+  ],
+  "connector_config": {
+    "allow_unsuffixed_language": false,
+    "hub_url": "https://www.who.int/api/hubs/publications",
+    "iris_api_base": "https://iris.who.int/server/api",
+    "language_suffix": "-eng",
+    "page_size": 100,
+    "publishing_office_id": "c09761c0-ab8e-4cfa-9744-99509c4d306b",
+    "resolve_missing_artifacts": true,
+    "scope_declaration": "WHO adult chronic-care guidelines, selected by survey of the full 358-record GRC-approved catalogue on 2026-08-31 rather than by assumption. Excludes every record whose catalogue Copyright field declares all rights reserved, every infectious-disease and obstetric record, and the paediatric-only guidelines. This is close to the ceiling of what WHO publishes for adult internal medicine: the catalogue holds four records mentioning a core internal-medicine condition and three of those are hypertension. Breadth beyond this needs a non-WHO publisher.",
+    "scope_item_ids": [
+      "15be49f4-4952-4167-a7aa-2b9963110de1",
+      "1d90e72b-7821-4670-96c8-169527be111d",
+      "5adb9d35-f0b5-402c-8b48-285e1ba034a0",
+      "5e38c3ec-f3ab-421e-82b1-2746b1557b64",
+      "7ba2d6e8-5a75-4366-bb42-21b08f483da6",
+      "7d024a2a-7e93-47f5-9d6c-a5773198d7b6",
+      "8ccc77d1-74b5-4c3e-988f-9178d27ca837",
+      "9cf5d50a-c8d1-41e7-b268-8fdde49e2c82",
+      "bc2678f7-6b06-46c0-85d5-026a956107ec",
+      "ea6c99f0-3f26-45a6-87e2-5c32b548bb77"
+    ],
+    "source_topology": "NARRATIVE_ANCHORED",
+    "title": "WHO guidelines - non-communicable disease expansion candidate (parked)"
+  },
+  "connector_name": "who-guidelines-hub",
+  "connector_version": "1.0.0",
+  "enabled": true,
+  "jurisdictions": [
+    "WORLD"
+  ],
+  "polling_interval_seconds": 86400,
+  "product_families": [
+    "WHO_GUIDELINES_REVIEW_COMMITTEE_APPROVED_GUIDELINE"
+  ],
+  "publisher_id": "PUB_WHO",
+  "publisher_name": "World Health Organization",
+  "schema_version": "1.0.0",
+  "trust_root_id": "WHO_GUIDELINES_CHRONIC_CARE",
+  "trusted_stage_key_ids": [
+    "local-steward-stage"
+  ]
+}

@@ -38,6 +38,10 @@ class ExtractedAsset:
     expected_source_units: int
     empty_source_units: int
     units: tuple[ExtractedEvidenceUnit, ...]
+    # Narrative extraction removes running headers and footers. Counted here so the drop
+    # is visible to coverage accounting rather than silent. Always 0 on the DAK path,
+    # which removes nothing.
+    dropped_boilerplate_blocks: int = 0
 
 
 class DAKSourceExtractor:

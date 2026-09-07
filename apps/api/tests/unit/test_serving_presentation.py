@@ -320,13 +320,51 @@ def test_row_forms_are_classified_from_structure(
 
 
 def test_narrative_passes_through_unlabelled() -> None:
+    """Prose renders as prose, and is still recommendation-bearing.
+
+    The kind refined from `NARRATIVE` to `NARRATIVE_SUPPORTING` when prose gained a shape
+    classification. That is a finer label for the same passage, not a behaviour change:
+    what the role gate consumes is `is_recommendation_bearing`, and it is unchanged. Only
+    `NARRATIVE_STRUCTURAL` - front matter and reference entries - stops counting.
+    """
+
     rendered = PassagePresenter().render(
         evidence("EV_PDF", "37\n\n\n\nStart ART   in all adults.", table_id=None)
     )
 
-    assert rendered.kind is PassageKind.NARRATIVE
+    assert rendered.kind is PassageKind.NARRATIVE_SUPPORTING
     assert rendered.is_recommendation_bearing
     assert rendered.text == "37\n\nStart ART in all adults."
+
+
+def test_front_matter_and_references_stop_being_recommendation_bearing() -> None:
+    """The one behaviour change, pinned.
+
+    A reference list cannot carry a recommendation however it is labelled, and admitting
+    all prose is what left the role gate unable to fail closed on a prose corpus.
+    """
+
+    for body in (
+        "References",
+        "1. Smith J, Jones A et al. Antiretroviral therapy outcomes. Geneva: WHO; 2019.",
+        "Acknowledgements\n\nThis guideline was developed with the support of many people.",
+    ):
+        rendered = PassagePresenter().render(evidence("EV_X", body, table_id=None))
+        assert rendered.kind is PassageKind.NARRATIVE_STRUCTURAL, body
+        assert not rendered.is_recommendation_bearing, body
+
+
+def test_a_deontic_statement_is_classified_as_a_recommendation() -> None:
+    """Both GRADE registers, because "we suggest" is how a conditional one is written."""
+
+    for body in (
+        "Adults with confirmed hypertension should be started on treatment and reviewed.",
+        "WHO suggests using an HPV DNA primary screening test with triage rather than "
+        "without triage among the general population of women.",
+    ):
+        rendered = PassagePresenter().render(evidence("EV_X", body, table_id=None))
+        assert rendered.kind is PassageKind.NARRATIVE_RECOMMENDATION, body
+        assert rendered.is_recommendation_bearing, body
 
 
 class _Sparse:

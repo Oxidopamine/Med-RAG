@@ -123,6 +123,14 @@
           "title": "Qa Run Id",
           "type": "string"
         },
+        "qa_run_ids": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Qa Run Ids",
+          "type": "array"
+        },
         "qdrant_collection": {
           "maxLength": 255,
           "minLength": 1,

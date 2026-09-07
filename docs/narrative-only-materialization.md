@@ -340,6 +340,13 @@ Ordered; each is independently reviewable.
 8. **CLI** — `analyze-narrative <candidate_id> --item-id`, mirroring `process-structured`.
 9. **Enable the WHO NCD trust root** and run all 13 items end to end.
 
+**Superseded in part, 2026-08-30.** Item 7 is replaced by items 1–3 of
+[narrative-corpus-composition.md](narrative-corpus-composition.md), which decides the unit
+granularity this note deferred and gives the narrative path its own extractor identity.
+Item 9 is replaced by item 6 there: thirteen items end to end would produce thirteen
+releases of which serving can hold one, so the composite release candidate lands first and
+the first narrative corpus is one guideline, read.
+
 ## Decisions
 
 Accepted 2026-08-27.

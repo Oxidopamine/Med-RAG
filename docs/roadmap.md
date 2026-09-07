@@ -327,8 +327,18 @@ than pending.
 - parked: `data/trust-roots/who-guidelines-ncd.json`, an authored but `enabled: false`
   NCD expansion candidate. It cannot be reconciled to evidence until narrative-only
   materialization exists
-- blocked: PDF-only sources cannot reach evidence. `MaterializationService.materialize`
-  requires a structured report, which on the HIV path came from FHIR package processing
+- was blocked, now partly open: PDF-only sources could not reach evidence because
+  `MaterializationService.materialize` requires a structured report, which on the HIV path
+  came from FHIR package processing. A `NARRATIVE_ANCHORED` topology now carries a PDF-only
+  publisher to a signed input closure and a signed structural census; materialization
+  itself is still the DAK branch only
+- decided 2026-08-30, before anything narrative is signed
+  ([narrative-corpus-composition.md](narrative-corpus-composition.md)): a multi-document
+  corpus composes into **one** composite release, because the collection is the unit of
+  retrieval and serving N releases would be a different fusion rather than a wider filter;
+  and a narrative PDF unit is a bounded group of layout blocks with running boilerplate
+  dropped, under a **new extractor identity**, because the extractor's output is what
+  anchor replay must reproduce and `DAKSourceExtractor` is frozen by the HIV release
 - add licensed and released XML/JSON/JATS publisher connectors
 - retain credential-gated NICE integration until licensed API credentials are provisioned
 

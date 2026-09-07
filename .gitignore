@@ -46,3 +46,5 @@ apps/api/build/
 # project documentation, and are not tracked.
 apps/web/AGENTS.md
 apps/web/CLAUDE.md
+# Content-addressed steward artifacts written under the API package during local runs.
+apps/api/data/local/

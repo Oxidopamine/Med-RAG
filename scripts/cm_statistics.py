@@ -890,9 +890,16 @@ def records_by_id(run: dict[str, Any]) -> dict[str, dict[str, Any]]:
     return {record["question_id"]: record for record in run["results"]}
 
 
+def premise_kind(kind: str | None) -> str:
+    """The plan's five premise kinds; every narrative subkind the presenter emits is NARRATIVE."""
+
+    name = str(kind or "").upper()
+    return "NARRATIVE" if name.startswith("NARRATIVE") else name
+
+
 def passage_kinds(record: dict[str, Any]) -> dict[str, str]:
     return {
-        passage["evidence_id"]: str(passage.get("kind") or "").upper()
+        passage["evidence_id"]: premise_kind(passage.get("kind"))
         for passage in (record.get("retrieval") or {}).get("passages") or []
     }
 

@@ -155,3 +155,54 @@ def test_cli_qa_has_no_manual_decision_flags_or_review_commands() -> None:
     commands = parser._subparsers._group_actions[0].choices
     assert "qa-preclassify" not in commands
     assert "qa-finalize-review" not in commands
+
+
+def test_content_free_units_are_quarantined_not_approved() -> None:
+    """A dot leader carries no searchable term, so it must never reach the index.
+
+    Three such units - PDF table-of-contents leaders extracted as RATIONALE evidence -
+    were approved into the WHO composite release and stopped vector production 9,240
+    records in, because the sparse adapter refuses text that tokenizes to nothing
+    (`embedding_adapters.py`, "BM25 input contains no searchable terms after
+    tokenization"). QA has to refuse them first, or it keeps producing releases that
+    look valid and cannot be built.
+    """
+
+    leader = ". " * 60
+    records = (
+        evidence_record("EV_dotleader", leader.strip(), source_unit_id="pdf:page:4:unit:2"),
+        evidence_record(
+            "EV_real",
+            "For HIV-positive adults with CD4 < 200 cells/mm start prophylaxis; "
+            "strong recommendation based on high-certainty evidence.",
+        ),
+    )
+    items = tuple(
+        QAClassificationInputItem(
+            evidence_id=record.content.evidence_id,
+            materialized_evidence_sha256=record.evidence_sha256,
+            asset_id=record.content.asset_id,
+            source_unit_id=record.content.source_unit_id,
+            replay_passed=True,
+        )
+        for record in records
+    )
+    batch = automated_decision_batch(
+        QAClassificationInput(
+            qa_run_id="QA_test",
+            corpus_release_candidate_id="CRC_test",
+            evidence_artifact_manifest_sha256="c" * 64,
+            evidence_count=len(records),
+            replay_passed_count=len(records),
+            replay_failed_count=0,
+            items=items,
+        ),
+        {record.content.evidence_id: record for record in records},
+        materialization_candidate_id="CRC_test",
+        decided_at=NOW,
+    )
+
+    decisions = {item.evidence_id: item for item in batch.decisions}
+    assert decisions["EV_dotleader"].disposition is QADisposition.QUARANTINE
+    assert QAQuarantineReason.NON_EVIDENCE in decisions["EV_dotleader"].quarantine_reasons
+    assert decisions["EV_real"].disposition is QADisposition.APPROVE

@@ -10,6 +10,7 @@ from datetime import timezone
 from pathlib import Path
 
 from pydantic import ValidationError
+from sqlalchemy.exc import SQLAlchemyError
 
 from app.core.config import get_settings
 from app.corpus.releases import SQLCorpusReleaseRepository
@@ -89,6 +90,10 @@ from app.corpus_steward.model_artifacts import (
     build_model_artifact_manifest,
     verify_model_artifact,
 )
+from app.corpus_steward.narrative_extractor import NarrativeSourceExtractor
+from app.corpus_steward.narrative_repository import SQLNarrativeAnalysisRepository
+from app.corpus_steward.narrative_schemas import NarrativeRunState
+from app.corpus_steward.narrative_service import NarrativeSourceAnalysisService
 from app.corpus_steward.qa_repository import SQLQARepository
 from app.corpus_steward.qa_schemas import ReleasePolicy
 from app.corpus_steward.qa_service import QAService
@@ -106,6 +111,10 @@ from app.corpus_steward.qwen_runtime_matrix import (
 from app.corpus_steward.registry import (
     SQLAttestationRepository,
     SQLTrustRootRegistry,
+)
+from app.corpus_steward.release_assembly_service import (
+    ReleaseAssemblyError,
+    ReleaseAssemblyService,
 )
 from app.corpus_steward.reranker_runtime_matrix import (
     RERANKER_RUNTIME_MATRIX_CONTRACT_VERSION,
@@ -1490,6 +1499,180 @@ async def materialize(arguments: argparse.Namespace) -> int:
         await database.close()
 
 
+async def analyze_narrative(arguments: argparse.Namespace) -> int:
+    """Census one narrative guideline document and sign the result.
+
+    Exits 5 on a blocked report, the same status `process-structured` uses. The exit codes
+    name the *stage class* rather than the topology: a caller reacting to "source analysis
+    refused this artifact" should not have to know which kind of source it was.
+    """
+
+    database = Database(arguments.database_url)
+    try:
+        artifacts = ImmutableStewardArtifactStore(arguments.artifact_store)
+        result = await NarrativeSourceAnalysisService(
+            trust_roots=SQLTrustRootRegistry(database),
+            source_repository=SQLStructuredPackageRepository(database),
+            input_repository=SQLStructuredInputRepository(database),
+            repository=SQLNarrativeAnalysisRepository(database),
+            ledger=SQLReconciliationLedger(database),
+            attestations=SQLAttestationRepository(database),
+            artifacts=artifacts,
+            signer=_signer(arguments),
+        ).analyse(arguments.candidate_id, item_id=arguments.item_id)
+        rendered = json.dumps(
+            result.model_dump(mode="json"),
+            indent=2 if arguments.output else None,
+            sort_keys=True,
+        )
+        if arguments.output:
+            arguments.output.parent.mkdir(parents=True, exist_ok=True)
+            arguments.output.write_text(rendered + "\n", encoding="utf-8")
+        content = result.report.content
+        print(
+            json.dumps(
+                {
+                    "state": result.state.value,
+                    "reconciliation_candidate_id": arguments.candidate_id,
+                    "narrative_run_id": content.narrative_run_id,
+                    "inventory_item_id": content.inventory_item_id,
+                    "report_sha256": result.report.report_sha256,
+                    "unit_count_total": content.unit_count_total,
+                    "promotion_eligible": content.promotion_eligible,
+                    "checks": {
+                        check.code.value: check.outcome.value for check in content.checks
+                    },
+                    "blockers": list(content.blockers),
+                    "warnings": list(content.warnings),
+                    "output": str(arguments.output) if arguments.output else None,
+                },
+                sort_keys=True,
+            )
+        )
+        return 5 if result.state is NarrativeRunState.BLOCKED else 0
+    finally:
+        await database.close()
+
+
+async def materialize_narrative(arguments: argparse.Namespace) -> int:
+    """Extract anchored evidence from one narrative document and sign a corpus RC.
+
+    Exits 7 on a blocked report, the same status `materialize` uses, for the same reason.
+    """
+
+    database = Database(arguments.database_url)
+    try:
+        artifacts = ImmutableStewardArtifactStore(arguments.artifact_store)
+        result = await MaterializationService(
+            trust_roots=SQLTrustRootRegistry(database),
+            source_repository=SQLStructuredPackageRepository(database),
+            input_repository=SQLStructuredInputRepository(database),
+            repository=SQLMaterializationRepository(database),
+            ledger=SQLReconciliationLedger(database),
+            attestations=SQLAttestationRepository(database),
+            artifacts=artifacts,
+            extractor=DAKSourceExtractor(),
+            signer=_signer(arguments),
+            narrative_repository=SQLNarrativeAnalysisRepository(database),
+            narrative_extractor=NarrativeSourceExtractor(),
+        ).materialize_narrative(arguments.candidate_id, item_id=arguments.item_id)
+        if arguments.output:
+            rendered = json.dumps(result.model_dump(mode="json"), indent=2, sort_keys=True)
+            arguments.output.parent.mkdir(parents=True, exist_ok=True)
+            arguments.output.write_text(rendered + "\n", encoding="utf-8")
+        candidate = result.corpus_release_candidate
+        content = result.report.content
+        print(
+            json.dumps(
+                {
+                    "state": result.state.value,
+                    "reconciliation_candidate_id": arguments.candidate_id,
+                    "materialization_run_id": content.materialization_run_id,
+                    "materializer": (
+                        f"{content.materializer_name}@{content.materializer_version}"
+                    ),
+                    "narrative_run_id": content.structural_mapping.narrative_run_id,
+                    "corpus_release_candidate_id": (
+                        candidate.content.corpus_release_candidate_id
+                        if candidate is not None
+                        else None
+                    ),
+                    "candidate_sha256": (
+                        candidate.candidate_sha256 if candidate is not None else None
+                    ),
+                    "report_sha256": result.report.report_sha256,
+                    "evidence_count": len(content.evidence),
+                    "coverage_complete": content.coverage.complete,
+                    "blockers": list(content.blockers),
+                    "output": str(arguments.output) if arguments.output else None,
+                },
+                sort_keys=True,
+            )
+        )
+        return 7 if result.state is MaterializationState.BLOCKED else 0
+    finally:
+        await database.close()
+
+
+async def assemble_release(arguments: argparse.Namespace) -> int:
+    """Compose several QA'd documents into the one release serving can hold.
+
+    Exits 9 when assembly refuses. A new status rather than a reused one: every existing
+    code names a stage that decides about *one* artifact, and this one decides about the
+    relationship between several, so a caller that sees 9 knows the members were each fine
+    and their composition was not.
+    """
+
+    database = Database(arguments.database_url)
+    try:
+        service = ReleaseAssemblyService(
+            database=database,
+            releases=SQLCorpusReleaseRepository(database),
+            ledger=SQLReconciliationLedger(database),
+            attestations=SQLAttestationRepository(database),
+            artifacts=ImmutableStewardArtifactStore(arguments.artifact_store),
+            signer=_signer(arguments),
+        )
+        try:
+            assembly = await service.assemble(
+                tuple(arguments.qa_run_id),
+                previous_release_id=arguments.previous_release_id,
+            )
+        except ReleaseAssemblyError as error:
+            print(json.dumps({"state": "REFUSED", "reason": str(error)}, sort_keys=True))
+            return 9
+        content = assembly.content
+        if arguments.output:
+            rendered = json.dumps(assembly.model_dump(mode="json"), indent=2, sort_keys=True)
+            arguments.output.parent.mkdir(parents=True, exist_ok=True)
+            arguments.output.write_text(rendered + "\n", encoding="utf-8")
+        print(
+            json.dumps(
+                {
+                    "state": "ASSEMBLED",
+                    "corpus_release_id": content.corpus_release_id,
+                    "assembly_sha256": assembly.assembly_sha256,
+                    "manifest_sha256": content.manifest_sha256,
+                    "qdrant_collection": content.qdrant_collection,
+                    "evidence_count": content.evidence_count,
+                    "members": [
+                        {
+                            "qa_run_id": member.qa_run_id,
+                            "member_release_id": member.member_release_id,
+                            "evidence_count": member.evidence_count,
+                        }
+                        for member in content.members
+                    ],
+                    "output": str(arguments.output) if arguments.output else None,
+                },
+                sort_keys=True,
+            )
+        )
+        return 0
+    finally:
+        await database.close()
+
+
 async def qa(arguments: argparse.Namespace) -> int:
     database = Database(arguments.database_url)
     try:
@@ -1744,6 +1927,7 @@ async def qdrant_attest(arguments: argparse.Namespace) -> int:
             qdrant_collection=report.content.qdrant_collection,
             validation_report_sha256=report.report_sha256,
             qa_run_id=basis.qa_run_id,
+            qa_run_ids=basis.qa_run_ids,
             materialized_count=basis.materialized_count,
             approved_count=basis.approved_count,
             quarantined_count=basis.quarantined_count,
@@ -2628,6 +2812,52 @@ def build_parser() -> argparse.ArgumentParser:
         type=Path,
         default=get_settings().steward_artifact_store_path,
     )
+    narrative_analysis = subparsers.add_parser(
+        "analyze-narrative",
+        description="Census one narrative guideline document and sign the structural report.",
+    )
+    narrative_analysis.add_argument("candidate_id")
+    narrative_analysis.add_argument("--item-id")
+    narrative_analysis.add_argument("--output", type=Path)
+    _add_database_argument(narrative_analysis)
+    _add_signer_arguments(narrative_analysis)
+    narrative_analysis.add_argument(
+        "--artifact-store",
+        type=Path,
+        default=get_settings().steward_artifact_store_path,
+    )
+    narrative_materialization = subparsers.add_parser(
+        "materialize-narrative",
+        description=(
+            "Bind narrative authority, extract anchored guideline evidence, and sign a corpus RC."
+        ),
+    )
+    narrative_materialization.add_argument("candidate_id")
+    narrative_materialization.add_argument("--item-id")
+    narrative_materialization.add_argument("--output", type=Path)
+    _add_database_argument(narrative_materialization)
+    _add_signer_arguments(narrative_materialization)
+    narrative_materialization.add_argument(
+        "--artifact-store",
+        type=Path,
+        default=get_settings().steward_artifact_store_path,
+    )
+    assembly = subparsers.add_parser(
+        "assemble-release",
+        description=(
+            "Compose several QA'd documents into one servable composite corpus release."
+        ),
+    )
+    assembly.add_argument("qa_run_id", nargs="+")
+    assembly.add_argument("--previous-release-id")
+    assembly.add_argument("--output", type=Path)
+    _add_database_argument(assembly)
+    _add_signer_arguments(assembly)
+    assembly.add_argument(
+        "--artifact-store",
+        type=Path,
+        default=get_settings().steward_artifact_store_path,
+    )
     qa_command = subparsers.add_parser(
         "qa",
         description=(
@@ -2816,6 +3046,12 @@ def main(argv: Sequence[str] | None = None) -> int:
             return asyncio.run(resolve_structured_inputs(arguments))
         if arguments.command == "materialize":
             return asyncio.run(materialize(arguments))
+        if arguments.command == "analyze-narrative":
+            return asyncio.run(analyze_narrative(arguments))
+        if arguments.command == "materialize-narrative":
+            return asyncio.run(materialize_narrative(arguments))
+        if arguments.command == "assemble-release":
+            return asyncio.run(assemble_release(arguments))
         if arguments.command == "qa":
             return asyncio.run(qa(arguments))
         if arguments.command == "qdrant-build":
@@ -2830,7 +3066,17 @@ def main(argv: Sequence[str] | None = None) -> int:
             return asyncio.run(benchmark_accept(arguments))
         if arguments.command == "approve-exception":
             return asyncio.run(approve_exception(arguments))
-    except (OSError, ValueError, ValidationError, RuntimeError) as error:
+    except (
+        OSError,
+        ValueError,
+        ValidationError,
+        RuntimeError,
+        # A database-enforced policy rule refuses through the driver, not through the
+        # application's own exception types. Without this the refusal escaped as an
+        # uncaught traceback and exit 1, which reads as a crash rather than the signed
+        # policy block it is.
+        SQLAlchemyError,
+    ) as error:
         print(json.dumps({"error": str(error), "command": arguments.command}, sort_keys=True))
         return 2
     raise AssertionError(f"unhandled command: {arguments.command}")

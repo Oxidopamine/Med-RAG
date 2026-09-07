@@ -1275,6 +1275,18 @@ administrative amendment.
    manuscript with Section 8.1's fallback wording, prospectively fixed in a private
    repository, and the deposit, once made, precedes every label, judge, oracle, checker and
    statistics output, which is the ordering the confirmatory quantities rest on.
+2. **2026-09-07, placeholders recomputed from production A (Section 1.2).** Every stage-2 count
+   was recomputed from production A before any estimator, budget or subsample was drawn
+   (`cm-statistics-horizon1.json`, section `placeholders`). Production A answered 70 of
+   164 (stage 2: 73), rendering 176 claims citing 300 passages (190 and 316); the
+   model-declared abstentions are 80 (77) and the gate-blocked
+   14 (14); the draw holds 66 answered records,
+   164 claims and 282 pairs (69, 178 and 299). Figures that moved by
+   more than 10%: `premise_DATA_DICTIONARY_ENTRY` 38 to 34 (10%); `premise_INDICATOR_DEFINITION` 23 to 19 (17%); `chapter_2_answered` 19 to 17 (10%); `chapter_4_answered` 9 to 7 (22%). The derived sizes are unchanged: m = 20 (30 if wall-clock
+   allows) of 80 model-declared abstentions, 30 mislead controls, 40
+   re-test records. The presenter now labels prose passages with narrative subkinds; the premise
+   split aggregates them as narrative. Outcome unknown at the time of entry: no label existed. No
+   estimator changes; the strata are reported at their production-A sizes.
 
 ## Appendix A. Potential-to-mislead anchors
 

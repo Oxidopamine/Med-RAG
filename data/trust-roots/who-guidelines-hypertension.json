@@ -1,0 +1,54 @@
+{
+  "allowed_domains": [
+    "iris.who.int",
+    "who.int",
+    "www.who.int"
+  ],
+  "asset_licensing": [
+    {
+      "acquisition_allowed": true,
+      "asset_id": "1d90e72b-7821-4670-96c8-169527be111d",
+      "asset_kind": "NARRATIVE_SOURCE",
+      "credential_reference": null,
+      "evidence_materialization_allowed": true,
+      "license_id": "CC-BY-NC-SA-3.0-IGO",
+      "notes": "HYPERTENSION (2021-08-24). Controlling clinical source: Guideline for the pharmacological treatment of hypertension in adults. Rendering disabled pending deployment-specific licence review.",
+      "policy_url": "https://iris.who.int/handle/10665/344424",
+      "redistribution_allowed": false,
+      "render_allowed": false,
+      "source_declared_license_id": "CC-BY-NC-SA-3.0-IGO"
+    }
+  ],
+  "connector_config": {
+    "allow_unsuffixed_language": false,
+    "hub_url": "https://www.who.int/api/hubs/publications",
+    "iris_api_base": "https://iris.who.int/server/api",
+    "language_suffix": "-eng",
+    "page_size": 100,
+    "publishing_office_id": "c09761c0-ab8e-4cfa-9744-99509c4d306b",
+    "resolve_missing_artifacts": true,
+    "scope_declaration": "First narrative-anchored corpus: ONE WHO guideline, deliberately. Scoped to the pharmacological treatment of hypertension in adults (IRIS 10665/344424) so the narrative path's extractor constants and role vocabulary meet a document they were not calibrated on, before thirteen are committed to. Widening scope_item_ids is how this grows; the parked who-guidelines-ncd.json is left untouched.",
+    "scope_item_ids": [
+      "1d90e72b-7821-4670-96c8-169527be111d"
+    ],
+    "source_topology": "NARRATIVE_ANCHORED",
+    "title": "WHO guidelines - non-communicable disease expansion candidate (parked)"
+  },
+  "connector_name": "who-guidelines-hub",
+  "connector_version": "1.0.0",
+  "enabled": true,
+  "jurisdictions": [
+    "WORLD"
+  ],
+  "polling_interval_seconds": 86400,
+  "product_families": [
+    "WHO_GUIDELINES_REVIEW_COMMITTEE_APPROVED_GUIDELINE"
+  ],
+  "publisher_id": "PUB_WHO",
+  "publisher_name": "World Health Organization",
+  "schema_version": "1.0.0",
+  "trust_root_id": "WHO_GUIDELINES_HYPERTENSION",
+  "trusted_stage_key_ids": [
+    "local-steward-stage"
+  ]
+}

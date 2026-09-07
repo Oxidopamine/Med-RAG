@@ -67,6 +67,18 @@ RELEASABLE_SOURCE_STATES = {
 MAX_EVIDENCE_DETAILS_PER_RESULT = 100
 
 
+# `ArtifactKind` records *how bytes were acquired*, not whether they may become
+# clinical evidence. The DAK topology acquires its narratives as side-channel
+# NARRATIVE_SOURCE assets; the narrative topology's guideline *is* the inventory
+# SOURCE artifact, and re-acquiring it under a second kind is refused by the ledger
+# because the same bytes must not carry two provenance stories. Widening this check
+# is safe for the same reason `artifact_storage_keys` could be widened: what protects
+# clinical content is the per-asset `evidence_materialization_allowed` policy and the
+# authority binding, both of which run unchanged.
+
+SOURCE_ARTIFACT_KINDS = frozenset({"NARRATIVE_SOURCE", "SOURCE"})
+
+
 class CorpusReleaseError(RuntimeError):
     pass
 
@@ -253,7 +265,10 @@ class SQLCorpusReleaseRepository:
                         steward_artifact = await session.get(
                             StewardArtifactRow, evidence.source_artifact_sha256
                         )
-                        if steward_artifact is None or steward_artifact.kind != "NARRATIVE_SOURCE":
+                        if (
+                            steward_artifact is None
+                            or steward_artifact.kind not in SOURCE_ARTIFACT_KINDS
+                        ):
                             registry_blockers.append(
                                 f"SOURCE_ARTIFACT_NOT_FOUND:{evidence.evidence_id}"
                             )

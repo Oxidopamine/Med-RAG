@@ -17,6 +17,7 @@ from app.corpus_steward.narrative_analyzer import (
     NarrativeAnalysisError,
     analyse_narrative_document,
 )
+from app.corpus_steward.narrative_extractor import NarrativeSourceExtractor
 from app.schemas.corpus import canonical_sha256
 
 SOURCE_URI = "https://guidance.example.test/consolidated-guidelines"
@@ -38,6 +39,20 @@ def _pdf(*pages: str, encrypt: bool = False) -> bytes:
         payload = document.tobytes()
     document.close()
     return payload
+
+
+def _recompute(content: bytes, extractor) -> str:
+    """The independent path back to `unit_inventory_sha256`, as materialization runs it."""
+
+    extracted = extractor.extract(content, media_type="application/pdf", source_uri=SOURCE_URI)
+    pairs = [
+        {
+            "source_unit_id": unit.source_unit_id,
+            "content_sha256": hashlib.sha256(unit.content_exact.encode("utf-8")).hexdigest(),
+        }
+        for unit in extracted.units
+    ]
+    return canonical_sha256({"units": pairs})
 
 
 def _analyse(content: bytes, media_type: str = "application/pdf"):
@@ -64,17 +79,25 @@ def test_census_counts_units_and_is_independently_recomputable() -> None:
     assert analysis.unit_inventory_sha256 is not None
 
     # Exactly what materialization will do: extract, hash, compare.
-    extracted = DAKSourceExtractor().extract(
-        content, media_type="application/pdf", source_uri=SOURCE_URI
+    assert _recompute(content, NarrativeSourceExtractor()) == analysis.unit_inventory_sha256
+
+
+def test_a_census_taken_with_the_wrong_extractor_cannot_agree() -> None:
+    """The census and materialization must enumerate identically or the check inverts.
+
+    `DAKSourceExtractor` emits one unit per page; the narrative path emits block groups.
+    A census taken with the former could never be reproduced by the latter, so the digest
+    comparison would fail on every correct run instead of only on a corrupted one. This
+    pins the two together: if someone repoints the census, this test says why not.
+    """
+
+    content = _pdf(
+        "Rapid ART initiation should be offered following diagnosis.",
+        "Viral load should be measured at six and twelve months.",
     )
-    pairs = [
-        {
-            "source_unit_id": unit.source_unit_id,
-            "content_sha256": hashlib.sha256(unit.content_exact.encode("utf-8")).hexdigest(),
-        }
-        for unit in extracted.units
-    ]
-    assert canonical_sha256({"units": pairs}) == analysis.unit_inventory_sha256
+    analysis, _ = _analyse(content)
+
+    assert _recompute(content, DAKSourceExtractor()) != analysis.unit_inventory_sha256
 
 
 def test_census_is_deterministic_across_runs() -> None:

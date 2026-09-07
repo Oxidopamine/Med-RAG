@@ -3,11 +3,15 @@
 from __future__ import annotations
 
 import hashlib
+from dataclasses import dataclass
+from datetime import datetime
+from typing import Protocol
 
 from app.corpus_steward.crypto import Ed25519Signer
 from app.corpus_steward.evidence_extractor import (
     DAKSourceExtractor,
     EvidenceExtractionError,
+    ExtractedAsset,
 )
 from app.corpus_steward.ledger import SQLReconciliationLedger
 from app.corpus_steward.materialization_repository import (
@@ -17,6 +21,10 @@ from app.corpus_steward.materialization_repository import (
 from app.corpus_steward.materialization_schemas import (
     MATERIALIZER_NAME,
     MATERIALIZER_VERSION,
+    NARRATIVE_MATERIALIZER_NAME,
+    NARRATIVE_MATERIALIZER_VERSION,
+    AnyAuthorityBinding,
+    AnySourceAnalysisAttachment,
     AssetCoverage,
     AuthorityAssetBinding,
     AuthorityBindingContent,
@@ -31,12 +39,31 @@ from app.corpus_steward.materialization_schemas import (
     MaterializedEvidenceArtifactEntry,
     MaterializedEvidenceContent,
     MaterializedEvidenceRecord,
+    NarrativeAnalysisAttachment,
+    NarrativeAuthorityBindingContent,
     SignedAuthorityBinding,
     SignedCorpusReleaseCandidate,
+    SignedNarrativeAuthorityBinding,
     StructuralMappingAttachment,
 )
+from app.corpus_steward.narrative_extractor import (
+    NarrativeSourceExtractor,
+    unit_inventory_digest,
+)
+from app.corpus_steward.narrative_repository import SQLNarrativeAnalysisRepository
+from app.corpus_steward.narrative_schemas import (
+    NARRATIVE_PROCESSOR_NAME,
+    NARRATIVE_PROCESSOR_VERSION,
+    NarrativeRunState,
+    NarrativeStageAttestationContent,
+)
+from app.corpus_steward.narrative_service import NARRATIVE_ATTESTATION_PREDICATE
 from app.corpus_steward.registry import SQLAttestationRepository, SQLTrustRootRegistry
-from app.corpus_steward.schemas import ArtifactKind, AttestationPurpose
+from app.corpus_steward.schemas import (
+    ArtifactKind,
+    AttestationPurpose,
+    TrustRootDefinition,
+)
 from app.corpus_steward.storage import ImmutableStewardArtifactStore
 from app.corpus_steward.structured_input_repository import SQLStructuredInputRepository
 from app.corpus_steward.structured_input_schemas import (
@@ -47,7 +74,9 @@ from app.corpus_steward.structured_input_schemas import (
     StructuredInputState,
 )
 from app.corpus_steward.structured_input_service import (
+    NARRATIVE_ANCHORED,
     STRUCTURED_INPUT_ATTESTATION_PREDICATE,
+    source_topology,
 )
 from app.corpus_steward.structured_repository import SQLStructuredPackageRepository
 from app.corpus_steward.structured_schemas import (
@@ -64,6 +93,57 @@ AUTHORITY_BINDING_PREDICATE = "https://med-rag.local/attestations/materializatio
 CORPUS_CANDIDATE_PREDICATE = (
     "https://med-rag.local/attestations/materialization/CORPUS_RELEASE_CANDIDATE"
 )
+NARRATIVE_AUTHORITY_BINDING_PREDICATE = (
+    "https://med-rag.local/attestations/materialization/NARRATIVE_AUTHORITY_BINDING"
+)
+
+
+class SourceExtractor(Protocol):
+    """What materialization needs of an extractor, and nothing more.
+
+    The two topologies extract with different, separately versioned extractors -
+    `DAKSourceExtractor` is frozen by the HIV release's `pdf:page:N` anchors, and the
+    narrative path emits block groups. Both are addressed through this shape so the shared
+    tail never has to know which one it is holding.
+    """
+
+    def extract(
+        self, content: bytes, *, media_type: str, source_uri: str
+    ) -> ExtractedAsset: ...
+
+
+@dataclass(frozen=True)
+class _AssetPlan:
+    """One asset to extract, with everything the evidence record needs already resolved.
+
+    The topologies disagree about where a title and a version identifier come from - the
+    DAK reads them from a controlling-narrative definition, the narrative topology from the
+    inventory item that *is* the asset - so both resolve them into this shape before the
+    shared tail runs.
+    """
+
+    asset_id: str
+    artifact_sha256: str
+    byte_size: int
+    media_type: str
+    source_uri: str
+    title: str
+    source_version_id: str
+    license_policy: object
+
+
+def _uncovered(plan: _AssetPlan) -> AssetCoverage:
+    """Coverage for an asset that produced no evidence, so the accounting still names it."""
+
+    return AssetCoverage(
+        asset_id=plan.asset_id,
+        source_artifact_sha256=plan.artifact_sha256,
+        expected_source_units=1,
+        materialized_source_units=0,
+        empty_source_units=0,
+        evidence_ids=(),
+        complete=False,
+    )
 
 
 class MaterializationService:
@@ -79,6 +159,8 @@ class MaterializationService:
         artifacts: ImmutableStewardArtifactStore,
         extractor: DAKSourceExtractor,
         signer: Ed25519Signer,
+        narrative_repository: SQLNarrativeAnalysisRepository | None = None,
+        narrative_extractor: NarrativeSourceExtractor | None = None,
     ) -> None:
         self._trust_roots = trust_roots
         self._source_repository = source_repository
@@ -89,6 +171,8 @@ class MaterializationService:
         self._artifacts = artifacts
         self._extractor = extractor
         self._signer = signer
+        self._narrative_repository = narrative_repository
+        self._narrative_extractor = narrative_extractor or NarrativeSourceExtractor()
 
     async def materialize(
         self, candidate_id: str, *, item_id: str | None = None
@@ -241,71 +325,368 @@ class MaterializationService:
         )
         await self._ledger.record_artifact(binding_artifact)
 
+
+        ig = structured.content.implementation_guide
+        if ig is None or structured.content.resource_inventory_sha256 is None:
+            raise ValueError("structured report has no attachable resource inventory")
+        mapping = StructuralMappingAttachment(
+            asset_id=structured_asset_id,
+            structured_run_id=structured.content.structured_run_id,
+            structured_report_sha256=structured.report_sha256,
+            resource_inventory_sha256=structured.content.resource_inventory_sha256,
+            resource_count=structured.content.resource_count,
+            implementation_guide_experimental=ig.experimental,
+        )
+        plans = tuple(
+            _AssetPlan(
+                asset_id=resolved.asset_id,
+                artifact_sha256=resolved.artifact_sha256,
+                byte_size=resolved.byte_size,
+                media_type=resolved.media_type,
+                source_uri=resolved.final_url,
+                title=configured_assets[resolved.asset_id][1].title,
+                source_version_id=(
+                    f"{configured_assets[resolved.asset_id][0].link_id}:"
+                    f"{configured_assets[resolved.asset_id][0].version or 'UNVERSIONED'}:"
+                    f"{resolved.asset_id}"
+                ),
+                license_policy=licensing_root.license_for_asset(resolved.asset_id),
+            )
+            for resolved in closure.content.narrative_artifacts
+        )
+        return await self._materialize_assets(
+            run_id=run_id,
+            candidate_id=candidate_id,
+            trust_root=trust_root,
+            binding=binding,
+            binding_artifact_sha256=binding_artifact.sha256,
+            attachment=mapping,
+            plans=plans,
+            extractor=self._extractor,
+            accepted_artifact_kinds=frozenset({"NARRATIVE_SOURCE"}),
+            expected_unit_inventory={},
+            completed_at=completed_at,
+            input_run_id=closure.content.input_run_id,
+            inventory_item_id=source.inventory_item.item_id,
+        )
+
+    async def materialize_narrative(
+        self, candidate_id: str, *, item_id: str | None = None
+    ) -> MaterializationResult:
+        """Materialize one narrative-anchored document into evidence.
+
+        The inverse of the DAK topology: the inventory source artifact *is* the controlling
+        clinical narrative, so `asset_id == item_id` and there is no structured companion.
+        One run per (candidate, item) from the first run, because this is the multi-item
+        topology - a WHO NCD candidate carries thirteen guidelines, and the structured
+        path's one-run-per-candidate derivation is committed to signed history and cannot
+        be reused here.
+        """
+
+        if self._narrative_repository is None:
+            # The census is not optional on this path: materialization exists to
+            # recompute its unit inventory and disagree. A service wired without it
+            # could not perform that check, so it must not materialize at all.
+            raise ValueError(
+                "narrative materialization requires a narrative analysis repository"
+            )
+        source = await self._source_repository.source_context(candidate_id, item_id=item_id)
+        candidate = source.candidate
+        trust_root = await self._trust_roots.get_revision(
+            candidate.content.trust_root_sha256,
+            trust_root_id=candidate.content.snapshot.trust_root_id,
+        )
+        if self._signer.key_id not in trust_root.trusted_stage_key_ids:
+            raise ValueError("signing key is not trusted by this trust-root revision")
+        if source_topology(trust_root) != NARRATIVE_ANCHORED:
+            raise ValueError(
+                "narrative materialization requires a NARRATIVE_ANCHORED trust root"
+            )
+        licensing_root = trust_root
+        if not licensing_root.asset_licensing:
+            licensing_root = await self._trust_roots.get(trust_root.trust_root_id)
+            if not licensing_root.asset_licensing:
+                raise ValueError(
+                    "materialization requires a registered per-asset licensing revision"
+                )
+        if self._signer.key_id not in licensing_root.trusted_stage_key_ids:
+            raise ValueError("signing key is not trusted by the licensing revision")
+
+        item = source.inventory_item
+        existing = await self._repository.existing(
+            candidate_id,
+            item_id=item.item_id,
+            materializer_name=NARRATIVE_MATERIALIZER_NAME,
+            materializer_version=NARRATIVE_MATERIALIZER_VERSION,
+        )
+        if existing is not None:
+            return self._repository.as_result(existing)
+
+        input_run = await self._input_repository.existing(
+            candidate_id=candidate_id,
+            item_id=item.item_id,
+            resolver_name=STRUCTURED_INPUT_RESOLVER_NAME,
+            resolver_version=STRUCTURED_INPUT_RESOLVER_VERSION,
+        )
+        if input_run is None or input_run.state is not StructuredInputState.RESOLVED:
+            raise ValueError("materialization requires a complete input closure")
+        closure = input_run.report
+        await self._verify_input_closure(source, trust_root, input_run.attestation_id)
+
+        census = await self._narrative_repository.existing(
+            candidate_id=candidate_id,
+            item_id=item.item_id,
+            processor_name=NARRATIVE_PROCESSOR_NAME,
+            processor_version=NARRATIVE_PROCESSOR_VERSION,
+        )
+        if census is None:
+            raise ValueError("narrative materialization requires a narrative source analysis")
+        if census.state is not NarrativeRunState.VALIDATED:
+            raise ValueError("narrative source analysis did not clear its own gate")
+        await self._verify_narrative_analysis(source, trust_root, census)
+
+        asset_id = item.item_id
+        license_policy = licensing_root.license_for_asset(asset_id)
+        analysis = next(
+            (item for item in census.report.content.documents if item.asset_id == asset_id),
+            None,
+        )
+        if analysis is None or analysis.unit_inventory_sha256 is None:
+            raise ValueError("narrative census does not cover this asset")
+        if analysis.artifact_sha256 != source.source_artifact.artifact_sha256:
+            raise ValueError("narrative census describes different bytes")
+
+        resolved = next(
+            (
+                entry
+                for entry in closure.content.narrative_artifacts
+                if entry.asset_id == asset_id
+            ),
+            None,
+        )
+        if resolved is None:
+            raise ValueError("signed input closure does not carry this narrative asset")
+
+        run_id = self._narrative_run_id(candidate_id, asset_id)
+        completed_at = closure.content.completed_at
+        # The source set, not the asset - the schema requires them to differ, because
+        # in the DAK topology one controlling narrative set spans several files. Here
+        # the set happens to hold one member, and saying so with the publisher's own
+        # scope keeps the two identifiers honestly distinct.
+        controlling_source_id = f"{trust_root.trust_root_id}:{asset_id}"
+        binding_content = NarrativeAuthorityBindingContent(
+            materialization_run_id=run_id,
+            reconciliation_candidate_id=candidate_id,
+            trust_root_id=trust_root.trust_root_id,
+            trust_root_sha256=trust_root.sha256,
+            licensing_trust_root_sha256=licensing_root.sha256,
+            input_closure_sha256=closure.report_sha256,
+            narrative_analysis_sha256=census.report.report_sha256,
+            controlling_source_id=controlling_source_id,
+            assets=(
+                AuthorityAssetBinding(
+                    asset_id=asset_id,
+                    title=item.title,
+                    authority_role=AuthorityRole.CONTROLLING_CLINICAL_SOURCE,
+                    authorized_use=AuthorizedUse.CLINICAL_EVIDENCE,
+                    source_artifact_sha256=resolved.artifact_sha256,
+                    media_type=resolved.media_type,
+                    source_uri=resolved.final_url,
+                    lifecycle_status=item.lifecycle_status,
+                    experimental=False,
+                    clinical_content_promotable=True,
+                    licensing=license_policy,
+                ),
+            ),
+            bound_at=completed_at,
+        )
+        binding_attestation = await self._attestations.record_and_verify(
+            binding_content,
+            self._signer.sign(canonical_json_bytes(binding_content)),
+            purpose=AttestationPurpose.STAGE,
+            predicate_type=NARRATIVE_AUTHORITY_BINDING_PREDICATE,
+        )
+        binding = SignedNarrativeAuthorityBinding(
+            content=binding_content,
+            binding_sha256=canonical_sha256(binding_content),
+            attestation=binding_attestation,
+        )
+        binding_artifact = self._artifacts.put(
+            canonical_json_bytes(binding),
+            media_type="application/vnd.med-rag.authority-binding+json",
+            kind=ArtifactKind.AUTHORITY_BINDING,
+        )
+        await self._ledger.record_artifact(binding_artifact)
+
+        attachment = NarrativeAnalysisAttachment(
+            asset_id=asset_id,
+            narrative_run_id=census.report.content.narrative_run_id,
+            narrative_analysis_sha256=census.report.report_sha256,
+            unit_inventory_sha256=analysis.unit_inventory_sha256,
+            unit_count=analysis.unit_count,
+            declared_license_id=analysis.declaration.declared_license_id,
+        )
+        plan = _AssetPlan(
+            asset_id=asset_id,
+            artifact_sha256=resolved.artifact_sha256,
+            byte_size=resolved.byte_size,
+            media_type=resolved.media_type,
+            source_uri=resolved.final_url,
+            title=item.title,
+            # One artifact is both the inventory item and the clinical narrative, so the
+            # version identifier is built from the item rather than from a separate
+            # controlling-narrative definition that does not exist in this topology.
+            source_version_id=(
+                f"{controlling_source_id}:{item.version or 'UNVERSIONED'}:{asset_id}"
+            ),
+            license_policy=license_policy,
+        )
+        return await self._materialize_assets(
+            run_id=run_id,
+            candidate_id=candidate_id,
+            trust_root=trust_root,
+            binding=binding,
+            binding_artifact_sha256=binding_artifact.sha256,
+            attachment=attachment,
+            plans=(plan,),
+            extractor=self._narrative_extractor,
+            # Reconciliation preserved the guideline PDF as the inventory SOURCE artifact,
+            # and re-acquiring it under a second kind is refused by the ledger - the same
+            # bytes must not carry two provenance stories. Widening this check is safe:
+            # ArtifactKind records how bytes were acquired, while whether they may become
+            # evidence is decided by the licence policy and the authority binding above.
+            accepted_artifact_kinds=frozenset({"SOURCE", "NARRATIVE_SOURCE"}),
+            expected_unit_inventory={asset_id: analysis.unit_inventory_sha256},
+            completed_at=completed_at,
+            input_run_id=closure.content.input_run_id,
+            inventory_item_id=item.item_id,
+        )
+
+    async def _verify_narrative_analysis(self, source, trust_root, census) -> None:
+        """Re-derive the census attestation rather than trusting the stored row.
+
+        Same shape as `_verify_structured_report`: a stored report that binds different
+        bytes, or one signed by a key this trust-root revision does not trust, must not be
+        able to authorise a materialization.
+        """
+
+        content = census.report.content
+        if (
+            content.reconciliation_candidate_id != source.candidate.content.candidate_id
+            or content.trust_root_id != trust_root.trust_root_id
+            or content.trust_root_sha256 != trust_root.sha256
+            or content.inventory_item_id != source.inventory_item.item_id
+            or content.source_artifact_sha256 != source.source_artifact.artifact_sha256
+        ):
+            raise ValueError("narrative analysis binding is inconsistent")
+        reference = await self._attestations.get_reference(census.attestation_id)
+        if reference.signing_key_id not in trust_root.trusted_stage_key_ids:
+            raise ValueError("narrative analysis key is not trusted by this trust-root revision")
+        statement = NarrativeStageAttestationContent(
+            narrative_run_id=content.narrative_run_id,
+            reconciliation_candidate_id=content.reconciliation_candidate_id,
+            trust_root_id=trust_root.trust_root_id,
+            trust_root_sha256=trust_root.sha256,
+            inventory_item_id=content.inventory_item_id,
+            source_artifact_sha256=content.source_artifact_sha256,
+            structured_input_run_id=content.structured_input_run_id,
+            input_closure_sha256=content.input_closure_sha256,
+            report_sha256=census.report.report_sha256,
+            completed_at=content.processed_at,
+        )
+        await self._attestations.verify_existing_reference(
+            statement,
+            purpose=AttestationPurpose.STAGE,
+            predicate_type=NARRATIVE_ATTESTATION_PREDICATE,
+            statement_sha256=reference.statement_sha256,
+            signature_sha256=reference.signature_sha256,
+            signing_key_id=reference.signing_key_id,
+            signer_identity=reference.signer_identity,
+        )
+
+    async def _materialize_assets(
+        self,
+        *,
+        run_id: str,
+        candidate_id: str,
+        trust_root: TrustRootDefinition,
+        binding: AnyAuthorityBinding,
+        binding_artifact_sha256: str,
+        attachment: AnySourceAnalysisAttachment,
+        plans: tuple[_AssetPlan, ...],
+        extractor: SourceExtractor,
+        accepted_artifact_kinds: frozenset[str],
+        expected_unit_inventory: dict[str, str],
+        completed_at: datetime,
+        input_run_id: str,
+        inventory_item_id: str,
+    ) -> MaterializationResult:
+        """Extract, seal, sign and persist - shared by both topologies.
+
+        The heads differ: one resolves a FHIR package and its side-channel narratives, the
+        other a single document that is its own clinical authority. From the moment there
+        is an authority binding and a list of assets to extract, the work is identical and
+        it signs a corpus release candidate. Two paths signing that independently is how
+        they quietly stop agreeing about what a release candidate means - the same argument
+        that made the input closure share its seal/attest/persist tail.
+        """
+
         storage_keys = await self._repository.artifact_storage_keys(
-            tuple(item.artifact_sha256 for item in closure.content.narrative_artifacts)
+            tuple(plan.artifact_sha256 for plan in plans),
+            accepted_kinds=accepted_artifact_kinds,
         )
         evidence: list[MaterializedEvidenceRecord] = []
         coverage: list[AssetCoverage] = []
         blockers: list[str] = []
         evidence_artifacts: dict[str, str] = {}
         stored_evidence_artifacts = []
-        for resolved in closure.content.narrative_artifacts:
-            narrative, definition = configured_assets[resolved.asset_id]
-            license_policy = licensing_root.license_for_asset(resolved.asset_id)
+        for plan in plans:
+            license_policy = plan.license_policy
             if not license_policy.evidence_materialization_allowed:
-                blockers.append(f"LICENSE_PROHIBITS_MATERIALIZATION:{resolved.asset_id}")
-                coverage.append(
-                    AssetCoverage(
-                        asset_id=resolved.asset_id,
-                        source_artifact_sha256=resolved.artifact_sha256,
-                        expected_source_units=1,
-                        materialized_source_units=0,
-                        empty_source_units=0,
-                        evidence_ids=(),
-                        complete=False,
-                    )
-                )
+                blockers.append(f"LICENSE_PROHIBITS_MATERIALIZATION:{plan.asset_id}")
+                coverage.append(_uncovered(plan))
                 continue
-            raw = self._artifacts.read(storage_keys[resolved.artifact_sha256])
+            raw = self._artifacts.read(storage_keys[plan.artifact_sha256])
             if (
-                hashlib.sha256(raw).hexdigest() != resolved.artifact_sha256
-                or len(raw) != resolved.byte_size
+                hashlib.sha256(raw).hexdigest() != plan.artifact_sha256
+                or len(raw) != plan.byte_size
             ):
-                raise ValueError(f"narrative artifact integrity check failed: {resolved.asset_id}")
+                raise ValueError(f"narrative artifact integrity check failed: {plan.asset_id}")
             try:
-                extracted = self._extractor.extract(
-                    raw, media_type=resolved.media_type, source_uri=resolved.final_url
+                extracted = extractor.extract(
+                    raw, media_type=plan.media_type, source_uri=plan.source_uri
                 )
             except EvidenceExtractionError as error:
-                blockers.append(f"{error.reason_code}:{resolved.asset_id}")
-                coverage.append(
-                    AssetCoverage(
-                        asset_id=resolved.asset_id,
-                        source_artifact_sha256=resolved.artifact_sha256,
-                        expected_source_units=1,
-                        materialized_source_units=0,
-                        empty_source_units=0,
-                        evidence_ids=(),
-                        complete=False,
-                    )
-                )
+                blockers.append(f"{error.reason_code}:{plan.asset_id}")
+                coverage.append(_uncovered(plan))
                 continue
+
+            # The census is a prior, independently signed statement about these bytes, and
+            # this is where it earns its place: recompute the unit inventory from what was
+            # actually extracted and refuse to promote if it disagrees. Without the
+            # comparison the narrative analysis is a rubber stamp and this chain is weaker
+            # than the structured one it stands in for.
+            expected_digest = expected_unit_inventory.get(plan.asset_id)
+            if expected_digest is not None and (
+                unit_inventory_digest(extracted.units) != expected_digest
+            ):
+                blockers.append(f"UNIT_INVENTORY_MISMATCH:{plan.asset_id}")
+                coverage.append(_uncovered(plan))
+                continue
+
             asset_evidence_ids: list[str] = []
             for unit in extracted.units:
-                evidence_id = self._evidence_id(run_id, resolved.asset_id, unit.source_unit_id)
+                evidence_id = self._evidence_id(run_id, plan.asset_id, unit.source_unit_id)
                 record = MaterializedEvidenceRecord.seal(
                     MaterializedEvidenceContent(
                         materialization_run_id=run_id,
                         evidence_id=evidence_id,
                         authority_binding_sha256=binding.binding_sha256,
-                        asset_id=resolved.asset_id,
-                        source_artifact_sha256=resolved.artifact_sha256,
+                        asset_id=plan.asset_id,
+                        source_artifact_sha256=plan.artifact_sha256,
                         source_unit_id=unit.source_unit_id,
-                        source_title=definition.title,
-                        source_version_id=(
-                            f"{narrative.link_id}:{narrative.version or 'UNVERSIONED'}:"
-                            f"{resolved.asset_id}"
-                        ),
+                        source_title=plan.title,
+                        source_version_id=plan.source_version_id,
                         publisher_id=trust_root.publisher_id,
                         jurisdiction=self._jurisdiction(trust_root.jurisdictions),
                         language=str(trust_root.connector_config.get("language", "en")),
@@ -327,8 +708,8 @@ class MaterializationService:
                 asset_evidence_ids.append(evidence_id)
             coverage.append(
                 AssetCoverage(
-                    asset_id=resolved.asset_id,
-                    source_artifact_sha256=resolved.artifact_sha256,
+                    asset_id=plan.asset_id,
+                    source_artifact_sha256=plan.artifact_sha256,
                     expected_source_units=extracted.expected_source_units,
                     materialized_source_units=len(extracted.units),
                     empty_source_units=extracted.empty_source_units,
@@ -340,30 +721,20 @@ class MaterializationService:
                 )
             )
 
+        expected_asset_ids = tuple(plan.asset_id for plan in plans)
         evidence_tuple = tuple(evidence)
         if not evidence_tuple:
             blockers.append("NO_MATERIALIZED_EVIDENCE")
         coverage_report = EvidenceCoverageReport(
             authority_binding_sha256=binding.binding_sha256,
             assets=tuple(coverage),
-            expected_asset_ids=tuple(configured_assets),
+            expected_asset_ids=expected_asset_ids,
             evidence_count=len(evidence_tuple),
             complete=(
-                {item.asset_id for item in coverage} == set(configured_assets)
+                {item.asset_id for item in coverage} == set(expected_asset_ids)
                 and bool(evidence_tuple)
                 and all(item.complete for item in coverage)
             ),
-        )
-        ig = structured.content.implementation_guide
-        if ig is None or structured.content.resource_inventory_sha256 is None:
-            raise ValueError("structured report has no attachable resource inventory")
-        mapping = StructuralMappingAttachment(
-            asset_id=structured_asset_id,
-            structured_run_id=structured.content.structured_run_id,
-            structured_report_sha256=structured.report_sha256,
-            resource_inventory_sha256=structured.content.resource_inventory_sha256,
-            resource_count=structured.content.resource_count,
-            implementation_guide_experimental=ig.experimental,
         )
         evidence_entries = tuple(
             MaterializedEvidenceArtifactEntry(
@@ -377,12 +748,19 @@ class MaterializationService:
             for item in evidence_tuple
         )
         await self._ledger.record_artifacts(tuple(stored_evidence_artifacts))
+        narrative = isinstance(attachment, NarrativeAnalysisAttachment)
         report = MaterializationReport.seal(
             MaterializationReportContent(
                 materialization_run_id=run_id,
                 reconciliation_candidate_id=candidate_id,
+                materializer_name=(
+                    NARRATIVE_MATERIALIZER_NAME if narrative else MATERIALIZER_NAME
+                ),
+                materializer_version=(
+                    NARRATIVE_MATERIALIZER_VERSION if narrative else MATERIALIZER_VERSION
+                ),
                 authority_binding=binding,
-                structural_mapping=mapping,
+                structural_mapping=attachment,
                 evidence=evidence_entries,
                 coverage=coverage_report,
                 completed_at=completed_at,
@@ -440,8 +818,9 @@ class MaterializationService:
                 state=state,
                 report=report,
                 report_artifact_sha256=report_artifact.sha256,
-                authority_binding_artifact_sha256=binding_artifact.sha256,
-                input_run_id=closure.content.input_run_id,
+                authority_binding_artifact_sha256=binding_artifact_sha256,
+                input_run_id=input_run_id,
+                inventory_item_id=inventory_item_id,
                 corpus_candidate=corpus_candidate,
                 candidate_artifact_sha256=(
                     candidate_artifact.sha256 if candidate_artifact else None
@@ -450,7 +829,12 @@ class MaterializationService:
                 evidence_records=evidence_tuple,
             )
         except MaterializationRepositoryConflictError:
-            concurrent = await self._repository.existing(candidate_id)
+            concurrent = await self._repository.existing(
+                candidate_id,
+                item_id=inventory_item_id,
+                materializer_name=report.content.materializer_name,
+                materializer_version=report.content.materializer_version,
+            )
             if concurrent is None or concurrent.report.report_sha256 != report.report_sha256:
                 raise
             return self._repository.as_result(concurrent)
@@ -461,6 +845,7 @@ class MaterializationService:
             report_artifact_sha256=report_artifact.sha256,
             candidate_artifact_sha256=(candidate_artifact.sha256 if candidate_artifact else None),
         )
+
 
     async def _verify_input_closure(self, source, trust_root, attestation_id: str) -> None:
         stored = await self._input_repository.existing(
@@ -619,6 +1004,25 @@ class MaterializationService:
     def _run_id(candidate_id: str) -> str:
         identity = f"{candidate_id}:{MATERIALIZER_NAME}:{MATERIALIZER_VERSION}"
         return "MAT_" + hashlib.sha256(identity.encode()).hexdigest()[:32]
+
+    @staticmethod
+    def _narrative_run_id(candidate_id: str, item_id: str) -> str:
+        """Includes the item, unlike the structured derivation.
+
+        The structured `_run_id` hashes only the candidate and is committed to signed
+        history, so it cannot be changed; this one starts correct instead of inheriting
+        that defect on the topology where multi-item candidates actually occur.
+        """
+
+        identity = ":".join(
+            (
+                candidate_id,
+                item_id,
+                NARRATIVE_MATERIALIZER_NAME,
+                NARRATIVE_MATERIALIZER_VERSION,
+            )
+        )
+        return "MAT_" + hashlib.sha256(identity.encode("utf-8")).hexdigest()[:32]
 
     @staticmethod
     def _evidence_id(run_id: str, asset_id: str, unit_id: str) -> str:

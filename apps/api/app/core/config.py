@@ -4,6 +4,15 @@ from pathlib import Path
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+# apps/api/app/core/config.py -> the repository root.
+#
+# Both the dotenv file and the content-addressed store roots used to be resolved against
+# the process working directory. A steward command run from apps/api therefore read no
+# .env at all and silently addressed apps/api/data/local/steward-artifacts, forking the
+# store by the directory the operator happened to be standing in. Anchoring both here
+# makes the resolved configuration identical from every working directory.
+_REPOSITORY_ROOT = Path(__file__).resolve().parents[4]
+
 
 class Settings(BaseSettings):
     app_name: str = "Sentinel RAG"
@@ -65,10 +74,20 @@ class Settings(BaseSettings):
     serving_generation_provider: str = "claude"
 
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=_REPOSITORY_ROOT / ".env",
         env_file_encoding="utf-8",
         extra="ignore",
     )
+
+    @field_validator("artifact_store_path", "steward_artifact_store_path")
+    @classmethod
+    def anchor_store_path(cls, value: Path) -> Path:
+        """Resolve a relative store root against the repository, not the caller's cwd.
+
+        A content-addressed store that moves with the working directory is not one store.
+        """
+
+        return value if value.is_absolute() else _REPOSITORY_ROOT / value
 
     @field_validator("api_cors_origins", mode="before")
     @classmethod
