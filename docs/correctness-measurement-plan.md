@@ -1,6 +1,6 @@
 # Correctness measurement plan
 
-Status: pre-registered analysis plan, revision 3; nothing below has been run. To be deposited
+Status: pre-registered analysis plan, revision 3. The four runs of Section 3 were executed on 2026-09-07 before the deposit, under the ordering recorded in Section 11; no label, judge, oracle, checker or statistics output exists. To be deposited
 at OSF Registries (embargoed until submission) together with `scripts/cm_statistics.py` and
 `scripts/retrieval_overlap.py` before the first run of Section 3 executes. The registered
 snapshot is the file as deposited; `rubric_sha256` in every downstream file is the sha256 of
@@ -1260,9 +1260,21 @@ reviews of revision 2 returned "ready with edits". Every item below changed the 
 
 ## 11. Deviations
 
-None recorded. Every departure from this document is entered here with the date, the reason,
-and whether the outcome was known at the time. The OSF registration DOI is recorded here once
-minted, as an administrative amendment.
+Every departure from this document is entered here with the date, the reason, and whether the
+outcome was known at the time. The OSF registration DOI is recorded here once minted, as an
+administrative amendment.
+
+1. **2026-09-07, run ordering relative to the deposit.** The four runs of Section 3 were
+   executed on 2026-09-07 (UTC), in the order and under the binding Section 3 states, before
+   the OSF deposit. Reason: the deposit needs the author's OSF account and the runs were
+   executed in an unattended session under the author's standing instruction to proceed. The
+   plan and its analysis code were fixed in commit `e7395d4`, pushed to the repository's
+   origin at 2026-09-07T00:00Z, before the first run started; the Gemini smoke test of
+   Section 3.3 was made on 2026-09-06. Outcome unknown at the time of entry: no run file
+   existed when this entry was written. Consequence: the run ordering is described in the
+   manuscript with Section 8.1's fallback wording, prospectively fixed in a private
+   repository, and the deposit, once made, precedes every label, judge, oracle, checker and
+   statistics output, which is the ordering the confirmatory quantities rest on.
 
 ## Appendix A. Potential-to-mislead anchors
 

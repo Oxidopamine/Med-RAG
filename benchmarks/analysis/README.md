@@ -21,7 +21,9 @@ and every `coverage-` JSON is a redacted run. The files below are neither.
 | `environment.txt` | `pip freeze` | The Python environment the statistics ran in |
 | `labels-<annotator>-<yyyymmdd>.json` | the annotator, through the worksheets | The label file of Section 4.3; Appendix B is its data dictionary |
 | `judge-*.json`, `oracle-*.json`, `checker-*.json` | `judge_claims.py`, `abstention_oracle.py`, `entailment_audit.py` | Second signals, validated against the human census before they are reported |
-| `cm-statistics.json` | `scripts/cm_statistics.py` | Every number in Sections 1.2, 3.5, 4.5, 4.6, 5.2, 6.2 and 7.3 as one JSON |
+| `retrieval-sweep-production-a.json` | `scripts/retrieval_sweep.py` | Recall at K per lane of the IDs production A cited, and required-role coverage at each K (Section 3.6); IDs and ranks only |
+| `cm-statistics-horizon1.json` | `scripts/cm_statistics.py --sections placeholders,3.5` | The Horizon 1 quantities: recomputed placeholders, the noise floor, the negative control, Q5 and the MDE tables |
+| `cm-statistics.json` | `scripts/cm_statistics.py` | Every number in Sections 1.2, 3.5, 4.5, 4.6, 5.2, 6.2 and 7.3 as one JSON, once labels exist |
 
 Every file records `rubric_sha256`, the sha256 of the plan as deposited at OSF; a file whose
 hash differs was produced under a revised rubric and is reported as such. This README is in
