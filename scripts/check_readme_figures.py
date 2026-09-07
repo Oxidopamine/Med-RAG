@@ -106,6 +106,94 @@ def chapter_rows(stage1: dict, stage2: dict) -> list[str]:
     return [row for _, _, row in sorted(rows)]
 
 
+def _outcome(record: dict) -> str:
+    generation = record.get("generation")
+    if generation is None:
+        return "ABSTAINED"
+    if _is_error(record):
+        return "ERROR"
+    return "ABSTAINED" if generation.get("abstained") else "ANSWERED"
+
+
+def correctness_run_checks() -> list[tuple[str, str]]:
+    """The four runs of the correctness measurement plan, once published (plan Section 9.3).
+
+    The README quotes the paired comparison from the released statistics file, so each needle
+    is taken from that file, and the file's 2x2 is recomputed from the released runs so the
+    statistics cannot drift from the runs they describe.
+    """
+
+    names = ("production-a", "production-b", "naive-164", "closed-book-164")
+    paths = {name: RESULTS / f"coverage-{name}.json" for name in names}
+    statistics_path = REPO_ROOT / "benchmarks" / "analysis" / "cm-statistics-horizon1.json"
+    if not (all(path.exists() for path in paths.values()) and statistics_path.exists()):
+        return []
+    runs = {name: json.loads(path.read_text(encoding="utf-8")) for name, path in paths.items()}
+    outcomes = {
+        name: {r["question_id"]: _outcome(r) for r in run["results"]}
+        for name, run in runs.items()
+    }
+    answered = {
+        name: sum(1 for o in om.values() if o == "ANSWERED") for name, om in outcomes.items()
+    }
+    paired = [
+        q for q in outcomes["production-a"]
+        if q in outcomes["naive-164"]
+        and outcomes["production-a"][q] != "ERROR"
+        and outcomes["naive-164"][q] != "ERROR"
+    ]
+    production_only = sum(
+        1 for q in paired
+        if outcomes["production-a"][q] == "ANSWERED" and outcomes["naive-164"][q] != "ANSWERED"
+    )
+    naive_only = sum(
+        1 for q in paired
+        if outcomes["production-a"][q] != "ANSWERED" and outcomes["naive-164"][q] == "ANSWERED"
+    )
+    replicate_pairs = [
+        q for q in outcomes["production-a"]
+        if q in outcomes["production-b"]
+        and outcomes["production-a"][q] != "ERROR"
+        and outcomes["production-b"][q] != "ERROR"
+    ]
+    disagreements = sum(
+        1 for q in replicate_pairs
+        if (outcomes["production-a"][q] == "ANSWERED")
+        != (outcomes["production-b"][q] == "ANSWERED")
+    )
+    statistics = json.loads(statistics_path.read_text(encoding="utf-8"))["sections"]["3.5"]
+    q5 = statistics["q5_production_a_versus_naive"]
+    noise = statistics["noise_floor"]["answered_versus_abstained_disagreement"]
+    checks: list[tuple[str, str]] = [
+        ("production A answered", f"production A answered {answered['production-a']} of 164"),
+        ("naive arm answered", f"the naive arm answered {answered['naive-164']} of 164"),
+        (
+            "closed-book answered",
+            f"the closed-book arm answered {answered['closed-book-164']} of 164",
+        ),
+        ("production B answered", f"production B answered {answered['production-b']} of 164"),
+        (
+            "Q5 discordance",
+            f"{production_only} answered by production only and {naive_only} by the naive arm only",
+        ),
+        (
+            "Q5 Tango interval",
+            f"Tango 95% [{q5['tango_95'][0]:.3f}, {q5['tango_95'][1]:.3f}]",
+        ),
+        ("Q5 exact McNemar", f"exact McNemar p = {q5['mcnemar_exact_p']}"),
+        (
+            "noise floor",
+            f"replicates A and B disagree on {disagreements} of {len(replicate_pairs)}",
+        ),
+    ]
+    # The released statistics file must describe the released runs.
+    if q5["table"]["first_only"] != production_only or q5["table"]["second_only"] != naive_only:
+        checks.append(("Q5 statistics file", "__STATISTICS_FILE_DISAGREES_WITH_RUNS__"))
+    if noise["count"] != disagreements:
+        checks.append(("noise floor statistics file", "__STATISTICS_FILE_DISAGREES_WITH_RUNS__"))
+    return checks
+
+
 def _hybrid(name: str) -> dict:
     summaries = _load(name)["content"]["mode_summaries"]
     items = summaries.items() if isinstance(summaries, dict) else [
@@ -199,6 +287,8 @@ def recomputed_checks() -> list[tuple[str, str]]:
     )
     if lane_25 != 24:
         checks.append(("lane 2.5 answered count", f"__EXPECTED_24_GOT_{lane_25}__"))
+
+    checks += correctness_run_checks()
 
     accepted = _hybrid("retrieval-v7-candidate-accepted.json")
     comparator = _hybrid("retrieval-v7-comparator-floor.json")
