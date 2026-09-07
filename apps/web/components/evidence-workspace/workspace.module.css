@@ -5496,7 +5496,8 @@ button.provenance-fact:hover {
 }
 
 .bank-search:focus-within {
-  border-color: var(--border-strong);
+  border-color: var(--ink);
+  box-shadow: 0 0 0 3px var(--ink-ring);
 }
 
 .bank-search input {
@@ -5578,11 +5579,44 @@ button.provenance-fact:hover {
 }
 
 @media (max-width: 640px) {
+  /* `minmax(0, 1fr)`, not `1fr`: a bare `1fr` floors at the track's min-content width,
+     and a select's min-content width is its longest option. That one track was what made
+     the panel 398px wide on a 390px phone and zoomed the whole page out to fit it. */
   .bank-controls {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .bank-area {
     max-width: none;
+    min-width: 0;
+    width: 100%;
+  }
+
+  .bank-search input {
+    min-width: 0;
+  }
+
+  /* In flow on a phone. Anchored to its summary, a floating panel starts at the
+     summary's left edge and runs to the viewport's right edge with nothing to spare,
+     and the same panel opened on an off-centre control cannot avoid that. Spanning the
+     actions row when open, and sitting in the flow, gives both panels the composer's
+     full width and lets the page scroll them instead of clipping them. */
+  .scope-details[open],
+  .bank-details[open] {
+    flex: 1 1 100%;
+    min-width: 0;
+  }
+
+  .scope-panel,
+  .bank-panel {
+    position: static;
+    width: 100%;
+    min-width: 0;
+    margin-top: var(--s-2);
+    box-shadow: none;
+  }
+
+  .bank-panel {
+    max-height: min(60vh, 520px);
   }
 }
