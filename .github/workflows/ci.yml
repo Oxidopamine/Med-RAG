@@ -93,7 +93,13 @@ jobs:
       - name: Build web
         run: npm run build:web
       - name: Install Playwright browsers
-        run: npx playwright install --with-deps
+        # The runner image ships Google's Chrome apt source, which intermittently
+        # answers with a hash mismatch and takes the whole dependency install down.
+        # The suite runs Playwright's own Chromium and Firefox, so the source is
+        # dropped first; the install is then tried twice for ordinary mirror flakes.
+        run: |
+          sudo rm -f /etc/apt/sources.list.d/google-chrome*.list /etc/apt/sources.list.d/google-chrome*.sources
+          npx playwright install --with-deps || (sleep 30 && npx playwright install --with-deps)
       - name: Test web end to end
         run: npm run test:e2e:web
       - name: Keep end-to-end failure context
