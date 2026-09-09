@@ -50,10 +50,12 @@ from app.persistence.models import (
 )
 from app.schemas.corpus import (
     ActivationDecisionContent,
+    ActiveCorpusRelease,
     CorpusEvidenceRecord,
     CorpusReleaseBundle,
     CorpusReleaseManifestContent,
     LocatorKind,
+    ReleaseServingMode,
     ReleaseState,
     SignedActivationDecision,
     SourceAnchor,
@@ -117,9 +119,7 @@ async def accepted_benchmark(
                     case_id="BQ_ACCEPTANCE_001",
                     mode=RetrievalMode.HYBRID,
                     retrieved=(
-                        RetrievedEvidence(
-                            evidence_id="EV_FIXTURE_PRIMARY_001", rank=1, score=1.0
-                        ),
+                        RetrievedEvidence(evidence_id="EV_FIXTURE_PRIMARY_001", rank=1, score=1.0),
                     ),
                     metrics=BenchmarkCaseMetrics(
                         recall_at_k=1.0,
@@ -407,9 +407,7 @@ async def test_release_requires_validated_index_before_atomic_activation(tmp_pat
             registered.corpus_release_id,
             decision=wrong_decision,
         )
-    with pytest.raises(
-        CorpusReleaseGateError, match="ACTIVATION_BENCHMARK_ACCEPTANCE_MISMATCH"
-    ):
+    with pytest.raises(CorpusReleaseGateError, match="ACTIVATION_BENCHMARK_ACCEPTANCE_MISMATCH"):
         await repository.activate(
             registered.corpus_release_id,
             decision=await activation_decision(
@@ -500,9 +498,7 @@ async def test_stale_or_tampered_benchmark_acceptance_cannot_activate(tmp_path) 
         point_count=len(bundle.evidence),
         index_attestation_sha256="f" * 64,
     )
-    acceptance = await accepted_benchmark(
-        tampered_database, tampered_repository, bundle
-    )
+    acceptance = await accepted_benchmark(tampered_database, tampered_repository, bundle)
     async with tampered_database.session() as session:
         row = await session.get(BenchmarkAcceptanceRow, acceptance.content.acceptance_id)
         assert row is not None
@@ -744,9 +740,7 @@ async def test_source_page_artifact_is_withheld_until_the_page_licence_permits(
         source.license_render_allowed = False
 
     assert (
-        await repository.source_page_artifact(
-            registered.corpus_release_id, "SRC_FIXTURE_001"
-        )
+        await repository.source_page_artifact(registered.corpus_release_id, "SRC_FIXTURE_001")
         is None
     )
 
@@ -755,9 +749,7 @@ async def test_source_page_artifact_is_withheld_until_the_page_licence_permits(
         assert source is not None
         source.license_render_allowed = True
 
-    granted = await repository.source_page_artifact(
-        registered.corpus_release_id, "SRC_FIXTURE_001"
-    )
+    granted = await repository.source_page_artifact(registered.corpus_release_id, "SRC_FIXTURE_001")
     assert granted is not None
     assert granted.source_id == "SRC_FIXTURE_001"
     assert granted.artifact_sha256 == "a" * 64
@@ -766,9 +758,7 @@ async def test_source_page_artifact_is_withheld_until_the_page_licence_permits(
     # A source that is licensed but contributes nothing to this release still has no page
     # here: membership is established through servable approved evidence, not the registry.
     assert (
-        await repository.source_page_artifact(
-            registered.corpus_release_id, "SRC_NOT_IN_RELEASE"
-        )
+        await repository.source_page_artifact(registered.corpus_release_id, "SRC_NOT_IN_RELEASE")
         is None
     )
     assert await repository.source_page_artifact("CR_UNKNOWN", "SRC_FIXTURE_001") is None
@@ -800,18 +790,14 @@ async def test_only_a_pdf_source_has_a_page_view(tmp_path) -> None:
                 sha256="a" * 64,
                 kind="NARRATIVE_SOURCE",
                 byte_size=1,
-                media_type=(
-                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                ),
+                media_type=("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"),
                 storage_key="sha256/aa/fixture.xlsx",
                 created_at=utc_now(),
             )
         )
 
     assert (
-        await repository.source_page_artifact(
-            registered.corpus_release_id, "SRC_FIXTURE_001"
-        )
+        await repository.source_page_artifact(registered.corpus_release_id, "SRC_FIXTURE_001")
         is None
     )
     await database.close()
@@ -904,9 +890,7 @@ async def test_section_path_is_derived_from_the_worksheet_an_anchor_names(tmp_pa
 
     # A page number is not a section. Promoting one would manufacture a hierarchy the
     # document does not have, so a PDF record still reports none.
-    pdf_details = await repository.research_evidence_details(
-        release_id, {"EV_FIXTURE_PRIMARY_001"}
-    )
+    pdf_details = await repository.research_evidence_details(release_id, {"EV_FIXTURE_PRIMARY_001"})
     assert [detail.section_path for detail in pdf_details] == [[]]
     await database.close()
 
@@ -1048,4 +1032,40 @@ async def test_table_row_neighbourhood_will_not_serve_an_unservable_release(tmp_
         )
         == []
     )
+    await database.close()
+
+
+async def test_catalogue_names_the_served_release_and_its_documents(tmp_path) -> None:
+    database = Database(f"sqlite+aiosqlite:///{tmp_path / 'catalogue.sqlite3'}")
+    await database.create_schema_for_tests()
+    await seed_fixture_source(database)
+    repository = SQLCorpusReleaseRepository(database)
+    bundle = load_fixture_bundle()
+    registered = await repository.register_candidate(bundle)
+
+    empty = await repository.catalogue(None)
+    assert empty.release is None
+    assert empty.sources == []
+
+    served = ActiveCorpusRelease(
+        corpus_release_id=registered.corpus_release_id,
+        manifest_sha256=registered.manifest_sha256,
+        qdrant_collection=registered.qdrant_collection,
+        activated_at=None,
+        serving_mode=ReleaseServingMode.RESEARCH_UNACTIVATED,
+    )
+    catalogue = await repository.catalogue(served)
+
+    assert catalogue.release is not None
+    assert catalogue.release.corpus_release_id == registered.corpus_release_id
+    assert catalogue.release.serving_mode is ReleaseServingMode.RESEARCH_UNACTIVATED
+    assert catalogue.release.evidence_count == len(bundle.evidence)
+    assert [source.source_id for source in catalogue.sources] == ["SRC_FIXTURE_001"]
+    source = catalogue.sources[0]
+    assert source.title == "Synthetic Guideline"
+    assert source.publisher_name == "Fixture Publisher"
+    assert [version.source_version_id for version in source.versions] == ["SV_FIXTURE_2026"]
+    assert sum(version.evidence_count for version in source.versions) == len(bundle.evidence)
+    # The catalogue names documents; it never carries a passage.
+    assert "Example Intervention A" not in catalogue.model_dump_json()
     await database.close()

@@ -392,7 +392,6 @@ export function SourceViewer({
     <section className={`${styles.panel} ${styles["source-viewer"]}`} aria-labelledby="source-heading">
       <div className={styles["panel-titlebar"]}>
         <div>
-          <span className={styles["section-kicker"]}>Claim-linked provenance</span>
           {/* Focusable only programmatically: "Inspect evidence" moves the reader here, and
               a keyboard user needs to arrive with their focus rather than watch the page
               scroll away from it. Not in the tab order - it is a heading. */}
@@ -978,7 +977,6 @@ export function VerificationPanel({
     <section className={`${styles.panel} ${styles["verification-panel"]}`} aria-labelledby="verification-heading">
       <div className={styles["verification-heading"]}>
         <div>
-          <span className={styles["section-kicker"]}>Automated audit</span>
           <h2 id="verification-heading">Verification</h2>
         </div>
         <span

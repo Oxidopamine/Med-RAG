@@ -4,7 +4,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from app.schemas.corpus import ActiveCorpusRelease
+from app.schemas.corpus import ActiveCorpusRelease, ReleaseServingMode
 from app.schemas.domain import ClinicalContext, utc_now
 
 
@@ -187,9 +187,7 @@ class AbstentionDetail(ApiContractModel):
         named = set(self.closest_evidence_ids)
         for detail in self.closest_evidence:
             if detail.evidence_id not in named:
-                raise ValueError(
-                    "closest evidence detail must be named in closest_evidence_ids"
-                )
+                raise ValueError("closest evidence detail must be named in closest_evidence_ids")
         resolved = [detail.evidence_id for detail in self.closest_evidence]
         if len(resolved) != len(set(resolved)):
             raise ValueError("closest evidence detail must not repeat an evidence ID")
@@ -283,6 +281,26 @@ class QuestionResult(ApiContractModel):
             if self.abstention is None:
                 raise ValueError("abstained and failed results require an abstention detail")
         return self
+
+
+class QuestionSummary(ApiContractModel):
+    """One row of the review list: enough to find a run again, never its content.
+
+    The content stays behind ``GET /questions/{id}`` on purpose. A list that carried
+    claims would be a second rendering path for text the gate governs, and a list is
+    scrolled past, not read.
+    """
+
+    question_id: str
+    question: str
+    status: QuestionStatus
+    corpus_release_id: str | None = None
+    serving_mode: ReleaseServingMode | None = None
+    supported_claims: int = Field(default=0, ge=0)
+    withheld_claims: int = Field(default=0, ge=0)
+    abstention_reason_code: str | None = None
+    created_at: datetime
+    updated_at: datetime
 
 
 class QuestionContextPatch(ApiContractModel):

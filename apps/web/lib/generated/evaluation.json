@@ -1,0 +1,223 @@
+{
+  "schema_version": 1,
+  "generated_by": "scripts/export_web_evaluation.py",
+  "statistics_generated_at": "2026-09-07T01:36:27+00:00",
+  "seed": 20260906,
+  "bootstrap_resamples": 10000,
+  "software": {
+    "python": "3.10.11",
+    "numpy": "2.2.6",
+    "scipy": "1.15.3",
+    "statsmodels": "0.15.0"
+  },
+  "arms": [
+    {
+      "key": "production_a",
+      "label": "Production, replicate A",
+      "run_kind": "MVP_COVERAGE_STAGE_1",
+      "questions": 164,
+      "answered": 70,
+      "abstained": 94,
+      "answered_rate": 0.4268,
+      "gate_passed": 150,
+      "gate_passed_rate": 0.9146,
+      "gate_passed_wilson_95": [
+        0.8618,
+        0.9485
+      ],
+      "error_records": 0
+    },
+    {
+      "key": "production_b",
+      "label": "Production, replicate B",
+      "run_kind": "MVP_COVERAGE_STAGE_1",
+      "questions": 164,
+      "answered": 70,
+      "abstained": 94,
+      "answered_rate": 0.4268,
+      "gate_passed": 150,
+      "gate_passed_rate": 0.9146,
+      "gate_passed_wilson_95": [
+        0.8618,
+        0.9485
+      ],
+      "error_records": 0
+    },
+    {
+      "key": "naive",
+      "label": "Naive retrieval baseline",
+      "run_kind": "MVP_COVERAGE_STAGE_1",
+      "questions": 164,
+      "answered": 70,
+      "abstained": 94,
+      "answered_rate": 0.4268,
+      "gate_passed": 164,
+      "gate_passed_rate": 1.0,
+      "gate_passed_wilson_95": [
+        0.9771,
+        1.0
+      ],
+      "error_records": 0
+    },
+    {
+      "key": "closed_book",
+      "label": "Closed book (no retrieval)",
+      "run_kind": "CLOSED_BOOK",
+      "questions": 164,
+      "answered": 135,
+      "abstained": 29,
+      "answered_rate": 0.8232,
+      "gate_passed": null,
+      "gate_passed_rate": null,
+      "gate_passed_wilson_95": null,
+      "error_records": 0
+    }
+  ],
+  "noise_floor": {
+    "pairs": 164,
+    "error_pairs_excluded": 0,
+    "answered_versus_abstained_disagreement": {
+      "count": 0,
+      "total": 164,
+      "rate": 0.0,
+      "interval_95": [
+        0.0,
+        0.018
+      ],
+      "method": "wilson lower, exact one-sided upper"
+    },
+    "answered_in_both": 70,
+    "claim_count_changed_among_answered_in_both": {
+      "count": 0,
+      "total": 70,
+      "rate": 0.0,
+      "interval_95": [
+        0.0,
+        0.042
+      ],
+      "method": "wilson lower, exact one-sided upper"
+    },
+    "reading": "One replicate pair is one realisation of run-to-run variability. Run noise does not bias the exact tests, whose null is symmetric discordance; its role is to explain the limited power of Q5 and to caveat single-question claims."
+  },
+  "negative_control_a_versus_b": {
+    "n": 164,
+    "table": {
+      "both": 70,
+      "first_only": 0,
+      "second_only": 0,
+      "neither": 94
+    },
+    "rate_first": 0.427,
+    "rate_second": 0.427,
+    "difference": 0.0,
+    "tango_95": [
+      -0.023,
+      0.023
+    ],
+    "newcombe_95": [
+      -0.012,
+      0.012
+    ],
+    "mcnemar_exact_p": 1.0,
+    "discordant": 0
+  },
+  "production_versus_naive": {
+    "n": 164,
+    "table": {
+      "both": 66,
+      "first_only": 4,
+      "second_only": 4,
+      "neither": 90
+    },
+    "rate_first": 0.427,
+    "rate_second": 0.427,
+    "difference": 0.0,
+    "tango_95": [
+      -0.04,
+      0.04
+    ],
+    "newcombe_95": [
+      -0.036,
+      0.036
+    ],
+    "mcnemar_exact_p": 1.0,
+    "discordant": 8,
+    "error_pairs_excluded": 0,
+    "reading": "Reported as the Tango interval for the coverage cost of the chain, never as the MDE. The naive arm still carries the model's own refusal, so this is the pipeline's marginal cost on top of a model that declines on its own."
+  },
+  "stage2_versus_a_upper_bound": {
+    "pairs": 164,
+    "error_pairs_excluded": 0,
+    "disagreement": {
+      "count": 5,
+      "total": 164,
+      "rate": 0.03,
+      "interval_95": [
+        0.013,
+        0.069
+      ],
+      "method": "wilson"
+    },
+    "reading": "An upper bound that also contains day-to-day drift, a seed difference and two hand-handled retries; not an input to anything."
+  },
+  "error_guards": [
+    {
+      "run": "production_a",
+      "questions": 164,
+      "error_records": 0,
+      "error_share": 0.0,
+      "valid_under_5_percent_rule": true
+    },
+    {
+      "run": "production_b",
+      "questions": 164,
+      "error_records": 0,
+      "error_share": 0.0,
+      "valid_under_5_percent_rule": true
+    },
+    {
+      "run": "naive",
+      "questions": 164,
+      "error_records": 0,
+      "error_share": 0.0,
+      "valid_under_5_percent_rule": true
+    }
+  ],
+  "mde": {
+    "n": 164,
+    "alpha": 0.05,
+    "power_target": 0.8,
+    "anchor": {
+      "discordant": 2,
+      "trials": 48,
+      "pi0": 0.0417
+    },
+    "power_by_delta": {
+      "0.03": 0.205,
+      "0.04": 0.338,
+      "0.05": 0.483,
+      "0.06": 0.62,
+      "0.07": 0.736,
+      "0.08": 0.825,
+      "0.09": 0.89,
+      "0.10": 0.934
+    },
+    "mde_at_80_percent": 0.08
+  },
+  "retrieval_overlap": {
+    "questions": 164,
+    "slots": 1640,
+    "distinct_evidence_ids": 784,
+    "recurring_slot_share": 0.7183,
+    "pair_sharing_rate": 0.1218
+  },
+  "sources": {
+    "coverage-production-a.json": "3cd20aae988c6d421b11348b15d0854cd5c8d286780f421aea030d42a66cddd9",
+    "coverage-production-b.json": "3e55939b7bee5d1f610827523d109267d7ea92bd84a9a8226378e8cbbcbc58ed",
+    "coverage-naive-164.json": "236e9d92756db5e5c27c2b4b682df8a64ca85b476c1855174861ac383d031939",
+    "coverage-closed-book-164.json": "a4ad9e2d7cf7f2a4482b980b4b0a6039a1899fa3ab2480a1fc3f5c27ec79d380",
+    "cm-statistics-horizon1.json": "916d6adbe84c515ff9623ece83ee63f7a77a7d078baaf0a47b22e4ac46b2d973",
+    "mde.json": "191627de767dabb299bcc5c046ec70a2cbe7d149bdb79458eabff90f03bc1da3",
+    "retrieval-overlap-production-a.json": "fd191246e337888c5797dfb00f53f7a31464e4b1ab09dce4dce670e433d1403b"
+  }
+}

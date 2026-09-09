@@ -467,12 +467,20 @@
 
 /* ============================================================ panels */
 
+/* A section, not a card. Sections are set apart by space and a rule; only objects
+   (a claim, a source, a form) get a border, and never inside another border. */
 .panel {
   min-width: 0;
+  background: none;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.object {
   background: var(--bg-surface);
   border: 1px solid var(--border);
-  border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-xs);
+  border-radius: var(--radius-lg);
 }
 
 .panel h1,
@@ -485,14 +493,15 @@
 }
 
 .panel h2 {
-  font-size: var(--t-md);
+  font-size: var(--t-h2);
   font-weight: var(--w-semibold);
-  line-height: 1.3;
+  line-height: 1.2;
 }
 
 .panel h3 {
-  font-size: var(--t-sm);
+  font-size: var(--t-h3);
   font-weight: var(--w-semibold);
+  line-height: 1.3;
 }
 
 /* The small uppercase line above a heading: says what kind of thing follows. */
@@ -562,7 +571,7 @@
 .composer-intro h1 {
   margin: 0;
   color: var(--text-strong);
-  font-size: var(--t-lg);
+  font-size: var(--t-h1);
   font-weight: var(--w-semibold);
   letter-spacing: var(--track-tight);
   line-height: 1.25;
@@ -5562,4 +5571,45 @@ button.provenance-fact:hover {
   .bank-panel {
     max-height: min(60vh, 520px);
   }
+}
+
+/* ============================================================ status as text */
+
+/* A status is a mark and a few words in the heading row, never a pill. Colour still
+   comes from the tone class; the box, the border and the icon are gone. */
+.result-badge, .gate-badge, .coverage-badge, .candidate-count, .conflict-count, .verified-source-label, .uncited-source-label, .signal {
+  padding: 0;
+  height: auto;
+  gap: 7px;
+  background: none;
+  border: 0;
+  border-radius: 0;
+  font-size: var(--t-xs);
+  font-weight: var(--w-medium);
+}
+
+.result-badge::before, .gate-badge::before, .coverage-badge::before, .candidate-count::before, .conflict-count::before, .verified-source-label::before, .uncited-source-label::before, .signal::before {
+  content: "";
+  flex: 0 0 auto;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.result-badge svg, .gate-badge svg, .coverage-badge svg, .candidate-count svg, .conflict-count svg, .verified-source-label svg, .uncited-source-label svg, .signal svg, .environment-badge svg {
+  display: none;
+}
+
+.passed, .success, .verified-source-label, .withheld, .warning, .uncited-source-label, .result-badge.feedback-error, .coverage-badge.research, .coverage-badge.neutral {
+  background: none;
+  border-color: transparent;
+}
+
+.environment-badge {
+  height: auto;
+  padding: 0;
+  background: none;
+  border: 0;
+  font-size: var(--t-xs);
 }

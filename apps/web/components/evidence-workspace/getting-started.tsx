@@ -43,7 +43,6 @@ export function GettingStarted({
     <section className={`${styles.panel} ${styles["getting-started"]}`} aria-labelledby="start-heading">
       <div className={styles["getting-started-heading"]}>
         <div>
-          <span className={styles["section-kicker"]}>Before you ask</span>
           <h2 id="start-heading">Evidence-gated guideline review</h2>
         </div>
         <span className={`${styles["coverage-badge"]} ${styles[coverage.tone]}`}>

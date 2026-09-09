@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import health, ingestion, questions, sources
+from app.api.routes import corpus, health, ingestion, questions, sources
 from app.core.config import get_settings
 from app.corpus.releases import SQLCorpusReleaseRepository
 from app.ingestion.downloader import AsyncPDFDownloader
@@ -104,6 +104,7 @@ def create_app() -> FastAPI:
     application.include_router(questions.router, prefix=settings.api_prefix)
     application.include_router(ingestion.router, prefix=settings.api_prefix)
     application.include_router(sources.router, prefix=settings.api_prefix)
+    application.include_router(corpus.router, prefix=settings.api_prefix)
     return application
 
 

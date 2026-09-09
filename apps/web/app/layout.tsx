@@ -1,5 +1,9 @@
 import type { Metadata, Viewport } from "next";
-import { JetBrains_Mono, Public_Sans } from "next/font/google";
+import { JetBrains_Mono, Public_Sans, Source_Serif_4 } from "next/font/google";
+
+import { SettingsBoot } from "@/components/shell/settings-boot";
+import { SiteFooter } from "@/components/shell/site-footer";
+import { SiteHeader } from "@/components/shell/site-header";
 
 import "./globals.css";
 
@@ -14,6 +18,16 @@ const mono = JetBrains_Mono({
   variable: "--font-mono",
   subsets: ["latin"],
   weight: ["400", "500"],
+  display: "swap",
+});
+
+// The reading face. Answers and passages are read, not scanned, and a serif at 18px
+// holds a 65-character measure the way the sans does not.
+const serif = Source_Serif_4({
+  variable: "--font-serif",
+  subsets: ["latin"],
+  weight: ["400", "600"],
+  style: ["normal", "italic"],
   display: "swap",
 });
 
@@ -35,7 +49,12 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en">
-      <body className={`${sans.variable} ${mono.variable}`}>{children}</body>
+      <body className={`${sans.variable} ${mono.variable} ${serif.variable}`}>
+        <SettingsBoot />
+        <SiteHeader />
+        {children}
+        <SiteFooter />
+      </body>
     </html>
   );
 }

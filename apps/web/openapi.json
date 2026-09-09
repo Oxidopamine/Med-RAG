@@ -348,6 +348,327 @@
         "title": "ClinicalContext",
         "type": "object"
       },
+      "CorpusCatalogue": {
+        "additionalProperties": false,
+        "description": "What the service is answering from, and what it is registered to acquire.\n\n``release`` is the served release (activated, or served for research) or null when\nnothing is served; ``sources`` are the documents that release carries evidence\nfrom; ``trust_roots`` are the registered publishers and scopes, served or not.",
+        "properties": {
+          "release": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CorpusCatalogueRelease"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/CorpusCatalogueSource"
+            },
+            "title": "Sources",
+            "type": "array"
+          },
+          "trust_roots": {
+            "items": {
+              "$ref": "#/components/schemas/CorpusTrustRoot"
+            },
+            "title": "Trust Roots",
+            "type": "array"
+          }
+        },
+        "title": "CorpusCatalogue",
+        "type": "object"
+      },
+      "CorpusCatalogueRelease": {
+        "additionalProperties": false,
+        "properties": {
+          "activated_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Activated At"
+          },
+          "activated_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Activated By"
+          },
+          "contract_version": {
+            "title": "Contract Version",
+            "type": "string"
+          },
+          "corpus_release_id": {
+            "title": "Corpus Release Id",
+            "type": "string"
+          },
+          "cutoff_at": {
+            "format": "date-time",
+            "title": "Cutoff At",
+            "type": "string"
+          },
+          "evidence_count": {
+            "minimum": 0.0,
+            "title": "Evidence Count",
+            "type": "integer"
+          },
+          "index_status": {
+            "title": "Index Status",
+            "type": "string"
+          },
+          "manifest_sha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Manifest Sha256",
+            "type": "string"
+          },
+          "serving_mode": {
+            "$ref": "#/components/schemas/ReleaseServingMode"
+          },
+          "state": {
+            "$ref": "#/components/schemas/ReleaseState"
+          },
+          "validated_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Validated At"
+          }
+        },
+        "required": [
+          "corpus_release_id",
+          "serving_mode",
+          "state",
+          "contract_version",
+          "manifest_sha256",
+          "cutoff_at",
+          "evidence_count",
+          "index_status"
+        ],
+        "title": "CorpusCatalogueRelease",
+        "type": "object"
+      },
+      "CorpusCatalogueSource": {
+        "additionalProperties": false,
+        "properties": {
+          "canonical_url": {
+            "title": "Canonical Url",
+            "type": "string"
+          },
+          "jurisdiction": {
+            "title": "Jurisdiction",
+            "type": "string"
+          },
+          "license_excerpt_allowed": {
+            "title": "License Excerpt Allowed",
+            "type": "boolean"
+          },
+          "license_render_allowed": {
+            "title": "License Render Allowed",
+            "type": "boolean"
+          },
+          "publisher_id": {
+            "title": "Publisher Id",
+            "type": "string"
+          },
+          "publisher_name": {
+            "title": "Publisher Name",
+            "type": "string"
+          },
+          "source_class": {
+            "title": "Source Class",
+            "type": "string"
+          },
+          "source_id": {
+            "title": "Source Id",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "versions": {
+            "items": {
+              "$ref": "#/components/schemas/CorpusCatalogueVersion"
+            },
+            "title": "Versions",
+            "type": "array"
+          }
+        },
+        "required": [
+          "source_id",
+          "title",
+          "publisher_id",
+          "publisher_name",
+          "source_class",
+          "jurisdiction",
+          "canonical_url",
+          "license_excerpt_allowed",
+          "license_render_allowed"
+        ],
+        "title": "CorpusCatalogueSource",
+        "type": "object"
+      },
+      "CorpusCatalogueVersion": {
+        "additionalProperties": false,
+        "description": "One edition of a source as the served release carries it.",
+        "properties": {
+          "approved_for_retrieval": {
+            "title": "Approved For Retrieval",
+            "type": "boolean"
+          },
+          "effective_from": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Effective From"
+          },
+          "effective_to": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Effective To"
+          },
+          "evidence_count": {
+            "minimum": 0.0,
+            "title": "Evidence Count",
+            "type": "integer"
+          },
+          "page_count": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Page Count"
+          },
+          "source_version_id": {
+            "title": "Source Version Id",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "version_label": {
+            "title": "Version Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source_version_id",
+          "version_label",
+          "status",
+          "approved_for_retrieval",
+          "evidence_count"
+        ],
+        "title": "CorpusCatalogueVersion",
+        "type": "object"
+      },
+      "CorpusTrustRoot": {
+        "additionalProperties": false,
+        "description": "A registered acquisition boundary, named for the catalogue without its secrets.",
+        "properties": {
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "jurisdictions": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Jurisdictions",
+            "type": "array"
+          },
+          "last_reconciled_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Reconciled At"
+          },
+          "publisher_id": {
+            "title": "Publisher Id",
+            "type": "string"
+          },
+          "publisher_name": {
+            "title": "Publisher Name",
+            "type": "string"
+          },
+          "scope": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scope"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "trust_root_id": {
+            "title": "Trust Root Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "trust_root_id",
+          "publisher_id",
+          "publisher_name",
+          "enabled"
+        ],
+        "title": "CorpusTrustRoot",
+        "type": "object"
+      },
       "EvidenceDetail": {
         "additionalProperties": false,
         "properties": {
@@ -1144,6 +1465,86 @@
         "title": "QuestionStatus",
         "type": "string"
       },
+      "QuestionSummary": {
+        "additionalProperties": false,
+        "description": "One row of the review list: enough to find a run again, never its content.\n\nThe content stays behind ``GET /questions/{id}`` on purpose. A list that carried\nclaims would be a second rendering path for text the gate governs, and a list is\nscrolled past, not read.",
+        "properties": {
+          "abstention_reason_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Abstention Reason Code"
+          },
+          "corpus_release_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Corpus Release Id"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "question": {
+            "title": "Question",
+            "type": "string"
+          },
+          "question_id": {
+            "title": "Question Id",
+            "type": "string"
+          },
+          "serving_mode": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReleaseServingMode"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "$ref": "#/components/schemas/QuestionStatus"
+          },
+          "supported_claims": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Supported Claims",
+            "type": "integer"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "withheld_claims": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Withheld Claims",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "question_id",
+          "question",
+          "status",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "QuestionSummary",
+        "type": "object"
+      },
       "ReleaseServingMode": {
         "description": "How a release being served earned the right to be served.\n\n`ACTIVATED` is the governed path: a signed activation decision backed by a sealed\nholdout acceptance, recorded in the singleton active-release pointer.\n\n`RESEARCH_UNACTIVATED` is a validated release served without one. It exists so the\nserving path can be exercised by a person before activation is reachable, and it is\nnamed in the payload rather than inferred, because the presence of a release is\notherwise indistinguishable from clinical acceptance to any client. A client that\ndoes not understand this field must not treat a release as accepted; that is why the\nfield is required reading for the provenance surface and why `activated_at` is null\nhere rather than carrying a plausible-looking timestamp.",
         "enum": [
@@ -1151,6 +1552,17 @@
           "RESEARCH_UNACTIVATED"
         ],
         "title": "ReleaseServingMode",
+        "type": "string"
+      },
+      "ReleaseState": {
+        "enum": [
+          "CANDIDATE",
+          "VALIDATED",
+          "ACTIVE",
+          "SUPERSEDED",
+          "REJECTED"
+        ],
+        "title": "ReleaseState",
         "type": "string"
       },
       "RenderedClaim": {
@@ -1698,6 +2110,27 @@
         ]
       }
     },
+    "/v1/corpus": {
+      "get": {
+        "operationId": "get_corpus_catalogue_v1_corpus_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CorpusCatalogue"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Corpus Catalogue",
+        "tags": [
+          "corpus"
+        ]
+      }
+    },
     "/v1/ingestion/publishers": {
       "post": {
         "operationId": "create_publisher_v1_ingestion_publishers_post",
@@ -1981,6 +2414,53 @@
       }
     },
     "/v1/questions": {
+      "get": {
+        "operationId": "list_questions_v1_questions_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/QuestionSummary"
+                  },
+                  "title": "Response List Questions V1 Questions Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Questions",
+        "tags": [
+          "questions"
+        ]
+      },
       "post": {
         "operationId": "submit_question_v1_questions_post",
         "requestBody": {

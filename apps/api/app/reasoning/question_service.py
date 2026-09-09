@@ -47,6 +47,7 @@ from app.schemas.questions import (
     QuestionCreate,
     QuestionResult,
     QuestionStatus,
+    QuestionSummary,
     RenderedClaim,
     RetrievalCandidate,
     SourceFilters,
@@ -109,10 +110,7 @@ class QuestionService:
     def __init__(
         self,
         *,
-        active_release_provider: Callable[
-            [], Awaitable[ActiveCorpusRelease | None]
-        ]
-        | None = None,
+        active_release_provider: Callable[[], Awaitable[ActiveCorpusRelease | None]] | None = None,
         approved_corpus_available: bool = False,
         pipeline: ServingPipeline | None = None,
     ) -> None:
@@ -176,9 +174,39 @@ class QuestionService:
             updated_at=record.updated_at,
         )
 
-    async def events(
-        self, question_id: str, after: int = 0
-    ) -> AsyncIterator[ProgressEvent | None]:
+    def list_results(self, limit: int = 50) -> list[QuestionSummary]:
+        """The most recent runs first, as summaries.
+
+        In-process like the records themselves: the list is exactly what this service
+        can still answer for, and it empties with the process. A durable review index
+        arrives with the persistence slice, under the same shape.
+        """
+        records = sorted(
+            self._records.values(),
+            key=lambda record: (record.created_at, record.question_id),
+            reverse=True,
+        )
+        return [self._summary(record) for record in records[: max(limit, 0)]]
+
+    @staticmethod
+    def _summary(record: QuestionRecord) -> QuestionSummary:
+        release = record.corpus_release
+        return QuestionSummary(
+            question_id=record.question_id,
+            question=record.question,
+            status=record.status,
+            corpus_release_id=release.corpus_release_id if release is not None else None,
+            serving_mode=release.serving_mode if release is not None else None,
+            supported_claims=record.verification_summary.supported_claims,
+            withheld_claims=record.verification_summary.withheld_claims,
+            abstention_reason_code=(
+                record.abstention.reason_code if record.abstention is not None else None
+            ),
+            created_at=record.created_at,
+            updated_at=record.updated_at,
+        )
+
+    async def events(self, question_id: str, after: int = 0) -> AsyncIterator[ProgressEvent | None]:
         """Every progress event for a run, then nothing once it is terminal.
 
         ``None`` is a keep-alive, not an event: it says the run is still live and this
@@ -277,9 +305,7 @@ class QuestionService:
                 # records - the pipeline lives here. Without this, a composer-path
                 # abstention rendered every near miss as "could not be resolved", which
                 # reports a failure that was never attempted.
-                record.abstention = await self._with_closest_detail(
-                    composed.abstention, release
-                )
+                record.abstention = await self._with_closest_detail(composed.abstention, release)
                 await self._emit(record, QuestionStatus.ABSTAINED)
                 return
 
@@ -379,9 +405,7 @@ class QuestionService:
         "nothing matched" and "what matched cannot carry a recommendation" send a
         reader to different next steps.
         """
-        closest = [
-            passage.evidence_id for passage in retrieval.passages[:CLOSEST_EVIDENCE_LIMIT]
-        ]
+        closest = [passage.evidence_id for passage in retrieval.passages[:CLOSEST_EVIDENCE_LIMIT]]
         if not retrieval.passages:
             return AbstentionDetail(
                 reason_code=AbstentionReason.NO_EVIDENCE_RETRIEVED.value,
@@ -391,9 +415,7 @@ class QuestionService:
             return AbstentionDetail(
                 reason_code=AbstentionReason.INCOMPLETE_EVIDENCE_ROLE_SET.value,
                 message=_ABSTENTION_MESSAGES[AbstentionReason.INCOMPLETE_EVIDENCE_ROLE_SET],
-                missing_evidence_roles=[
-                    role.value for role in retrieval.missing_required_roles
-                ],
+                missing_evidence_roles=[role.value for role in retrieval.missing_required_roles],
                 closest_evidence_ids=closest,
                 closest_evidence=await self._closest_details(release, closest),
             )
@@ -405,9 +427,7 @@ class QuestionService:
         """Attach canonical detail to an abstention raised outside the gate."""
         if not abstention.closest_evidence_ids or abstention.closest_evidence:
             return abstention
-        details = await self._closest_details(
-            release, list(abstention.closest_evidence_ids)
-        )
+        details = await self._closest_details(release, list(abstention.closest_evidence_ids))
         if not details:
             return abstention
         return abstention.model_copy(update={"closest_evidence": details})
@@ -425,9 +445,7 @@ class QuestionService:
         if not closest or self._pipeline is None:
             return []
         try:
-            details = await self._pipeline.evidence_details(
-                release.corpus_release_id, set(closest)
-            )
+            details = await self._pipeline.evidence_details(release.corpus_release_id, set(closest))
         except Exception:
             return []
         by_id = {detail.evidence_id: detail for detail in details}
@@ -448,15 +466,9 @@ class QuestionService:
         the reader nothing. Sets ``record.abstention`` and returns None in the first case.
         """
         assert self._pipeline is not None
-        cited = {
-            evidence_id for claim in composed.claims for evidence_id in claim.evidence_ids
-        }
-        referenced = cited | {
-            candidate.evidence_id for candidate in composed.candidates
-        }
-        details = await self._pipeline.evidence_details(
-            release.corpus_release_id, referenced
-        )
+        cited = {evidence_id for claim in composed.claims for evidence_id in claim.evidence_ids}
+        referenced = cited | {candidate.evidence_id for candidate in composed.candidates}
+        details = await self._pipeline.evidence_details(release.corpus_release_id, referenced)
         resolved_ids = {detail.evidence_id for detail in details}
 
         missing_citations = sorted(cited - resolved_ids)
@@ -469,9 +481,7 @@ class QuestionService:
             return None
 
         surviving = [
-            candidate
-            for candidate in composed.candidates
-            if candidate.evidence_id in resolved_ids
+            candidate for candidate in composed.candidates if candidate.evidence_id in resolved_ids
         ]
         keep = cited | {candidate.evidence_id for candidate in surviving}
         return (

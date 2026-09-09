@@ -1,0 +1,73 @@
+.figure {
+  margin: 0 0 var(--s-6);
+  position: relative;
+  max-width: 640px;
+}
+
+.chart {
+  width: 100%;
+  height: auto;
+  display: block;
+  font-family: var(--font-sans), system-ui, sans-serif;
+}
+
+.chart g {
+  outline: none;
+}
+
+.hit {
+  fill: transparent;
+}
+
+.chart g:focus-visible .hit {
+  fill: var(--bg-sunk);
+}
+
+.rowLabel {
+  fill: var(--text-primary);
+  font-size: 13px;
+}
+
+.baseline {
+  stroke: var(--border-subtle);
+  stroke-width: 1;
+}
+
+.bar {
+  fill: var(--c-600);
+}
+
+.barActive {
+  fill: var(--c-700);
+}
+
+.value {
+  fill: var(--text-strong);
+  font-size: 13px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.valueMuted {
+  fill: var(--text-muted);
+  font-weight: 400;
+}
+
+.tooltip {
+  position: absolute;
+  right: 0;
+  top: -28px;
+  padding: 4px 8px;
+  color: var(--text-primary);
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-sm);
+  font-size: var(--t-xs);
+}
+
+.caption {
+  margin-top: var(--s-2);
+  color: var(--text-muted);
+  font-size: var(--t-xs);
+}

@@ -10,6 +10,7 @@ from app.schemas.questions import (
     QuestionContextPatch,
     QuestionCreate,
     QuestionResult,
+    QuestionSummary,
 )
 
 router = APIRouter(prefix="/questions", tags=["questions"])
@@ -22,6 +23,14 @@ async def submit_question(
     service: QuestionServiceDependency,
 ) -> QuestionAccepted:
     return await service.submit(payload)
+
+
+@router.get("", response_model=list[QuestionSummary])
+async def list_questions(
+    service: QuestionServiceDependency,
+    limit: int = Query(default=50, ge=1, le=200),
+) -> list[QuestionSummary]:
+    return service.list_results(limit)
 
 
 @router.get("/{question_id}", response_model=QuestionResult)

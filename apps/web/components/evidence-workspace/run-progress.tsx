@@ -25,7 +25,6 @@ export function RunProgress({
         <CircleDashed className={styles.spin} size={25} />
       </div>
       <div className={styles["run-progress-copy"]}>
-        <span className={styles["section-kicker"]}>Evidence review in progress</span>
         <h2 id="run-progress-heading">{status ? STATUS_LABELS[status] : "Starting review"}</h2>
         <p>{progressMessage(status)}</p>
         <div className={styles["run-progress-meta"]}>

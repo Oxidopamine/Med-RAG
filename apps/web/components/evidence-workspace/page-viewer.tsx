@@ -156,7 +156,7 @@ export function PageViewer({
         <Dialog.Content className={styles["viewer-dialog"]} aria-describedby={undefined}>
           <header className={styles["viewer-heading"]}>
             <div>
-              <span className={styles["section-kicker"]}>
+              <span className={styles["neutral-label"]}>
                 {detail.publisher_name} &middot; {detail.source_version_label}
               </span>
               <Dialog.Title asChild>

@@ -468,3 +468,84 @@ export function parseContract<T>(schema: z.ZodType<T>, payload: unknown, label: 
   const detail = firstIssue?.message ?? "unknown validation error";
   throw new Error(`The API returned an invalid ${label}${field}: ${detail}.`);
 }
+
+const servingModeSchema = z.enum(["ACTIVATED", "RESEARCH_UNACTIVATED"]);
+
+export const questionSummarySchema = z.strictObject({
+  question_id: z.string().trim().min(1),
+  question: z.string(),
+  status: questionStatusSchema,
+  corpus_release_id: z.string().nullable(),
+  serving_mode: servingModeSchema.nullable(),
+  supported_claims: z.number().int().nonnegative(),
+  withheld_claims: z.number().int().nonnegative(),
+  abstention_reason_code: z.string().nullable(),
+  created_at: z.string(),
+  updated_at: z.string(),
+});
+
+export const questionSummaryListSchema = z.array(questionSummarySchema).max(200);
+
+const catalogueVersionSchema = z.strictObject({
+  source_version_id: z.string(),
+  version_label: z.string(),
+  status: z.string(),
+  effective_from: z.string().nullable(),
+  effective_to: z.string().nullable(),
+  approved_for_retrieval: z.boolean(),
+  evidence_count: z.number().int().nonnegative(),
+  page_count: z.number().int().nonnegative().nullable(),
+});
+
+const catalogueSourceSchema = z.strictObject({
+  source_id: z.string(),
+  title: z.string(),
+  publisher_id: z.string(),
+  publisher_name: z.string(),
+  source_class: z.string(),
+  jurisdiction: z.string(),
+  canonical_url: z.string(),
+  license_excerpt_allowed: z.boolean(),
+  license_render_allowed: z.boolean(),
+  versions: z.array(catalogueVersionSchema),
+});
+
+const catalogueReleaseSchema = z.strictObject({
+  corpus_release_id: z.string(),
+  serving_mode: servingModeSchema,
+  state: z.enum(["CANDIDATE", "VALIDATED", "ACTIVE", "SUPERSEDED", "REJECTED"]),
+  contract_version: z.string(),
+  manifest_sha256: z.string(),
+  cutoff_at: z.string(),
+  evidence_count: z.number().int().nonnegative(),
+  index_status: z.string(),
+  validated_at: z.string().nullable(),
+  activated_at: z.string().nullable(),
+  activated_by: z.string().nullable(),
+});
+
+const trustRootSchema = z.strictObject({
+  trust_root_id: z.string(),
+  publisher_id: z.string(),
+  publisher_name: z.string(),
+  title: z.string().nullable(),
+  scope: z.string().nullable(),
+  jurisdictions: z.array(z.string()),
+  enabled: z.boolean(),
+  last_reconciled_at: z.string().nullable(),
+});
+
+export const corpusCatalogueSchema = z.strictObject({
+  release: catalogueReleaseSchema.nullable(),
+  sources: z.array(catalogueSourceSchema),
+  trust_roots: z.array(trustRootSchema),
+});
+
+// These two payloads are typed from their schemas: the generated types mark every
+// defaulted field optional, and the client wants the shape the parser guarantees.
+export type QuestionSummary = z.infer<typeof questionSummarySchema>;
+export type CorpusCatalogue = z.infer<typeof corpusCatalogueSchema>;
+export type CorpusCatalogueSource = z.infer<typeof catalogueSourceSchema>;
+export type CorpusCatalogueVersion = z.infer<typeof catalogueVersionSchema>;
+export type CorpusCatalogueRelease = z.infer<typeof catalogueReleaseSchema>;
+export type CorpusTrustRoot = z.infer<typeof trustRootSchema>;

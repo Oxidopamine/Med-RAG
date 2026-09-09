@@ -28,18 +28,25 @@ from app.persistence.models import (
     CorpusReleaseEvidenceRow,
     CorpusReleaseExceptionRow,
     CorpusReleaseRow,
+    ExtractionRunRow,
     OutboxEventRow,
     PublisherRow,
     SourceRow,
     SourceVersionRow,
     StewardArtifactRow,
+    TrustRootRow,
 )
 from app.schemas.corpus import (
     ActiveCorpusRelease,
+    CorpusCatalogue,
+    CorpusCatalogueRelease,
+    CorpusCatalogueSource,
+    CorpusCatalogueVersion,
     CorpusEvidenceRecord,
     CorpusReleaseBundle,
     CorpusReleaseManifest,
     CorpusReleaseRecord,
+    CorpusTrustRoot,
     EvidenceApprovalStatus,
     LocatorKind,
     ReleaseState,
@@ -390,9 +397,7 @@ class SQLCorpusReleaseRepository:
                 or len(selected_collection) > 255
                 or (
                     selected_collection != release.qdrant_collection
-                    and not selected_collection.startswith(
-                        f"{release.qdrant_collection}--vp-"
-                    )
+                    and not selected_collection.startswith(f"{release.qdrant_collection}--vp-")
                 )
             ):
                 raise CorpusReleaseGateError(["INDEX_COLLECTION_IDENTITY_MISMATCH"])
@@ -439,18 +444,14 @@ class SQLCorpusReleaseRepository:
             await self._attestations.verify_existing_reference(
                 acceptance.content,
                 purpose=BenchmarkAttestationPurpose.BENCHMARK_ACCEPTANCE,
-                predicate_type=(
-                    "https://med-rag.local/attestations/benchmark-acceptance"
-                ),
+                predicate_type=("https://med-rag.local/attestations/benchmark-acceptance"),
                 statement_sha256=acceptance.statement_sha256,
                 signature_sha256=acceptance.signature_sha256,
                 signing_key_id=acceptance.signing_key_id,
                 signer_identity=acceptance.signer_identity,
             )
         except AttestationVerificationError as error:
-            raise CorpusReleaseGateError(
-                ["BENCHMARK_ACCEPTANCE_SIGNATURE_NOT_VERIFIED"]
-            ) from error
+            raise CorpusReleaseGateError(["BENCHMARK_ACCEPTANCE_SIGNATURE_NOT_VERIFIED"]) from error
 
         content = acceptance.content
         result = report.content
@@ -581,9 +582,7 @@ class SQLCorpusReleaseRepository:
                     corpus_release_id=corpus_release_id,
                     benchmark_suite_sha256=content.benchmark_suite_sha256,
                     benchmark_report_sha256=content.benchmark_report_sha256,
-                    candidate_configuration_sha256=(
-                        content.candidate_configuration_sha256
-                    ),
+                    candidate_configuration_sha256=(content.candidate_configuration_sha256),
                     manifest_sha256=content.manifest_sha256,
                     vector_batch_sha256=content.vector_batch_sha256,
                     qdrant_collection=content.qdrant_collection,
@@ -612,9 +611,7 @@ class SQLCorpusReleaseRepository:
                     "corpus_release_id": corpus_release_id,
                     "benchmark_acceptance_sha256": acceptance.statement_sha256,
                     "benchmark_report_sha256": report.report_sha256,
-                    "candidate_configuration_sha256": (
-                        content.candidate_configuration_sha256
-                    ),
+                    "candidate_configuration_sha256": (content.candidate_configuration_sha256),
                     "vector_batch_sha256": content.vector_batch_sha256,
                     "index_attestation_sha256": content.index_attestation_sha256,
                 },
@@ -683,18 +680,12 @@ class SQLCorpusReleaseRepository:
                     accepted_content = BenchmarkAcceptanceAttestationContent.model_validate(
                         benchmark_acceptance.payload
                     )
-                    if (
-                        canonical_sha256(accepted_content)
-                        != benchmark_acceptance.statement_sha256
-                    ):
+                    if canonical_sha256(accepted_content) != benchmark_acceptance.statement_sha256:
                         raise ValueError("stored acceptance payload digest mismatch")
                 except Exception:
                     accepted_content = None
                     blockers.append("BENCHMARK_ACCEPTANCE_TAMPERED")
-                if (
-                    benchmark_acceptance.statement_sha256
-                    != release.benchmark_acceptance_sha256
-                ):
+                if benchmark_acceptance.statement_sha256 != release.benchmark_acceptance_sha256:
                     blockers.append("BENCHMARK_ACCEPTANCE_LINK_MISMATCH")
                 if (
                     decision.content.benchmark_acceptance_sha256
@@ -707,8 +698,7 @@ class SQLCorpusReleaseRepository:
                     accepted_content.corpus_release_id != corpus_release_id
                     or accepted_content.manifest_sha256 != release.manifest_sha256
                     or accepted_content.qdrant_collection != release.qdrant_collection
-                    or accepted_content.index_attestation_sha256
-                    != release.index_attestation_sha256
+                    or accepted_content.index_attestation_sha256 != release.index_attestation_sha256
                     or accepted_content.vector_batch_sha256
                     != benchmark_acceptance.vector_batch_sha256
                     or accepted_content.candidate_configuration_sha256
@@ -777,9 +767,7 @@ class SQLCorpusReleaseRepository:
                     "qdrant_collection": release.qdrant_collection,
                     "activation_decision_sha256": decision_digest,
                     "activation_signature_sha256": decision.signature_sha256,
-                    "benchmark_acceptance_sha256": (
-                        release.benchmark_acceptance_sha256
-                    ),
+                    "benchmark_acceptance_sha256": (release.benchmark_acceptance_sha256),
                     "signing_key_id": decision.signing_key_id,
                 },
                 now=now,
@@ -798,6 +786,137 @@ class SQLCorpusReleaseRepository:
             if pointer.manifest_sha256 != release.manifest_sha256:
                 return None
             return self._active_record(pointer, release)
+
+    async def catalogue(self, served: ActiveCorpusRelease | None) -> CorpusCatalogue:
+        """The served release, the documents it carries evidence from, and the trust roots.
+
+        Read-only and licence-neutral: it names documents, editions and counts, never a
+        passage. The served release is taken from the caller rather than the pointer for
+        the reason ``/health/ready`` gives - under research serving the pointer is empty
+        while answers are being produced.
+        """
+        async with self._database.session() as session:
+            release_block: CorpusCatalogueRelease | None = None
+            sources: list[CorpusCatalogueSource] = []
+            if served is not None:
+                row = await session.get(CorpusReleaseRow, served.corpus_release_id)
+                if row is not None:
+                    release_block = CorpusCatalogueRelease(
+                        corpus_release_id=row.corpus_release_id,
+                        serving_mode=served.serving_mode,
+                        state=ReleaseState(row.state),
+                        contract_version=row.contract_version,
+                        manifest_sha256=row.manifest_sha256,
+                        cutoff_at=_as_utc(row.cutoff_at),
+                        evidence_count=await self._evidence_count(session, row.corpus_release_id),
+                        index_status=row.index_status,
+                        validated_at=_as_utc(row.validated_at),
+                        activated_at=_as_utc(row.activated_at),
+                        activated_by=row.activated_by,
+                    )
+                    sources = await self._catalogue_sources(session, row.corpus_release_id)
+            trust_roots = await self._catalogue_trust_roots(session)
+            return CorpusCatalogue(release=release_block, sources=sources, trust_roots=trust_roots)
+
+    async def _catalogue_sources(
+        self, session, corpus_release_id: str
+    ) -> list[CorpusCatalogueSource]:
+        counted = await session.execute(
+            select(
+                CanonicalEvidenceRow.source_id,
+                CanonicalEvidenceRow.source_version_id,
+                func.count().label("evidence_count"),
+            )
+            .join(
+                CorpusReleaseEvidenceRow,
+                CorpusReleaseEvidenceRow.evidence_id == CanonicalEvidenceRow.evidence_id,
+            )
+            .where(CorpusReleaseEvidenceRow.corpus_release_id == corpus_release_id)
+            .group_by(CanonicalEvidenceRow.source_id, CanonicalEvidenceRow.source_version_id)
+        )
+        by_version: dict[tuple[str, str], int] = {
+            (source_id, version_id): int(count) for source_id, version_id, count in counted
+        }
+        version_ids = sorted({version_id for _, version_id in by_version})
+        page_counts: dict[str, int] = {}
+        if version_ids:
+            paged = await session.execute(
+                select(AcquisitionRow.source_version_id, func.max(ExtractionRunRow.page_count))
+                .join(
+                    ExtractionRunRow,
+                    ExtractionRunRow.acquisition_id == AcquisitionRow.acquisition_id,
+                )
+                .where(AcquisitionRow.source_version_id.in_(version_ids))
+                .group_by(AcquisitionRow.source_version_id)
+            )
+            page_counts = {
+                version_id: int(pages) for version_id, pages in paged if pages is not None
+            }
+
+        sources: list[CorpusCatalogueSource] = []
+        for source_id in sorted({source_id for source_id, _ in by_version}):
+            source = await session.get(SourceRow, source_id)
+            if source is None:
+                continue
+            publisher = await session.get(PublisherRow, source.publisher_id)
+            versions: list[CorpusCatalogueVersion] = []
+            for (candidate_source, version_id), count in sorted(by_version.items()):
+                if candidate_source != source_id:
+                    continue
+                version = await session.get(SourceVersionRow, version_id)
+                if version is None:
+                    continue
+                versions.append(
+                    CorpusCatalogueVersion(
+                        source_version_id=version.source_version_id,
+                        version_label=version.version_label,
+                        status=version.status,
+                        effective_from=version.effective_from,
+                        effective_to=version.effective_to,
+                        approved_for_retrieval=version.approved_for_retrieval,
+                        evidence_count=count,
+                        page_count=page_counts.get(version_id),
+                    )
+                )
+            sources.append(
+                CorpusCatalogueSource(
+                    source_id=source.source_id,
+                    title=source.title,
+                    publisher_id=source.publisher_id,
+                    publisher_name=publisher.name if publisher is not None else source.publisher_id,
+                    source_class=source.source_class,
+                    jurisdiction=source.jurisdiction,
+                    canonical_url=source.canonical_url,
+                    license_excerpt_allowed=source.license_excerpt_allowed,
+                    license_render_allowed=source.license_render_allowed,
+                    versions=versions,
+                )
+            )
+        return sources
+
+    @staticmethod
+    async def _catalogue_trust_roots(session) -> list[CorpusTrustRoot]:
+        rows = (
+            await session.execute(select(TrustRootRow).order_by(TrustRootRow.trust_root_id))
+        ).scalars()
+        roots: list[CorpusTrustRoot] = []
+        for row in rows:
+            config = row.connector_config or {}
+            title = config.get("title")
+            scope = config.get("scope_declaration")
+            roots.append(
+                CorpusTrustRoot(
+                    trust_root_id=row.trust_root_id,
+                    publisher_id=row.publisher_id,
+                    publisher_name=row.publisher_name,
+                    title=str(title) if title else None,
+                    scope=str(scope)[:400] if scope else None,
+                    jurisdictions=list(row.jurisdictions or []),
+                    enabled=bool(row.enabled),
+                    last_reconciled_at=_as_utc(row.last_reconciled_at),
+                )
+            )
+        return roots
 
     async def evidence_details(
         self,
@@ -873,29 +992,33 @@ class SQLCorpusReleaseRepository:
             # that is itself servable. A source known to the registry but absent from -
             # or quarantined out of - the release being served has no page here.
             evidence_row = (
-                await session.execute(
-                    select(CanonicalEvidenceRow)
-                    .join(
-                        CorpusReleaseEvidenceRow,
-                        CorpusReleaseEvidenceRow.evidence_id
-                        == CanonicalEvidenceRow.evidence_id,
+                (
+                    await session.execute(
+                        select(CanonicalEvidenceRow)
+                        .join(
+                            CorpusReleaseEvidenceRow,
+                            CorpusReleaseEvidenceRow.evidence_id
+                            == CanonicalEvidenceRow.evidence_id,
+                        )
+                        .join(
+                            SourceVersionRow,
+                            SourceVersionRow.source_version_id
+                            == CanonicalEvidenceRow.source_version_id,
+                        )
+                        .where(
+                            CorpusReleaseEvidenceRow.corpus_release_id == corpus_release_id,
+                            CanonicalEvidenceRow.source_id == source_id,
+                            CanonicalEvidenceRow.approval_status
+                            == EvidenceApprovalStatus.APPROVED.value,
+                            SourceVersionRow.approved_for_retrieval.is_(True),
+                            SourceVersionRow.status.in_(SERVABLE_LIFECYCLE_VALUES),
+                        )
+                        .limit(1)
                     )
-                    .join(
-                        SourceVersionRow,
-                        SourceVersionRow.source_version_id
-                        == CanonicalEvidenceRow.source_version_id,
-                    )
-                    .where(
-                        CorpusReleaseEvidenceRow.corpus_release_id == corpus_release_id,
-                        CanonicalEvidenceRow.source_id == source_id,
-                        CanonicalEvidenceRow.approval_status
-                        == EvidenceApprovalStatus.APPROVED.value,
-                        SourceVersionRow.approved_for_retrieval.is_(True),
-                        SourceVersionRow.status.in_(SERVABLE_LIFECYCLE_VALUES),
-                    )
-                    .limit(1)
                 )
-            ).scalars().first()
+                .scalars()
+                .first()
+            )
             if evidence_row is None:
                 return None
             try:

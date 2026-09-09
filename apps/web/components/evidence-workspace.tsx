@@ -3,8 +3,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { AnswerPanel } from "@/components/evidence-workspace/answer-panel";
-import { AppFooter } from "@/components/evidence-workspace/app-footer";
-import { AppHeader } from "@/components/evidence-workspace/app-header";
 import { ContextDialog } from "@/components/evidence-workspace/context-dialog";
 import {
   EvidenceDetails,
@@ -488,8 +486,6 @@ export function EvidenceWorkspace({
 
   return (
     <div className={styles.appShell}>
-      <AppHeader />
-
       <main id="main-content">
         <QuestionComposer
           isRunning={run.isRunning}
@@ -608,8 +604,6 @@ export function EvidenceWorkspace({
           />
         ) : null}
       </main>
-
-      <AppFooter />
 
       {editOpen && draftContext && run.result?.interpreted_context ? (
         <ContextDialog

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from datetime import datetime
+from datetime import date, datetime
 from enum import Enum
 from typing import Any, Literal
 
@@ -167,9 +167,7 @@ class ApplicabilityScope(CanonicalModel):
     inclusion_criteria: tuple[str, ...] = ()
     exclusion_criteria: tuple[str, ...] = ()
 
-    @field_validator(
-        "population", "care_settings", "inclusion_criteria", "exclusion_criteria"
-    )
+    @field_validator("population", "care_settings", "inclusion_criteria", "exclusion_criteria")
     @classmethod
     def sort_unique_values(cls, value: tuple[str, ...]) -> tuple[str, ...]:
         if len(value) != len(set(value)):
@@ -210,9 +208,7 @@ class EvidenceVerification(CanonicalModel):
             VerificationInvariant.CRITICAL_FIELDS,
         }
         passed = {
-            check.invariant
-            for check in self.checks
-            if check.outcome is VerificationOutcome.PASS
+            check.invariant for check in self.checks if check.outcome is VerificationOutcome.PASS
         }
         if missing := required - passed:
             names = ", ".join(sorted(item.value for item in missing))
@@ -403,8 +399,7 @@ class CorpusReleaseManifestContent(CanonicalModel):
             for item_id in snapshot.excepted_item_ids
         }
         exception_pairs = {
-            (exception.trust_root_id, exception.inventory_item_id)
-            for exception in self.exceptions
+            (exception.trust_root_id, exception.inventory_item_id) for exception in self.exceptions
         }
         if inventory_pairs != exception_pairs:
             raise ValueError("exception register must exactly match excepted inventory items")
@@ -490,9 +485,7 @@ class CorpusReleaseBundle(CanonicalModel):
         release_id = self.manifest.content.corpus_release_id
         if any(item.corpus_release_id != release_id for item in self.evidence):
             raise ValueError("all evidence must belong to the manifest release")
-        actual = {
-            item.evidence_id: (item.source_version_id, item.sha256) for item in self.evidence
-        }
+        actual = {item.evidence_id: (item.source_version_id, item.sha256) for item in self.evidence}
         declared = {
             item.evidence_id: (item.source_version_id, item.evidence_sha256)
             for item in self.manifest.content.evidence
@@ -578,3 +571,69 @@ class ActiveCorpusRelease(CanonicalModel):
         ):
             raise ValueError("a RESEARCH_UNACTIVATED release must not carry activated_at")
         return self
+
+
+class CorpusCatalogueVersion(CanonicalModel):
+    """One edition of a source as the served release carries it."""
+
+    source_version_id: str
+    version_label: str
+    status: str
+    effective_from: date | None = None
+    effective_to: date | None = None
+    approved_for_retrieval: bool
+    evidence_count: int = Field(ge=0)
+    page_count: int | None = Field(default=None, ge=0)
+
+
+class CorpusCatalogueSource(CanonicalModel):
+    source_id: str
+    title: str
+    publisher_id: str
+    publisher_name: str
+    source_class: str
+    jurisdiction: str
+    canonical_url: str
+    license_excerpt_allowed: bool
+    license_render_allowed: bool
+    versions: list[CorpusCatalogueVersion] = Field(default_factory=list)
+
+
+class CorpusCatalogueRelease(CanonicalModel):
+    corpus_release_id: str
+    serving_mode: ReleaseServingMode
+    state: ReleaseState
+    contract_version: str
+    manifest_sha256: str = Field(pattern=SHA256_PATTERN)
+    cutoff_at: datetime
+    evidence_count: int = Field(ge=0)
+    index_status: str
+    validated_at: datetime | None = None
+    activated_at: datetime | None = None
+    activated_by: str | None = None
+
+
+class CorpusTrustRoot(CanonicalModel):
+    """A registered acquisition boundary, named for the catalogue without its secrets."""
+
+    trust_root_id: str
+    publisher_id: str
+    publisher_name: str
+    title: str | None = None
+    scope: str | None = None
+    jurisdictions: list[str] = Field(default_factory=list)
+    enabled: bool
+    last_reconciled_at: datetime | None = None
+
+
+class CorpusCatalogue(CanonicalModel):
+    """What the service is answering from, and what it is registered to acquire.
+
+    ``release`` is the served release (activated, or served for research) or null when
+    nothing is served; ``sources`` are the documents that release carries evidence
+    from; ``trust_roots`` are the registered publishers and scopes, served or not.
+    """
+
+    release: CorpusCatalogueRelease | None = None
+    sources: list[CorpusCatalogueSource] = Field(default_factory=list)
+    trust_roots: list[CorpusTrustRoot] = Field(default_factory=list)

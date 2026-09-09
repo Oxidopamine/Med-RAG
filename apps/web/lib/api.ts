@@ -1,7 +1,11 @@
 import createClient from "openapi-fetch";
 
 import {
+  corpusCatalogueSchema,
+  type CorpusCatalogue,
   corpusReadinessSchema,
+  questionSummaryListSchema,
+  type QuestionSummary,
   parseContract,
   questionAcceptedSchema,
   questionResultSchema,
@@ -77,6 +81,26 @@ export async function getCorpusReadiness(): Promise<CorpusReadiness> {
   );
   if (!response.ok) throw new Error(errorDetail(error, response.status));
   return parseContract(corpusReadinessSchema, data, "corpus readiness payload");
+}
+
+export async function getCorpusCatalogue(): Promise<CorpusCatalogue> {
+  const { data, error, response } = await withDeadline("corpus catalogue", (signal) =>
+    client.GET("/v1/corpus", { cache: "no-store", signal }),
+  );
+  if (!response.ok) throw new Error(errorDetail(error, response.status));
+  return parseContract(corpusCatalogueSchema, data, "corpus catalogue payload");
+}
+
+export async function listQuestions(limit = 50): Promise<QuestionSummary[]> {
+  const { data, error, response } = await withDeadline("review list", (signal) =>
+    client.GET("/v1/questions", {
+      params: { query: { limit } },
+      cache: "no-store",
+      signal,
+    }),
+  );
+  if (!response.ok) throw new Error(errorDetail(error, response.status));
+  return parseContract(questionSummaryListSchema, data, "review list payload");
 }
 
 export async function submitQuestion(

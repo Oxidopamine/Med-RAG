@@ -52,6 +52,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/corpus": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Corpus Catalogue */
+        get: operations["get_corpus_catalogue_v1_corpus_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/ingestion/publishers": {
         parameters: {
             query?: never;
@@ -161,7 +178,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** List Questions */
+        get: operations["list_questions_v1_questions_get"];
         put?: never;
         /** Submit Question */
         post: operations["submit_question_v1_questions_post"];
@@ -400,6 +418,114 @@ export interface components {
             special_populations?: string[];
             /** Topic */
             topic?: string | null;
+        };
+        /**
+         * CorpusCatalogue
+         * @description What the service is answering from, and what it is registered to acquire.
+         *
+         *     ``release`` is the served release (activated, or served for research) or null when
+         *     nothing is served; ``sources`` are the documents that release carries evidence
+         *     from; ``trust_roots`` are the registered publishers and scopes, served or not.
+         */
+        CorpusCatalogue: {
+            release?: components["schemas"]["CorpusCatalogueRelease"] | null;
+            /** Sources */
+            sources?: components["schemas"]["CorpusCatalogueSource"][];
+            /** Trust Roots */
+            trust_roots?: components["schemas"]["CorpusTrustRoot"][];
+        };
+        /** CorpusCatalogueRelease */
+        CorpusCatalogueRelease: {
+            /** Activated At */
+            activated_at?: string | null;
+            /** Activated By */
+            activated_by?: string | null;
+            /** Contract Version */
+            contract_version: string;
+            /** Corpus Release Id */
+            corpus_release_id: string;
+            /**
+             * Cutoff At
+             * Format: date-time
+             */
+            cutoff_at: string;
+            /** Evidence Count */
+            evidence_count: number;
+            /** Index Status */
+            index_status: string;
+            /** Manifest Sha256 */
+            manifest_sha256: string;
+            serving_mode: components["schemas"]["ReleaseServingMode"];
+            state: components["schemas"]["ReleaseState"];
+            /** Validated At */
+            validated_at?: string | null;
+        };
+        /** CorpusCatalogueSource */
+        CorpusCatalogueSource: {
+            /** Canonical Url */
+            canonical_url: string;
+            /** Jurisdiction */
+            jurisdiction: string;
+            /** License Excerpt Allowed */
+            license_excerpt_allowed: boolean;
+            /** License Render Allowed */
+            license_render_allowed: boolean;
+            /** Publisher Id */
+            publisher_id: string;
+            /** Publisher Name */
+            publisher_name: string;
+            /** Source Class */
+            source_class: string;
+            /** Source Id */
+            source_id: string;
+            /** Title */
+            title: string;
+            /** Versions */
+            versions?: components["schemas"]["CorpusCatalogueVersion"][];
+        };
+        /**
+         * CorpusCatalogueVersion
+         * @description One edition of a source as the served release carries it.
+         */
+        CorpusCatalogueVersion: {
+            /** Approved For Retrieval */
+            approved_for_retrieval: boolean;
+            /** Effective From */
+            effective_from?: string | null;
+            /** Effective To */
+            effective_to?: string | null;
+            /** Evidence Count */
+            evidence_count: number;
+            /** Page Count */
+            page_count?: number | null;
+            /** Source Version Id */
+            source_version_id: string;
+            /** Status */
+            status: string;
+            /** Version Label */
+            version_label: string;
+        };
+        /**
+         * CorpusTrustRoot
+         * @description A registered acquisition boundary, named for the catalogue without its secrets.
+         */
+        CorpusTrustRoot: {
+            /** Enabled */
+            enabled: boolean;
+            /** Jurisdictions */
+            jurisdictions?: string[];
+            /** Last Reconciled At */
+            last_reconciled_at?: string | null;
+            /** Publisher Id */
+            publisher_id: string;
+            /** Publisher Name */
+            publisher_name: string;
+            /** Scope */
+            scope?: string | null;
+            /** Title */
+            title?: string | null;
+            /** Trust Root Id */
+            trust_root_id: string;
         };
         /** EvidenceDetail */
         EvidenceDetail: {
@@ -666,6 +792,46 @@ export interface components {
          */
         QuestionStatus: "QUEUED" | "CONTEXT_EXTRACTED" | "RETRIEVING" | "RERANKING" | "SEARCHING_COUNTER_EVIDENCE" | "CHECKING_EVIDENCE_COMPLETENESS" | "VERIFYING" | "ANSWER_READY" | "ABSTAINED" | "FAILED";
         /**
+         * QuestionSummary
+         * @description One row of the review list: enough to find a run again, never its content.
+         *
+         *     The content stays behind ``GET /questions/{id}`` on purpose. A list that carried
+         *     claims would be a second rendering path for text the gate governs, and a list is
+         *     scrolled past, not read.
+         */
+        QuestionSummary: {
+            /** Abstention Reason Code */
+            abstention_reason_code?: string | null;
+            /** Corpus Release Id */
+            corpus_release_id?: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Question */
+            question: string;
+            /** Question Id */
+            question_id: string;
+            serving_mode?: components["schemas"]["ReleaseServingMode"] | null;
+            status: components["schemas"]["QuestionStatus"];
+            /**
+             * Supported Claims
+             * @default 0
+             */
+            supported_claims: number;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /**
+             * Withheld Claims
+             * @default 0
+             */
+            withheld_claims: number;
+        };
+        /**
          * ReleaseServingMode
          * @description How a release being served earned the right to be served.
          *
@@ -682,6 +848,11 @@ export interface components {
          * @enum {string}
          */
         ReleaseServingMode: "ACTIVATED" | "RESEARCH_UNACTIVATED";
+        /**
+         * ReleaseState
+         * @enum {string}
+         */
+        ReleaseState: "CANDIDATE" | "VALIDATED" | "ACTIVE" | "SUPERSEDED" | "REJECTED";
         /** RenderedClaim */
         RenderedClaim: {
             /** Claim Id */
@@ -931,6 +1102,26 @@ export interface operations {
             };
         };
     };
+    get_corpus_catalogue_v1_corpus_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpusCatalogue"];
+                };
+            };
+        };
+    };
     create_publisher_v1_ingestion_publishers_post: {
         parameters: {
             query?: never;
@@ -1107,6 +1298,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SourceRecord"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_questions_v1_questions_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QuestionSummary"][];
                 };
             };
             /** @description Validation Error */
