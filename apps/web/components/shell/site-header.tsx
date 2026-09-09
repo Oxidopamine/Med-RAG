@@ -14,6 +14,7 @@ export const NAVIGATION = [
   { href: "/reviews", label: "Reviews" },
   { href: "/methods", label: "Methods" },
   { href: "/evaluation", label: "Evaluation" },
+  { href: "/labelling", label: "Labelling" },
 ] as const;
 
 function isCurrent(pathname: string, href: string): boolean {

@@ -445,18 +445,18 @@ test("starts empty and progressively discloses guidance, examples, scope, and sa
   await expect(question).toHaveValue("");
   await expect(page.getByRole("button", { name: "Review evidence" })).toBeDisabled();
   await expect(
-    page.getByRole("heading", { name: "What guideline decision are you reviewing?" }),
+    page.getByRole("heading", { name: "Guideline review" }),
   ).toBeVisible();
-  await expect(page.getByText("Population", { exact: true })).toBeVisible();
-  await expect(page.getByText("Condition", { exact: true })).toBeVisible();
-  await expect(page.getByText("Decision", { exact: true })).toBeVisible();
   await expect(
-    page.getByRole("heading", { name: "Evidence-gated guideline review" }),
+    page.getByText("One question at a time. Include the population, the condition and the decision."),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Corpus" }),
   ).toBeVisible();
   await expect(page.getByText("Approved corpus available", { exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Answer" })).toHaveCount(0);
-  await expect(page.getByRole("heading", { name: "Verification" })).toHaveCount(0);
-  await expect(page.getByRole("heading", { name: "Source inspector" })).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Checks" })).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Sources" })).toHaveCount(0);
 
   await page.getByRole("button", { name: QUESTION }).click();
   await expect(question).toHaveValue(QUESTION);
@@ -486,27 +486,25 @@ test("renders an actionable fail-closed abstention without an empty source viewe
   await ask(page);
 
   await expect(page.getByRole("heading", { name: "Answer" })).toBeVisible();
-  await expect(page.getByText("Answer withheld", { exact: true })).toBeVisible();
+  await expect(page.getByText("No answer", { exact: true })).toBeVisible();
   await expect(page.getByText("No approved guideline corpus is active")).toBeVisible();
   await expect(
     page.getByLabel("Answer").getByText("No approved guideline corpus is configured."),
   ).toBeVisible();
-  await expect(page.getByRole("button", { name: "Try again" })).toBeVisible();
-  await expect(
-    page.getByRole("heading", { name: "Interpreted patient context" }),
-  ).toBeVisible();
-  await expect(page.getByText("From the question")).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Source inspector" })).toHaveCount(0);
+  // A retry cannot change a structural abstention, so none is offered.
+  await expect(page.getByRole("button", { name: "Try again" })).toHaveCount(0);
+  await expect(page.getByRole("group", { name: "Interpreted context" })).toBeVisible();
+  await expect(page.getByText("Read as")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Sources" })).toHaveCount(0);
   await expect(page.getByRole("heading", { name: /Exact guideline|Evidence provenance/ })).toHaveCount(
     0,
   );
-  await expect(page.getByText("Answer gate blocked", { exact: true })).toBeVisible();
+  await expect(page.getByText("Answer withheld by the checks", { exact: true })).toBeVisible();
 
+  await expect(page.getByText(/The review could not verify: Current primary guideline/)).toBeVisible();
+  // The reason code is for support, behind the disclosure.
+  await page.getByLabel("Answer").getByText("Details", { exact: true }).click();
   await expect(page.getByText("NO_APPROVED_CORPUS", { exact: true })).toBeVisible();
-  await expect(page.getByText("Retrying alone will not change this.")).toBeVisible();
-
-  await page.getByText("Which evidence was missing?", { exact: true }).click();
-  await expect(page.getByText("Current primary guideline", { exact: true })).toBeVisible();
 
   await page.getByRole("button", { name: "Edit context" }).click();
   await expect(
@@ -530,11 +528,11 @@ test("connects verified claims to exact and restricted source evidence", async (
 
   // The result is persistent; the completion notice is transient, so it is asserted
   // second and within the window it stays on screen.
-  await expect(page.getByText("Evidence-gated result", { exact: true })).toBeVisible();
+  await expect(page.getByLabel("Answer").getByText("Checks passed", { exact: true })).toBeVisible();
   await expect(page.getByText("Evidence review ready", { exact: true })).toBeVisible({
     timeout: 5000,
   });
-  await expect(page.getByText("Approved corpus release", { exact: true })).toBeVisible();
+  await expect(page.getByText(/Approved release guidelines-2026-08/)).toBeVisible();
   await expect(page.getByText("guidelines-2026-08", { exact: false }).first()).toBeVisible();
   expect(run.submittedBodies).toEqual([
     expect.objectContaining({
@@ -546,10 +544,10 @@ test("connects verified claims to exact and restricted source evidence", async (
     }),
   ]);
 
-  const sourceInspector = page.getByRole("region", { name: "Source inspector" });
+  const sourceInspector = page.getByRole("region", { name: "Sources" });
 
   // The passage is read in the inspector alone; the claim-linked quotation panel is gone.
-  await expect(page.getByRole("heading", { name: "Source inspector" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Sources" })).toBeVisible();
   await expect(page.locator("mark")).toHaveText(
     "Viral load should be measured at six months and twelve months after starting antiretroviral therapy, and every twelve months thereafter once suppressed.",
   );
@@ -559,31 +557,20 @@ test("connects verified claims to exact and restricted source evidence", async (
   await expect(
     page.getByText("Printed page 231 (PDF page 47), exact region").first(),
   ).toBeVisible();
+  await sourceInspector.getByText("Details", { exact: true }).click();
   await expect(sourceInspector.getByText("Exact location verified").first()).toBeVisible();
   await expect(page.getByRole("link", { name: "Open publisher source" })).toHaveAttribute(
     "href",
     "https://example.test/guideline",
   );
 
-  // The anchor viewer places the recorded region and names the edition it belongs to.
-  // Two editions of one guideline can carry the same page and near-identical text, so
-  // the version identity is part of the location, not a footnote beside it.
+  // No page image is licensed for this source, so the location is stated in one line
+  // rather than drawn as an empty frame. The edition identity and the recorded region
+  // are in the reader's details, so two editions of one guideline stay distinguishable.
   const anchorViewer = sourceInspector.getByRole("region", { name: "Location in source" });
-  await expect(anchorViewer.getByText("source-who-hiv-2021")).toBeVisible();
-  await expect(
-    anchorViewer.getByText("Printed page 231 · PDF page 47 of 2021 edition").first(),
-  ).toBeVisible();
-  await expect(
-    anchorViewer.getByText("10.0%, 20.0% to 90.0%, 35.0% of the page"),
-  ).toBeVisible();
-  await expect(
-    anchorViewer.getByRole("figure", { name: "Printed page 231 · PDF page 47 of 2021 edition" }),
-  ).toBeVisible();
-  await expect(
-    anchorViewer.getByRole("group", {
-      name: /Printed page 231 \(PDF page 47\), exact region — Consolidated guidelines on HIV prevention, testing, treatment and service delivery, 2021 edition \(source-who-hiv-2021\)/,
-    }),
-  ).toBeVisible();
+  await expect(anchorViewer.getByText(/No page rendering for this source/)).toBeVisible();
+  await expect(sourceInspector.getByText("source-who-hiv-2021")).toBeAttached();
+  await expect(sourceInspector.getByText("10.0%, 20.0% to 90.0%, 35.0% of the page")).toBeAttached();
 
   await page.getByRole("button", { name: "Next ranked result" }).click();
   await expect(page.getByText("Record 2 of 3", { exact: true })).toBeVisible();
@@ -597,25 +584,26 @@ test("connects verified claims to exact and restricted source evidence", async (
   await expect(page.getByText("Consolidated guidelines on HIV testing services", { exact: true }).first()).toBeVisible();
   // Restricted, and the release carried no region: the page is stated, nothing is drawn,
   // and the reason no publisher content appears is named.
-  await expect(anchorViewer.getByText("No region recorded on this page")).toBeVisible();
-  await expect(anchorViewer.getByText("source-who-testing-2019")).toBeVisible();
+  await expect(anchorViewer.getByText(/No page rendering for this source/)).toBeVisible();
+  await expect(sourceInspector.getByText("source-who-testing-2019")).toBeAttached();
   await expect(
     anchorViewer.getByText(/withheld under licence/),
   ).toBeVisible();
 
   await page.getByRole("button", { name: "Next ranked result" }).click();
   await expect(page.getByText("Record 3 of 3", { exact: true })).toBeVisible();
-  await expect(page.getByText("Retrieved, not cited", { exact: true })).toBeVisible();
+  await expect(sourceInspector.getByText("Not cited", { exact: true }).first()).toBeVisible();
   await expect(page.getByText("No claim in this answer cites this passage.")).toBeVisible();
   // A table-cell anchor resolves to the address the source document itself uses.
   await expect(
-    anchorViewer.getByText("Cell C4 of table FollowUpSchedule in 2026"),
-  ).toBeVisible();
-  await expect(anchorViewer.getByText("FollowUpSchedule!C4")).toBeVisible();
+    sourceInspector.getByText("Cell C4 of table FollowUpSchedule in 2026").first(),
+  ).toBeAttached();
+  await expect(sourceInspector.getByText("FollowUpSchedule!C4").first()).toBeAttached();
   await expect(page.getByRole("button", { name: "Next ranked result" })).toBeDisabled();
   // Cited and uncited passages are one ranking, split by a labelled boundary rather than
   // by two separately-numbered panels - so where the gate stopped citing is visible.
-  await expect(sourceInspector.getByText("Not cited", { exact: true })).toBeVisible();
+  // Once in the rail as the boundary where citation stops, once as the record's status.
+  await expect(sourceInspector.getByText("Not cited", { exact: true })).toHaveCount(2);
 
   const secondClaim = page
     .getByRole("listitem")
@@ -635,12 +623,10 @@ test("connects verified claims to exact and restricted source evidence", async (
   await expect(page.getByText("Unclassified disagreement")).toBeVisible();
   await expect(page.getByText("Local programme policy is more conservative.")).toBeVisible();
 
-  // The audit is open on every state, answer-ready included: five named gates and what
-  // each concluded is the product's differentiator, and it was collapsed by default on
-  // precisely the result where all of them passed.
-  const auditDetails = page.locator("details").filter({ hasText: "Audit steps" });
-  await expect(auditDetails).toHaveAttribute("open", "");
-  await expect(auditDetails.getByText("Answer gate passed", { exact: true })).toBeVisible();
+  // The five checks and what each concluded stay on screen with the answer.
+  const checks = page.getByRole("region", { name: "Checks" });
+  await expect(checks.getByText("Answer checked", { exact: true })).toBeVisible();
+  await expect(checks.getByText("Passed", { exact: true }).first()).toBeVisible();
 
   await page.getByRole("button", { name: "Dismiss success message" }).click();
   await expect(page.getByText("Evidence review ready", { exact: true })).toHaveCount(0);
@@ -663,7 +649,7 @@ test("presents a calm request error and retries the same request", async ({ page
   await expect(page.getByRole("button", { name: "Dismiss error message" })).toBeVisible();
 
   await error.getByRole("button", { name: "Try again" }).click();
-  await expect(page.getByText("Answer withheld", { exact: true })).toBeVisible();
+  await expect(page.getByText("No answer", { exact: true })).toBeVisible();
   await expect(error).toHaveCount(0);
   expect(run.attempts()).toBe(2);
   expect(run.submittedBodies[1]).toEqual(run.submittedBodies[0]);
@@ -675,8 +661,8 @@ test("falls back to polling when the progress stream is unavailable", async ({ p
   await page.goto("/");
   await ask(page);
 
-  await expect(page.getByText("Answer withheld", { exact: true })).toBeVisible();
-  await expect(page.getByText("Answer gate blocked", { exact: true })).toBeVisible();
+  await expect(page.getByText("No answer", { exact: true })).toBeVisible();
+  await expect(page.getByText("Answer withheld by the checks", { exact: true })).toBeVisible();
 });
 
 test("fills the composer from the question bank without submitting", async ({ page }) => {
@@ -762,24 +748,26 @@ test("keeps the verified workflow ordered, operable, and accessible on mobile", 
   await page.goto("/");
   await ask(page);
 
-  // The exact-quotation panel was removed: the passage is read in the inspector alone.
-  // What has to stay ordered on a narrow screen is answer, verification, inspector.
-  const headings = [
-    page.getByRole("heading", { name: "Answer" }),
-    page.getByRole("heading", { name: "Verification" }),
-    page.getByRole("heading", { name: "Source inspector" }),
-  ];
-  await expect(headings[2]).toBeVisible();
-  const positions = await Promise.all(
-    headings.map(async (heading) => (await heading.boundingBox())?.y ?? Number.POSITIVE_INFINITY),
-  );
-  expect(positions).toEqual([...positions].sort((left, right) => left - right));
+  // One column, three panes behind tabs: the answer first, the evidence and the checks a
+  // tap away. A citation chosen in the answer opens the evidence pane.
+  const tabs = page.getByRole("tablist", { name: "Review panes" });
+  await expect(tabs).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Answer" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Sources" })).toBeHidden();
 
-  // The record's provenance is part of the record now, at the foot of the sheet, rather
-  // than a separate narrow-screen disclosure repeating the column beside the document.
-  const record = page.getByRole("complementary", { name: "Record provenance" });
-  await expect(record.getByRole("heading", { name: "About this record" })).toBeVisible();
-  await expect(record.getByText("World Health Organization", { exact: true }).first()).toBeVisible();
+  await tabs.getByRole("tab", { name: "Evidence" }).click();
+  await expect(page.getByRole("heading", { name: "Sources" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Answer" })).toBeHidden();
+  await expect(page.getByText("Record 1 of 3", { exact: true })).toBeVisible();
+
+  await tabs.getByRole("tab", { name: "Checks" }).click();
+  await expect(page.getByRole("heading", { name: "Checks" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Conflicts" })).toBeVisible();
+
+  await tabs.getByRole("tab", { name: "Answer" }).click();
+  await page.getByRole("button", { name: /^Reference 1:/ }).first().click();
+  await expect(page.getByRole("heading", { name: "Sources" })).toBeVisible();
+
   const overflow = await page.evaluate(
     () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
   );

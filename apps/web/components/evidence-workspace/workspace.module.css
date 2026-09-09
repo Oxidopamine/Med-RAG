@@ -59,41 +59,6 @@
   transform: translateY(0);
 }
 
-/* ============================================================ top bar */
-
-.topbar {
-  position: sticky;
-  top: 0;
-  z-index: 30;
-  background: var(--veil-surface-strong);
-  backdrop-filter: saturate(180%) blur(12px);
-  border-bottom: 1px solid var(--border-subtle);
-}
-
-.topbar-inner {
-  width: min(var(--shell-max), 100%);
-  height: var(--header-h);
-  margin: 0 auto;
-  padding: 0 var(--s-6);
-  display: flex;
-  align-items: center;
-  gap: var(--s-6);
-}
-
-.brand-lockup {
-  min-width: 0;
-  min-height: var(--control-min);
-  display: inline-flex;
-  align-items: center;
-  gap: var(--s-2);
-  color: var(--text-strong);
-  text-decoration: none;
-}
-
-.brand-lockup:hover {
-  text-decoration: none;
-}
-
 .brand-mark {
   width: 26px;
   height: 26px;
@@ -115,191 +80,6 @@
   font-weight: var(--w-semibold);
   letter-spacing: var(--track-snug);
   white-space: nowrap;
-}
-
-.primary-nav {
-  display: flex;
-  align-items: center;
-  gap: var(--s-1);
-  margin-right: auto;
-}
-
-.primary-nav a {
-  height: 30px;
-  padding: 0 var(--s-3);
-  display: inline-flex;
-  align-items: center;
-  border-radius: var(--radius-sm);
-  color: var(--text-muted);
-  font-size: var(--t-sm);
-  font-weight: var(--w-medium);
-  text-decoration: none;
-}
-
-.primary-nav a:hover {
-  color: var(--text-primary);
-  background: var(--bg-sunk);
-  text-decoration: none;
-}
-
-.primary-nav .active {
-  color: var(--text-strong);
-  background: var(--bg-sunk);
-}
-
-/* Pushed to the far edge: the brand has no nav beside it on this screen, so without this
-   the menu control would sit against the wordmark. */
-.header-status {
-  margin-left: auto;
-  display: flex;
-  align-items: center;
-  gap: var(--s-2);
-}
-
-/* ---------------- menu ---------------- */
-
-.app-menu {
-  position: relative;
-}
-
-.menu-trigger {
-  width: var(--control-min);
-  height: var(--control-min);
-  display: grid;
-  place-items: center;
-  color: var(--text-secondary);
-  background: transparent;
-  border: 1px solid transparent;
-  border-radius: var(--radius-md);
-}
-
-.menu-trigger:hover {
-  color: var(--text-strong);
-  background: var(--bg-sunk);
-  border-color: var(--border-subtle);
-}
-
-.menu-trigger[aria-expanded="true"] {
-  color: var(--ink-on);
-  background: var(--ink);
-  border-color: var(--ink);
-}
-
-/*
- * Anchored to the trigger and capped at the viewport, so a long panel scrolls inside itself
- * rather than running off the bottom of a short window.
- */
-.menu-panel {
-  position: absolute;
-  top: calc(100% + var(--s-2));
-  right: 0;
-  z-index: 40;
-  width: min(360px, calc(100vw - var(--s-6) * 2));
-  max-height: min(72dvh, 640px);
-  overflow-y: auto;
-  padding: var(--s-4);
-  display: flex;
-  flex-direction: column;
-  gap: var(--s-4);
-  background: var(--bg-overlay);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-lg);
-}
-
-.menu-panel section {
-  display: flex;
-  flex-direction: column;
-  gap: var(--s-2);
-}
-
-.menu-panel h2 {
-  margin: 0;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  color: var(--text-muted);
-  font-size: var(--t-2xs);
-  font-weight: var(--w-semibold);
-  letter-spacing: var(--track-label);
-  text-transform: uppercase;
-}
-
-.menu-panel h2 svg {
-  color: var(--text-faint);
-}
-
-.menu-panel p {
-  margin: 0;
-  color: var(--text-secondary);
-  font-size: var(--t-xs);
-  line-height: 1.55;
-}
-
-.menu-steps {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  display: flex;
-  flex-direction: column;
-  gap: 7px;
-  counter-reset: menu-step;
-}
-
-.menu-steps li {
-  padding-left: var(--s-5);
-  position: relative;
-  color: var(--text-secondary);
-  font-size: var(--t-xs);
-  line-height: 1.55;
-}
-
-.menu-steps li::before {
-  counter-increment: menu-step;
-  content: counter(menu-step);
-  position: absolute;
-  top: 2px;
-  left: 0;
-  width: 16px;
-  height: 16px;
-  display: grid;
-  place-items: center;
-  color: var(--ink-on);
-  background: var(--ink);
-  border-radius: var(--radius-pill);
-  font-size: 10px;
-  font-weight: var(--w-semibold);
-  font-variant-numeric: tabular-nums;
-}
-
-.menu-steps li span {
-  color: var(--text-strong);
-  font-weight: var(--w-semibold);
-}
-
-.menu-author {
-  padding-top: var(--s-3);
-  display: flex;
-  flex-direction: column;
-  gap: var(--s-2);
-  border-top: 1px solid var(--border-subtle);
-}
-
-.menu-author p {
-  margin: 0;
-  color: var(--text-muted);
-  font-size: var(--t-2xs);
-}
-
-.menu-author p span {
-  color: var(--text-strong);
-  font-weight: var(--w-semibold);
-}
-
-.menu-author div {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
 }
 
 /* Square target, round frame. Sized from --control-sm so it takes the full 44px touch
@@ -326,27 +106,6 @@
 
 .menu-author a svg,
 .footer-links a svg {
-  color: var(--text-faint);
-}
-
-.environment-badge {
-  height: 26px;
-  padding: 0 var(--s-2);
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  color: var(--text-secondary);
-  background: var(--bg-sunk);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-pill);
-  font-size: var(--t-2xs);
-  font-weight: var(--w-medium);
-  white-space: nowrap;
-}
-
-.environment-badge svg {
-  width: 13px;
-  height: 13px;
   color: var(--text-faint);
 }
 
@@ -504,35 +263,12 @@
   line-height: 1.3;
 }
 
-/* The small uppercase line above a heading: says what kind of thing follows. */
-.section-kicker {
-  display: block;
-  margin-bottom: 5px;
-  color: var(--text-muted);
-  font-size: var(--t-2xs);
-  font-weight: var(--w-medium);
-  letter-spacing: var(--track-label);
-  text-transform: uppercase;
-}
-
 .neutral-label {
   display: block;
   margin-top: 3px;
   color: var(--text-muted);
   font-size: var(--t-2xs);
   line-height: 1.45;
-}
-
-.mini-panel {
-  padding: var(--s-5);
-}
-
-.mini-panel-heading {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--s-4);
-  margin-bottom: var(--s-4);
 }
 
 .panel-titlebar {
@@ -577,33 +313,6 @@
   line-height: 1.25;
 }
 
-/* Population / Condition / Decision. Teaching cues, hidden from assistive technology
-   because the same guidance reaches it as prose on the field. Set as a hairline-separated
-   legend: filled chips read as controls, and this row cannot be pressed. */
-.question-anatomy {
-  margin: 6px 0 0;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--s-2);
-  color: var(--text-muted);
-  font-size: var(--t-2xs);
-  font-weight: var(--w-medium);
-  letter-spacing: var(--track-label);
-  text-transform: uppercase;
-}
-
-.question-anatomy span + span::before {
-  content: "";
-  margin-right: var(--s-2);
-  display: inline-block;
-  width: 3px;
-  height: 3px;
-  vertical-align: middle;
-  background: var(--border-strong);
-  border-radius: var(--radius-pill);
-}
-
 .question-field {
   position: relative;
   width: 100%;
@@ -629,16 +338,6 @@
 .question-field-error:focus-within {
   border-color: var(--danger-mark);
   box-shadow: 0 0 0 3px var(--danger-glow);
-}
-
-.question-leading-icon {
-  position: absolute;
-  top: 14px;
-  left: 14px;
-  width: 17px;
-  height: 17px;
-  color: var(--text-faint);
-  pointer-events: none;
 }
 
 .question-field textarea {
@@ -883,11 +582,6 @@
   color: var(--text-muted);
   font-size: var(--t-xs);
   line-height: 1.45;
-}
-
-.scope-checkboxes {
-  display: grid;
-  gap: 6px;
 }
 
 /*
@@ -1139,93 +833,10 @@
   color: var(--danger-text);
 }
 
-/* ---------------- examples ---------------- */
-
-/*
- * Divided from the form by a rule, not by a fill. The sunk grey panel made the examples a
- * third surface inside a card that already had a heading and a field, and stacked a second
- * small-caps label under the one above the field. A hairline says "still the same card,
- * different job" for the cost of one pixel.
- */
-.example-questions {
-  padding: var(--s-4) var(--s-5);
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--s-2) var(--s-3);
-  border-top: 1px solid var(--border-subtle);
-  border-radius: 0 0 var(--radius-xl) var(--radius-xl);
-}
-
-.example-questions > span {
-  color: var(--text-muted);
-  font-size: var(--t-xs);
-  font-weight: var(--w-medium);
-  white-space: nowrap;
-}
-
-.example-questions > div {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-/*
- * Solid ink rather than the outlined chip these were. On an empty workspace the examples
- * are the one thing a first reader is meant to press, and a hairline pill next to the
- * black Review control read as secondary chrome. They carry --ink-on text on --ink, which
- * is the same pairing the primary action is held to, so contrast is already checked.
- */
-.example-questions button {
-  min-height: var(--control-sm);
-  padding: 0 var(--s-3);
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  color: var(--ink-on);
-  background: var(--ink);
-  border: 1px solid var(--ink);
-  border-radius: var(--radius-pill);
-  font-size: var(--t-xs);
-  font-weight: var(--w-medium);
-}
-
-.example-questions button:hover:not(:disabled) {
-  background: var(--ink-hover);
-  border-color: var(--ink-hover);
-  box-shadow: var(--shadow-xs);
-}
-
-.example-questions button:active:not(:disabled) {
-  background: var(--ink-active);
-  border-color: var(--ink-active);
-}
-
-/* Disabled while a review runs. Ink at reduced opacity keeps the shape of the control
-   readable without pretending it is still pressable. */
-.example-questions button:disabled {
-  opacity: 0.45;
-}
-
-.example-questions button svg {
-  width: 13px;
-  height: 13px;
-  color: currentColor;
-  opacity: 0.7;
-}
-
 /* ============================================================ feedback */
 
 .transient-feedback:not(.transient-feedback-reserved):empty {
   display: none;
-}
-
-/* Padding rather than a margin on the banner: a child margin collapses through this box
-   and escapes the reserved height. The reserve tracks the banner's real height, which is
-   set by its 44px dismiss control - checked by measurement, not estimated. */
-.transient-feedback-reserved {
-  padding-top: var(--s-3);
-  min-height: 80px;
 }
 
 .feedback-banner {
@@ -1349,34 +960,6 @@
   line-height: 1.5;
 }
 
-/* ============================================================ getting started */
-
-.getting-started {
-  width: 100%;
-  margin-top: var(--s-4);
-  padding: var(--s-6);
-}
-
-.getting-started-heading {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--s-4);
-}
-
-.getting-started-heading h2 {
-  font-size: var(--t-lg);
-  letter-spacing: var(--track-tight);
-}
-
-.getting-started-copy {
-  margin: var(--s-2) 0 var(--s-5);
-  max-width: 68ch;
-  color: var(--text-secondary);
-  font-size: var(--t-sm);
-  line-height: 1.6;
-}
-
 .coverage-recheck {
   margin-left: var(--s-2);
   display: inline-flex;
@@ -1395,76 +978,6 @@
 
 .coverage-recheck:hover {
   color: var(--ink);
-}
-
-/* ============================================================ run progress */
-
-.running-workspace {
-  margin-top: var(--s-4);
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: var(--s-4);
-  align-items: start;
-}
-
-.run-progress {
-  padding: var(--s-6);
-  display: flex;
-  align-items: flex-start;
-  gap: var(--s-4);
-}
-
-.run-progress-icon {
-  flex: 0 0 auto;
-  width: 34px;
-  height: 34px;
-  display: grid;
-  place-items: center;
-  color: var(--text-secondary);
-  background: var(--bg-sunk);
-  border-radius: var(--radius-pill);
-}
-
-.run-progress-icon svg {
-  width: 17px;
-  height: 17px;
-}
-
-.run-progress-copy {
-  min-width: 0;
-  flex: 1;
-}
-
-.run-progress-copy h2 {
-  margin: 0 0 5px;
-  font-size: var(--t-md);
-}
-
-.run-progress-copy p {
-  margin: 0 0 var(--s-3);
-  max-width: 60ch;
-  color: var(--text-secondary);
-  font-size: var(--t-sm);
-  line-height: 1.55;
-}
-
-.run-progress-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--s-4);
-}
-
-.run-progress-meta span {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  color: var(--text-muted);
-  font-size: var(--t-2xs);
-}
-
-.run-progress-meta svg {
-  width: 13px;
-  height: 13px;
 }
 
 .spin {
@@ -1726,72 +1239,6 @@
   font-family: var(--font-mono), monospace;
 }
 
-/* ============================================================ workspace grid */
-
-/*
- * Two sections, stacked - not two panes sharing a row.
- *
- * The answer is prose with a natural measure and stops benefiting from width around
- * 60ch; the inspector is a document viewer and does not. Beside each other, the sheet
- * could only ever be as wide as the reading column left over, so a guideline page was
- * being read through a slot. The inspector now takes the page's full width as a section
- * of its own, below the answer and its audit.
- *
- * What that gives up is the pinned pane: a claim and its passage no longer sit side by
- * side, and `Inspect evidence` scrolls to the inspector rather than filling one already
- * on screen. The width is bought with that.
- */
-.workspace-grid {
-  margin-top: var(--s-4);
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: var(--s-4);
-  align-items: start;
-}
-
-/*
- * One scroll, not four.
- *
- * The page scrolled, both columns scrolled, and the document stage inside the right one
- * scrolled again - four places a wheel could land, three of which looked identical.
- * Stacked, there is one scroll context left and it is the page's: neither section caps
- * its own height, and the stage inside the inspector does not scroll on its own either
- * (see `.document-stage`).
- */
-.result-column {
-  min-width: 0;
-  display: grid;
-  gap: var(--s-3);
-  align-self: start;
-}
-
-/*
- * The inspector's own band.
- *
- * No height cap and no scroll context of its own, so the sheet is as tall as the record
- * inside it rather than as tall as a share of the viewport. The rule and the space above
- * it mark the break from the audit that ends the section before; below 1080px the column
- * is `display: contents` and the page flow already separates them, so the rule correctly
- * does not render there.
- */
-.source-column {
-  min-width: 0;
-  display: grid;
-  gap: var(--s-3);
-  align-self: start;
-  align-content: start;
-  grid-auto-rows: minmax(0, auto);
-  margin-top: var(--s-5);
-  padding-top: var(--s-6);
-  border-top: 1px solid var(--border-subtle);
-}
-
-.support-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: var(--s-3);
-}
-
 /* ============================================================ answer */
 
 .answer-panel {
@@ -1889,21 +1336,6 @@
   border-color: var(--border);
 }
 
-.answer-intro {
-  margin: var(--s-4) 0 var(--s-5);
-  max-width: 70ch;
-  color: var(--text-secondary);
-  font-size: var(--t-sm);
-  line-height: 1.6;
-}
-
-.answer-signals {
-  margin-top: var(--s-5);
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
 .answer-actions {
   margin-top: var(--s-5);
   padding-top: var(--s-4);
@@ -1975,125 +1407,6 @@
   line-height: 1.6;
 }
 
-.citation-row {
-  margin: 0 0 var(--s-3);
-  padding: 0;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  list-style: none;
-}
-
-.citation-chip {
-  min-height: var(--control-min);
-  padding: 5px var(--s-2) 5px 5px;
-  display: inline-flex;
-  align-items: center;
-  gap: var(--s-2);
-  background: var(--bg-surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  text-align: left;
-  transition: border-color 120ms ease, background 120ms ease;
-}
-
-.citation-chip:hover {
-  background: var(--bg-sunk);
-  border-color: var(--border-strong);
-}
-
-.citation-chip.selected {
-  border-color: var(--ink);
-  box-shadow: 0 0 0 1px var(--ink);
-}
-
-.citation-number {
-  flex: 0 0 auto;
-  width: 20px;
-  height: 20px;
-  display: grid;
-  place-items: center;
-  color: var(--text-secondary);
-  background: var(--bg-sunk);
-  border-radius: var(--radius-sm);
-  font-size: var(--t-2xs);
-  font-weight: var(--w-medium);
-  font-family: var(--font-mono), monospace;
-}
-
-.citation-chip.selected .citation-number {
-  color: var(--ink-on);
-  background: var(--ink);
-}
-
-.citation-copy {
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-}
-
-.citation-copy strong {
-  max-width: 30ch;
-  overflow: hidden;
-  color: var(--text-primary);
-  font-size: var(--t-xs);
-  font-weight: var(--w-medium);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.citation-copy small {
-  color: var(--text-muted);
-  font-size: var(--t-xs);
-}
-
-/* A source this deployment may not quote says so on the reference, before it is opened. */
-.citation-restricted {
-  border-style: dashed;
-}
-
-.citation-restricted svg {
-  width: 13px;
-  height: 13px;
-  color: var(--warn-mark);
-}
-
-.citation-missing {
-  margin: 0 0 var(--s-3);
-  padding: var(--s-2) var(--s-3);
-  color: var(--warn-text);
-  background: var(--warn-wash);
-  border: 1px solid var(--warn-border);
-  border-radius: var(--radius-md);
-  font-size: var(--t-xs);
-}
-
-/*
- * The evidence roles behind a claim.
- *
- * Tone is meaning, not decoration: green where a current primary guideline carried it,
- * amber where an exception or contraindication was found, neutral for everything else. A
- * claim with no green chip is a claim resting on something weaker, and that should be
- * visible without opening a metadata list.
- */
-.claim-roles {
-  margin: 0 0 var(--s-3);
-  padding: 0;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 5px;
-  list-style: none;
-}
-
-.claim-roles li {
-  padding: 2px 8px;
-  border: 1px solid transparent;
-  border-radius: var(--radius-pill);
-  font-family: var(--font-mono), monospace;
-  font-size: var(--t-2xs);
-}
-
 .role-primary {
   color: var(--ok-text);
   background: var(--ok-wash);
@@ -2112,586 +1425,12 @@
   border-color: var(--border);
 }
 
-.claim-footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--s-3);
-}
-
-.claim-footer button {
-  min-height: var(--control-sm);
-  font-size: var(--t-xs);
-}
-
-.claim-footer > span {
-  color: var(--text-muted);
-  font-size: var(--t-xs);
-  white-space: nowrap;
-}
-
 /* ============================================================ abstention */
 
 .abstention-content {
   margin-top: var(--s-4);
   display: grid;
   gap: var(--s-3);
-}
-
-.abstention-summary {
-  padding: var(--s-4);
-  display: flex;
-  align-items: flex-start;
-  gap: var(--s-3);
-  background: var(--warn-wash);
-  border: 1px solid var(--warn-border);
-  border-radius: var(--radius-lg);
-}
-
-.abstention-summary svg {
-  flex: 0 0 auto;
-  width: 19px;
-  height: 19px;
-  margin-top: 1px;
-  color: var(--warn-mark);
-}
-
-.abstention-summary strong {
-  display: block;
-  margin-bottom: 3px;
-  color: var(--text-strong);
-  font-size: var(--t-base);
-  font-weight: var(--w-semibold);
-}
-
-.abstention-summary p {
-  margin: 0;
-  max-width: 62ch;
-  color: var(--text-secondary);
-  font-size: var(--t-sm);
-  line-height: 1.55;
-}
-
-.withheld-details {
-  padding: var(--s-3) var(--s-4);
-  background: var(--bg-sunk);
-  border-radius: var(--radius-lg);
-}
-
-.withheld-details summary {
-  color: var(--text-primary);
-  font-size: var(--t-sm);
-  font-weight: var(--w-medium);
-  list-style: none;
-  cursor: pointer;
-}
-
-.withheld-details summary::-webkit-details-marker {
-  display: none;
-}
-
-.withheld-details p {
-  margin: var(--s-3) 0 var(--s-2);
-  color: var(--text-secondary);
-  font-size: var(--t-xs);
-  line-height: 1.55;
-}
-
-.withheld-details ul {
-  margin: 0;
-  padding-left: var(--s-4);
-  display: grid;
-  gap: 3px;
-  color: var(--text-secondary);
-  font-size: var(--t-xs);
-}
-
-.withheld-details code {
-  color: var(--text-primary);
-  font-size: var(--t-2xs);
-}
-
-/*
- * The passages that came closest and carried nothing.
- *
- * Dashed and amber throughout, and each row states the role it did carry, so the list can
- * never be read as support for the answer that was withheld.
- */
-.near-miss-list {
-  margin: 0;
-  padding: 0;
-  display: grid;
-  gap: 5px;
-  list-style: none;
-}
-
-.near-miss-list li {
-  padding: var(--s-2) var(--s-3);
-  display: flex;
-  align-items: flex-start;
-  gap: var(--s-3);
-  background: var(--bg-surface);
-  border: 1px dashed var(--warn-border);
-  border-radius: var(--radius-md);
-}
-
-.near-miss-rank {
-  flex: 0 0 auto;
-  min-width: 28px;
-  height: 20px;
-  display: grid;
-  place-items: center;
-  color: var(--warn-text);
-  background: var(--warn-wash);
-  border-radius: var(--radius-sm);
-  font-family: var(--font-mono), monospace;
-  font-size: var(--t-2xs);
-}
-
-.near-miss-copy {
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.near-miss-copy strong {
-  color: var(--text-primary);
-  font-size: var(--t-xs);
-  font-weight: var(--w-medium);
-  line-height: 1.4;
-}
-
-.near-miss-copy small {
-  color: var(--text-muted);
-  font-size: var(--t-2xs);
-  line-height: 1.45;
-}
-
-.near-miss-copy a {
-  margin-top: 3px;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-size: var(--t-2xs);
-}
-
-.abstention-actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--s-3);
-}
-
-.abstention-actions > span {
-  min-width: 0;
-  flex: 1;
-  color: var(--text-secondary);
-  font-size: var(--t-xs);
-  line-height: 1.5;
-}
-
-.abstention-blocked {
-  color: var(--danger-text);
-  font-weight: var(--w-semibold);
-}
-
-/*
- * A retry the reason code says cannot help.
- *
- * The control stays - the corpus or pipeline may have been fixed since the run - but it
- * stops presenting itself as the answer, because a prominent button beside the sentence
- * "Retrying alone will not change this" is the interface arguing with itself.
- */
-.abstention-actions .retry-blocked,
-.abstention-actions .retry-blocked:hover {
-  color: var(--text-muted);
-  background: var(--bg-surface);
-  border-color: var(--border-subtle);
-  box-shadow: none;
-}
-
-.abstention-actions .retry-blocked:hover {
-  background: var(--bg-sunk);
-}
-
-.abstention-code {
-  margin: 0;
-  color: var(--text-muted);
-  font-size: var(--t-xs);
-}
-
-.abstention-code code {
-  padding: 2px 5px;
-  color: var(--text-secondary);
-  background: var(--bg-sunk);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-sm);
-}
-
-/* ============================================================ evidence panel */
-
-.evidence-panel {
-  padding: var(--s-5);
-}
-
-.evidence-heading-row {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--s-4);
-  margin-bottom: var(--s-4);
-}
-
-.evidence-id {
-  flex: 0 0 auto;
-  padding: 3px var(--s-2);
-  color: var(--text-muted);
-  background: var(--bg-sunk);
-  border-radius: var(--radius-sm);
-  font-size: var(--t-xs);
-  font-family: var(--font-mono), monospace;
-}
-
-.evidence-empty {
-  padding: var(--s-8) var(--s-4);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--s-2);
-  color: var(--text-muted);
-  background: var(--bg-sunk);
-  border-radius: var(--radius-lg);
-  text-align: center;
-}
-
-.evidence-empty svg {
-  width: 22px;
-  height: 22px;
-  color: var(--text-faint);
-}
-
-.evidence-empty strong {
-  display: block;
-  color: var(--text-primary);
-  font-size: var(--t-sm);
-  font-weight: var(--w-semibold);
-}
-
-.evidence-empty span {
-  font-size: var(--t-xs);
-}
-
-.evidence-identity {
-  margin-top: var(--s-4);
-  padding-top: var(--s-4);
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: var(--s-4);
-  border-top: 1px solid var(--border-subtle);
-}
-
-.evidence-identity p {
-  margin: 0;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.evidence-identity strong {
-  color: var(--text-primary);
-  font-size: var(--t-sm);
-  font-weight: var(--w-semibold);
-  line-height: 1.4;
-}
-
-.evidence-identity span {
-  color: var(--text-muted);
-  font-size: var(--t-xs);
-}
-
-.evidence-identity a {
-  flex: 0 0 auto;
-  min-height: var(--control-sm);
-  font-size: var(--t-xs);
-}
-
-.uncited-inline-note {
-  margin: 0 0 var(--s-4);
-  padding: var(--s-2) var(--s-3);
-  display: flex;
-  align-items: flex-start;
-  gap: 7px;
-  color: var(--warn-text);
-  background: var(--warn-wash);
-  border: 1px solid var(--warn-border);
-  border-radius: var(--radius-md);
-  font-size: var(--t-xs);
-  line-height: 1.5;
-}
-
-.uncited-inline-note svg {
-  flex: 0 0 auto;
-  width: 14px;
-  height: 14px;
-  margin-top: 1px;
-}
-
-/* ============================================================ context + lists */
-
-/*
- * Facts across the panel, not down one edge of it.
- *
- * Each fact is a short label and a shorter value - `Age 34` - so a row per fact left the
- * value with the rest of the panel empty beside it, and the panel as tall as the number of
- * facts. Wrapping into columns fills the width with facts rather than with gap, and the
- * 1px grid gap keeps drawing the hairlines that separate them in both directions.
- */
-.context-facts {
-  margin: 0;
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: 1px;
-  overflow: hidden;
-  background: var(--bg-surface);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md);
-}
-
-/*
- * The separators are drawn by the cells, not by a background showing through the gaps.
- *
- * Once the facts wrap into columns the last row is usually short, and a grey sheet behind
- * them turned that remainder into a filled block at the end of the grid - which, on a
- * panel reporting what was read from the question, reads as a fact that failed to render.
- * A ring on each cell overlaps the 1px gap to the same hairline and stops where the facts
- * do; `overflow: hidden` trims the outermost rings against the container's own border.
- */
-.context-facts > div {
-  padding: var(--s-2) var(--s-3);
-  display: grid;
-  grid-template-columns: minmax(0, 96px) minmax(0, 1fr);
-  gap: var(--s-3);
-  align-items: baseline;
-  background: var(--bg-surface);
-  box-shadow: 0 0 0 1px var(--border-subtle);
-}
-
-.context-facts dt {
-  color: var(--text-muted);
-  font-size: var(--t-xs);
-}
-
-.context-facts dd {
-  margin: 0;
-  overflow-wrap: break-word;
-  color: var(--text-primary);
-  font-size: var(--t-xs);
-  font-weight: var(--w-medium);
-}
-
-/*
- * A fact the extractor derived rather than read.
- *
- * Amber, and marked on the value rather than the label, because the value is the part a
- * reader would be trusting. Nothing has gone wrong - an inference is a legitimate reading
- * of the question - so this draws the eye without claiming an error.
- */
-.context-inferred {
-  background: var(--warn-wash);
-}
-
-.context-inferred dt {
-  color: var(--warn-text);
-}
-
-.context-inferred dd {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--s-2);
-}
-
-.inferred-mark {
-  flex: 0 0 auto;
-  padding: 1px 6px;
-  color: var(--warn-text);
-  background: var(--bg-surface);
-  border: 1px solid var(--warn-border);
-  border-radius: var(--radius-pill);
-  font-family: var(--font-mono), monospace;
-  font-size: var(--t-2xs);
-  font-weight: var(--w-regular);
-}
-
-.edit-context {
-  min-height: var(--control-sm);
-  font-size: var(--t-xs);
-}
-
-.compact-empty {
-  padding: var(--s-5) var(--s-3);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  color: var(--text-muted);
-  background: var(--bg-sunk);
-  border-radius: var(--radius-md);
-  font-size: var(--t-xs);
-  text-align: center;
-}
-
-.compact-empty svg {
-  width: 18px;
-  height: 18px;
-  color: var(--text-faint);
-}
-
-.related-list {
-  display: grid;
-  gap: 5px;
-}
-
-.related-list button {
-  padding: var(--s-2) var(--s-3);
-  display: flex;
-  align-items: center;
-  gap: var(--s-3);
-  background: var(--bg-surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  text-align: left;
-}
-
-.related-list button:hover {
-  background: var(--bg-sunk);
-  border-color: var(--border-strong);
-}
-
-.related-list button.selected {
-  border-color: var(--ink);
-  box-shadow: 0 0 0 1px var(--ink);
-}
-
-.related-list button > span {
-  min-width: 0;
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-}
-
-.related-list strong {
-  color: var(--text-primary);
-  font-size: var(--t-xs);
-  font-weight: var(--w-medium);
-  line-height: 1.4;
-}
-
-.related-list small {
-  color: var(--text-muted);
-  font-size: var(--t-xs);
-}
-
-.related-list > button > svg {
-  flex: 0 0 auto;
-  width: 16px;
-  height: 16px;
-  color: var(--text-faint);
-}
-
-/* Rank marks: cited entries carry a neutral index, uncited ones the amber retrieval rank
-   they held. Both read as positions in one ranking rather than two numbered lists. */
-.rank-mark {
-  flex: 0 0 auto;
-  min-width: 24px;
-  height: 20px;
-  display: grid;
-  place-items: center;
-  color: var(--text-secondary);
-  background: var(--bg-sunk);
-  border-radius: var(--radius-sm);
-  font-family: var(--font-mono), monospace;
-  font-size: var(--t-2xs);
-  font-weight: var(--w-medium);
-}
-
-.rank-why {
-  flex: 0 0 auto;
-  max-width: 16ch;
-  overflow: hidden;
-  color: var(--text-muted);
-  font-size: var(--t-2xs);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/*
- * Where the gate stopped citing.
- *
- * The most informative thing in the ranking is the boundary, and two separately numbered
- * panels could not express it. Amber because everything below it supports nothing.
- */
-.citation-boundary {
-  margin: var(--s-2) 0;
-  display: flex;
-  align-items: center;
-  gap: var(--s-3);
-  color: var(--warn-text);
-  font-size: var(--t-2xs);
-}
-
-.citation-boundary > span:first-child {
-  font-family: var(--font-mono), monospace;
-  letter-spacing: var(--track-label);
-  text-transform: uppercase;
-  white-space: nowrap;
-}
-
-.citation-boundary::after {
-  content: "";
-  order: 1;
-  flex: 1;
-  height: 1px;
-  background: var(--warn-border);
-}
-
-.citation-boundary > span:last-child {
-  order: 2;
-  color: var(--text-muted);
-  white-space: nowrap;
-}
-
-.related-list button.candidate {
-  border-style: dashed;
-}
-
-.related-list button.candidate strong {
-  color: var(--text-secondary);
-}
-
-.candidate-count {
-  color: var(--warn-text);
-  background: var(--warn-wash);
-  border-color: var(--warn-border);
-  font-family: var(--font-mono), monospace;
-}
-
-.candidate-rank {
-  flex: 0 0 auto;
-  min-width: 26px;
-  height: 20px;
-  display: grid;
-  place-items: center;
-  color: var(--warn-text);
-  background: var(--warn-wash);
-  border: 1px solid var(--warn-border);
-  border-radius: var(--radius-sm);
-  font-size: var(--t-2xs);
-  font-family: var(--font-mono), monospace;
 }
 
 /* ============================================================ conflicts */
@@ -2859,12 +1598,6 @@
   font-weight: var(--w-regular);
 }
 
-.compare-passage {
-  color: var(--text-primary);
-  font-size: var(--t-sm);
-  line-height: 1.65;
-}
-
 .compare-meta {
   color: var(--text-muted);
   font-size: var(--t-2xs);
@@ -2878,10 +1611,6 @@
 
 .compare-superseded .compare-state {
   color: var(--warn-text);
-}
-
-.compare-superseded .compare-passage {
-  color: var(--text-secondary);
 }
 
 .compare-superseded:hover {
@@ -3356,10 +2085,6 @@
   white-space: pre-wrap;
 }
 
-.row-table td {
-  white-space: pre-wrap;
-}
-
 .paper-heading > span,
 .paper-footer > span {
   min-width: 0;
@@ -3662,58 +2387,6 @@
   border-color: var(--ink);
 }
 
-.anchor-version {
-  margin-bottom: 6px;
-  padding: 7px var(--s-2);
-  background: var(--bg-sunk);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-sm);
-}
-
-.anchor-version-title {
-  display: block;
-  color: var(--text-primary);
-  font-size: var(--t-xs);
-  font-weight: var(--w-semibold);
-  line-height: 1.4;
-}
-
-.anchor-version-title small {
-  display: block;
-  margin-top: 2px;
-  overflow-wrap: anywhere;
-  color: var(--text-muted);
-  font-size: var(--t-2xs);
-  font-weight: var(--w-regular);
-}
-
-.anchor-version dl {
-  margin: 5px 0 0;
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-  gap: 5px;
-}
-
-.anchor-version dt {
-  color: var(--text-muted);
-  font-size: var(--t-xs);
-  letter-spacing: var(--track-label);
-  text-transform: uppercase;
-}
-
-.anchor-version dd {
-  margin: 0;
-  overflow-wrap: anywhere;
-  color: var(--text-primary);
-  font-size: var(--t-xs);
-  font-family: var(--font-mono), monospace;
-}
-
-.anchor-version-superseded {
-  background: var(--warn-wash);
-  border-color: var(--warn-border);
-}
-
 .anchor-degraded-note {
   margin: 6px 0 0;
   color: var(--warn-text);
@@ -3816,8 +2489,6 @@
   white-space: nowrap;
 }
 
-
-
 .cell-frame {
   padding: var(--s-2);
   background: var(--bg-surface);
@@ -3868,26 +2539,6 @@
   text-align: center;
 }
 
-/* ---- quotation bodies ---- */
-
-.evidence-quote {
-  margin: 0;
-  padding: var(--s-4);
-  color: var(--text-primary);
-  background: var(--bg-sunk);
-  border: 1px solid var(--border-subtle);
-  border-left: 2px solid var(--ink);
-  border-radius: var(--radius-md);
-  font-size: var(--t-base);
-  line-height: 1.7;
-}
-
-.evidence-quote footer {
-  margin-top: var(--s-2);
-  color: var(--text-muted);
-  font-size: var(--t-2xs);
-}
-
 /* `small` shrinks by a browser default ratio, which took these under the floor once their
    parent was already at --t-2xs. Sized explicitly instead. */
 .evidence-quote footer small,
@@ -3896,13 +2547,6 @@
   color: var(--text-muted);
   font-size: var(--t-2xs);
   line-height: 1.45;
-}
-
-.licensed-evidence mark {
-  padding: 1px 2px;
-  color: var(--highlight-text);
-  background: var(--highlight-bg);
-  box-decoration-break: clone;
 }
 
 .restricted-passage {
@@ -3976,132 +2620,6 @@
   line-height: 1.55;
 }
 
-.verification-details {
-  padding-top: var(--s-4);
-  border-top: 1px solid var(--border-subtle);
-}
-
-.verification-details > summary {
-  display: flex;
-  align-items: center;
-  gap: var(--s-2);
-  color: var(--text-primary);
-  font-size: var(--t-xs);
-  font-weight: var(--w-medium);
-  list-style: none;
-  cursor: pointer;
-}
-
-.verification-details > summary::-webkit-details-marker {
-  display: none;
-}
-
-/* The disclosure carried no marker of any kind, so nothing on screen said the log could
-   be closed again. A caret that turns is the whole affordance. */
-.summary-caret {
-  color: var(--text-muted);
-  font-size: var(--t-2xs);
-  font-family: var(--font-mono), monospace;
-  transition: transform 120ms ease;
-}
-
-.verification-details:not([open]) .summary-caret {
-  transform: rotate(-90deg);
-}
-
-/*
- * The audit reads as machine output.
- *
- * One line per gate, in the order the run walks them: a fixed status column, the gate's
- * own words, and what the step cost on the right. The five-column stepper this replaces
- * implied a progress bar - evenly spaced nodes, each the same size - when what the panel
- * actually holds is a log of five named checks and what each one concluded. Monospace on
- * a sunk surface says that without adding a word.
- */
-.verification-timeline {
-  /* A log block, not a table: the leader on each row joins a gate name to its timing, so
-     the block is set to the measure that keeps the two ends of a row readable as one row.
-     Spanning the panel turned every leader into 1300px of dots. */
-  max-width: var(--measure-prose);
-  margin: var(--s-3) 0 0;
-  padding: var(--s-3);
-  display: grid;
-  gap: 2px;
-  list-style: none;
-  background: var(--bg-sunk);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-sm);
-}
-
-.verification-timeline li {
-  /* 3ch holds the bracketed marker in every state, so a fallback glyph for the tick
-     cannot shift the column of gate names beside it. */
-  display: grid;
-  grid-template-columns: 3ch minmax(0, 1fr) auto;
-  align-items: baseline;
-  gap: var(--s-2);
-  font-size: var(--t-2xs);
-  font-family: var(--font-mono), monospace;
-  line-height: 1.65;
-}
-
-.step-marker {
-  color: var(--text-muted);
-  white-space: pre;
-}
-
-.step-name {
-  min-width: 0;
-  display: flex;
-  align-items: baseline;
-  gap: var(--s-2);
-  color: var(--text-secondary);
-}
-
-/* A leader to the timing column, so the eye crosses the gap without a rule per row. */
-.step-name::after {
-  content: "";
-  flex: 1 1 auto;
-  min-width: var(--s-4);
-  transform: translateY(-4px);
-  border-bottom: 1px dotted var(--border-strong);
-}
-
-.verification-timeline li > small {
-  color: var(--text-muted);
-  font-size: var(--t-2xs);
-  white-space: nowrap;
-}
-
-.complete .step-marker {
-  color: var(--ok-text);
-}
-
-.complete .step-name {
-  color: var(--text-primary);
-}
-
-/* The line the run is on, marked the way a terminal marks the line it is waiting on. */
-.currentStep .step-marker {
-  color: var(--text-strong);
-  animation: caret-blink 1.1s steps(1, end) infinite;
-}
-
-.currentStep .step-name {
-  color: var(--text-primary);
-  font-weight: var(--w-medium);
-}
-
-.blockedStep .step-marker,
-.blockedStep .step-name {
-  color: var(--warn-text);
-}
-
-.pendingStep .step-name,
-.skippedStep .step-name {
-  color: var(--text-muted);
-}
-
 /* Ends on the lit frame: the global reduced-motion rule cuts this to a single 0.01ms
    pass, and a cursor that stopped on the dim half would simply look missing. */
 @keyframes caret-blink {
@@ -4114,29 +2632,6 @@
   100% {
     opacity: 1;
   }
-}
-
-.run-metadata {
-  margin-top: var(--s-4);
-  padding-top: var(--s-3);
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto auto;
-  gap: var(--s-2) var(--s-3);
-  align-items: baseline;
-  border-top: 1px solid var(--border-subtle);
-}
-
-.run-metadata span {
-  color: var(--text-muted);
-  font-size: var(--t-xs);
-}
-
-.run-metadata code,
-.run-metadata time {
-  overflow-wrap: anywhere;
-  color: var(--text-secondary);
-  font-size: var(--t-2xs);
-  font-family: var(--font-mono), monospace;
 }
 
 /* ============================================================ responsive */
@@ -4267,69 +2762,6 @@
   color: var(--accent-on);
   background: var(--accent);
   border-color: var(--accent-strong);
-}
-
-/* ---- a workbook row, as the document has it ---- */
-
-/*
- * Cell per line rather than in the sheet's own horizontal orientation. A DAK row runs to
- * twenty populated cells of sentence-length text; across the page that is unreadable in a
- * panel this wide, and the addresses printed against every value keep any cell of it
- * findable in the original.
- */
-.row-table {
-  width: 100%;
-  margin: 6px 0 0;
-  border-collapse: collapse;
-  font-size: 0.95em;
-  text-align: left;
-}
-
-.row-table thead th {
-  padding: 0 var(--s-2) 4px;
-  color: var(--text-muted);
-  font-size: var(--t-2xs);
-  font-weight: var(--w-medium);
-  letter-spacing: var(--track-label);
-  text-transform: uppercase;
-}
-
-.row-table tbody th,
-.row-table tbody td {
-  padding: 5px var(--s-2);
-  border-top: 1px solid var(--border-subtle);
-  vertical-align: top;
-}
-
-.row-table tbody th {
-  width: 1%;
-  display: flex;
-  align-items: center;
-  gap: 3px;
-  color: var(--text-muted);
-  font-weight: var(--w-medium);
-  font-family: var(--font-mono), monospace;
-  font-size: var(--t-2xs);
-  white-space: nowrap;
-}
-
-.row-table tbody td {
-  color: var(--text-primary);
-  line-height: 1.6;
-}
-
-/* The cells the citation actually anchors, marked where the eye lands rather than only in
-   the address column. Border and weight carry it as well as the wash, because this is the
-   distinction the whole row view exists to make. */
-.row-table tbody tr.addressed th,
-.row-table tbody tr.addressed td {
-  background: var(--highlight-bg);
-  color: var(--highlight-text);
-}
-
-.row-table tbody tr.addressed th {
-  box-shadow: inset 2px 0 0 var(--warn-mark);
-  font-weight: var(--w-semibold);
 }
 
 /* The addressed cell on the location grid was never actually marked - only its crosshair
@@ -4844,15 +3276,6 @@
   background: var(--bg-inset);
 }
 
-/* ============================================================ answer provenance */
-
-.answer-provenance {
-  margin-top: var(--s-2);
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
 .provenance-fact {
   padding: 3px var(--s-2);
   display: inline-flex;
@@ -4903,53 +3326,12 @@ button.provenance-fact:hover {
   grid-template-columns: minmax(0, 1fr);
 }
 
-/* Nothing sits above it in focus mode, so the section rule would read as a line hung
-   under the header rather than as a break between two sections. */
-.workspace-focused .source-column {
-  margin-top: 0;
-  padding-top: 0;
-  border-top: 0;
-}
-
 /* ============================================================ recent reviews */
 
 .recent-runs {
   margin-top: var(--s-4);
   padding-top: var(--s-4);
   border-top: 1px solid var(--border-subtle);
-}
-
-.recent-runs-heading {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--s-3);
-}
-
-.recent-runs-heading h3 {
-  margin: 0;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  color: var(--text-secondary);
-  font-size: var(--t-xs);
-  font-weight: var(--w-medium);
-  letter-spacing: var(--track-label);
-  text-transform: uppercase;
-}
-
-.recent-runs-heading button {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  color: var(--text-muted);
-  background: none;
-  border: 0;
-  font-size: var(--t-2xs);
-}
-
-.recent-runs-heading button:hover {
-  color: var(--text-primary);
 }
 
 .recent-runs ul {
@@ -5193,13 +3575,6 @@ button.provenance-fact:hover {
 }
 
 @media (max-width: 860px) {
-  .topbar-inner {
-    gap: var(--s-3);
-  }
-
-  .primary-nav {
-    display: none;
-  }
 
   .brand-name {
     font-size: var(--t-sm);
@@ -5211,19 +3586,11 @@ button.provenance-fact:hover {
     font-size: var(--t-md);
   }
 
-  .example-questions {
-    align-items: flex-start;
-  }
-
   /* Two rows: the claim owns the first, the identifiers and the action group share the
      second. The group stays right-aligned against the strip edge so it does not float
      mid-row with ragged space either side of it. */
   .provenance-claim {
     flex: 1 1 100%;
-  }
-
-  .run-metadata {
-    grid-template-columns: auto minmax(0, 1fr);
   }
 }
 
@@ -5250,18 +3617,8 @@ button.provenance-fact:hover {
     padding: var(--s-4);
   }
 
-  .example-questions {
-    padding: var(--s-3) var(--s-4);
-  }
-
   .answer-title h2 {
     font-size: var(--t-lg);
-  }
-
-  .transient-feedback-reserved {
-    /* The banner wraps to roughly twice its height here, and reserving that much empty
-       space above every result costs more than the shift it prevents. */
-    min-height: 0;
   }
 }
 
@@ -5288,83 +3645,10 @@ button.provenance-fact:hover {
   }
 }
 
-/* ============================================================ footer */
-
-/*
- * The page's last line. `margin-top: auto` inside the column shell keeps it at the bottom
- * of a short screen without pinning it over the workspace on a long one.
- */
-/*
- * Ink, full bleed. The page above it is a stack of pale surfaces separated by hairlines, so
- * a white footer under a white workspace never actually ended anything - the black band is
- * the only edge that reads as the bottom of the document. Everything inside it is set from
- * the --ink-on* tokens rather than from the --text-* ramp, which is what keeps the contrast
- * checkable: those are defined against --ink, the --text-* ones are not.
- */
-.app-footer {
-  margin-top: auto;
-  color: var(--ink-on);
-  background: var(--ink);
-}
-
-.app-footer-inner {
-  width: min(var(--shell-max), 100%);
-  margin: 0 auto;
-  padding: var(--s-5) var(--s-6);
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--s-3) var(--s-4);
-}
-
-/* The research-use badge keeps its shape but is re-grounded on ink: the light-surface
-   version of it disappeared into the black as a grey lozenge. */
-.app-footer .environment-badge {
-  color: var(--ink-on);
-  background: var(--ink-raised);
-  border-color: var(--ink-line);
-}
-
-.app-footer .environment-badge svg {
-  color: var(--ink-on-muted);
-}
-
-.footer-byline {
-  margin: 0 auto 0 0;
-  color: var(--ink-on-muted);
-  font-size: var(--t-xs);
-}
-
-.footer-byline span {
-  color: var(--ink-on);
-  font-weight: var(--w-semibold);
-}
-
 .footer-links {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-}
-
-.app-footer .footer-links a {
-  color: var(--ink-on);
-  background: transparent;
-  border-color: var(--ink-line);
-}
-
-.app-footer .footer-links a:hover {
-  color: var(--ink-on);
-  background: var(--ink-raised);
-  border-color: var(--ink-on-muted);
-}
-
-.app-footer .footer-links a svg {
-  color: var(--ink-on-muted);
-}
-
-/* The focus ring is tuned for dark text on light surfaces and vanishes against ink. */
-.app-footer a:focus-visible {
-  outline-color: var(--ink-on);
 }
 
 /*
@@ -5606,10 +3890,1125 @@ button.provenance-fact:hover {
   border-color: transparent;
 }
 
-.environment-badge {
-  height: auto;
+/* ============================================================ the desk */
+
+/*
+ * The review desk. Above 1280px the answer and its checks sit on the left and the source
+ * pane on the right, pinned, so a claim and the passage it rests on are readable against
+ * each other. Below that the desk is one column with three panes behind tabs.
+ */
+.desk {
+  margin-top: var(--s-6);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--s-8);
+  align-items: start;
+}
+
+.desk-main {
+  min-width: 0;
+  display: grid;
+  gap: var(--s-8);
+}
+
+.desk-aside {
+  min-width: 0;
+}
+
+.pane-checks {
+  display: grid;
+  gap: var(--s-8);
+}
+
+@media (min-width: 1280px) {
+  .desk {
+    grid-template-columns: minmax(0, 7fr) minmax(0, 6fr);
+    gap: var(--s-10);
+  }
+
+  .desk-aside {
+    position: sticky;
+    top: calc(var(--header-h) + var(--s-4));
+    max-height: calc(100dvh - var(--header-h) - var(--s-6));
+    overflow-y: auto;
+    padding-right: var(--s-1);
+  }
+}
+
+.desk-tabs {
+  display: none;
+}
+
+@media (max-width: 1279px) {
+  .desk-tabs {
+    display: inline-flex;
+    gap: 0;
+    margin-bottom: var(--s-2);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .desk-tabs button {
+    min-height: var(--control-min);
+    padding: 0 var(--s-4);
+    color: var(--text-secondary);
+    font-size: var(--t-sm);
+    font-weight: var(--w-medium);
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+  }
+
+  .desk-tabs button[aria-selected="true"] {
+    color: var(--text-strong);
+    border-bottom-color: var(--accent);
+  }
+
+  .desk[data-tab="answer"] .desk-aside,
+  .desk[data-tab="answer"] .pane-checks,
+  .desk[data-tab="evidence"] .pane-answer,
+  .desk[data-tab="evidence"] .pane-checks,
+  .desk[data-tab="checks"] .pane-answer,
+  .desk[data-tab="checks"] .desk-aside {
+    display: none;
+  }
+}
+
+/* ============================================================ provenance line */
+
+.provenance-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-2) var(--s-4);
+  color: var(--text-secondary);
+  font-size: var(--t-xs);
+}
+
+.provenance-line .provenance-fact {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.provenance-line .provenance-fact::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--ok-mark);
+}
+
+.provenance-line .provenance-fact.research::before {
+  background: var(--warn-mark);
+}
+
+.provenance-line .provenance-fact.none::before {
+  background: var(--danger-mark);
+}
+
+.provenance-line strong {
+  color: var(--text-primary);
+  font-weight: var(--w-medium);
+}
+
+.provenance-line .provenance-actions {
+  margin-left: auto;
+  display: inline-flex;
+  gap: var(--s-1);
+}
+
+.provenance-line .provenance-actions button {
+  min-height: 32px;
+  padding: 0 var(--s-2);
+  color: var(--text-secondary);
+  font-size: var(--t-xs);
+  font-weight: var(--w-medium);
+  border-radius: var(--radius-sm);
+}
+
+.provenance-line .provenance-actions button:hover {
+  color: var(--text-strong);
+  background: var(--bg-sunk);
+}
+
+.provenance-details {
+  margin: var(--s-3) 0 0;
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: var(--s-1) var(--s-4);
+  font-size: var(--t-xs);
+}
+
+.provenance-details dt {
+  color: var(--text-muted);
+}
+
+.provenance-details dd {
+  margin: 0;
+  color: var(--text-primary);
+  font-family: var(--font-mono), ui-monospace, monospace;
+  overflow-wrap: anywhere;
+}
+
+/* ============================================================ answer */
+
+.answer-summary {
+  margin: var(--s-2) 0 var(--s-5);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-2) var(--s-4);
+  color: var(--text-secondary);
+  font-size: var(--t-sm);
+}
+
+.answer-summary .withheld-count {
+  color: var(--warn-text);
+}
+
+/* The claims, as numbered recommendations in the reading face. */
+.recommendations {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: recommendation;
+  display: grid;
+  gap: var(--s-5);
+}
+
+.recommendation {
+  position: relative;
+  padding-left: 40px;
+  counter-increment: recommendation;
+}
+
+.recommendation::before {
+  content: counter(recommendation);
+  position: absolute;
+  left: 0;
+  top: 3px;
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  font-family: var(--font-sans), system-ui, sans-serif;
+  font-size: var(--t-xs);
+  font-weight: var(--w-medium);
+  font-variant-numeric: tabular-nums;
+}
+
+.recommendation.selected-claim::before {
+  color: var(--ink-on);
+  background: var(--ink);
+  border-color: var(--ink);
+}
+
+.recommendation-text {
+  margin: 0;
+  max-width: 62ch;
+  color: var(--text-strong);
+  font-size: var(--t-reading);
+  line-height: 1.55;
+}
+
+.cites {
+  margin-left: 2px;
+  display: inline-flex;
+  gap: 2px;
+  vertical-align: super;
+  line-height: 0;
+}
+
+.cite {
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  display: inline-grid;
+  place-items: center;
+  color: var(--accent-text);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-sans), system-ui, sans-serif;
+  font-size: 11px;
+  font-weight: var(--w-semibold);
+  line-height: 1;
+}
+
+.cite:hover {
+  background: var(--accent-wash);
+}
+
+.cite[aria-pressed="true"] {
+  color: var(--ink-on);
+  background: var(--ink);
+}
+
+.cite.cite-restricted {
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+}
+
+.recommendation-meta {
+  margin: var(--s-2) 0 0;
+  color: var(--text-muted);
+  font-size: var(--t-xs);
+}
+
+.recommendation-meta .role-exception {
+  color: var(--warn-text);
+}
+
+.recommendation-missing {
+  margin: var(--s-2) 0 0;
+  color: var(--warn-text);
+  font-size: var(--t-xs);
+}
+
+/* Footnotes: one reference per cited passage, numbered as the citations are. */
+.references {
+  margin: var(--s-6) 0 0;
+  padding: var(--s-4) 0 0;
+  list-style: none;
+  display: grid;
+  gap: var(--s-2);
+  border-top: 1px solid var(--border-subtle);
+  font-size: var(--t-sm);
+}
+
+.references li {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr);
+  gap: var(--s-2);
+  align-items: baseline;
+}
+
+.reference-number {
+  color: var(--accent-text);
+  font-weight: var(--w-semibold);
+  font-variant-numeric: tabular-nums;
+  text-align: left;
+}
+
+.reference-number[aria-pressed="true"] {
+  color: var(--text-strong);
+}
+
+.reference-copy {
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.reference-copy em {
+  color: var(--text-primary);
+  font-style: italic;
+}
+
+.reference-copy .reference-note {
+  margin-left: var(--s-2);
+  color: var(--text-muted);
+}
+
+/* ============================================================ context chips */
+
+.context-chips {
+  margin-top: var(--s-3);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-2);
+  font-size: var(--t-xs);
+}
+
+.context-chips > span:first-child {
+  color: var(--text-muted);
+}
+
+.context-chip {
+  padding: 3px var(--s-2);
+  color: var(--text-primary);
+  background: var(--bg-sunk);
+  border-radius: var(--radius-sm);
+}
+
+.context-chip small {
+  margin-left: 4px;
+  color: var(--text-muted);
+  font-size: inherit;
+}
+
+.context-chips button {
+  min-height: 28px;
+  padding: 0 var(--s-2);
+  color: var(--accent-text);
+  font-size: var(--t-xs);
+  font-weight: var(--w-medium);
+}
+
+.context-chips button:hover {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* ============================================================ checks strip */
+
+.checks-strip {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: var(--s-2);
+}
+
+.check {
+  display: grid;
+  gap: 4px;
+  padding-top: var(--s-2);
+  border-top: 2px solid var(--border);
+  font-size: var(--t-xs);
+}
+
+.check.complete {
+  border-top-color: var(--ok-mark);
+}
+
+.check.currentStep {
+  border-top-color: var(--accent);
+}
+
+.check.blockedStep {
+  border-top-color: var(--danger-mark);
+}
+
+.check.skippedStep {
+  border-top-color: var(--border-subtle);
+  color: var(--text-muted);
+}
+
+.check-name {
+  color: var(--text-primary);
+  font-weight: var(--w-medium);
+}
+
+.check-state {
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.check.blockedStep .check-state {
+  color: var(--danger-text);
+}
+
+.checks-log {
+  margin-top: var(--s-4);
+  font-size: var(--t-xs);
+}
+
+.checks-log summary {
+  cursor: pointer;
+  color: var(--text-secondary);
+  font-weight: var(--w-medium);
+}
+
+.checks-log table {
+  margin-top: var(--s-2);
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.checks-log th,
+.checks-log td {
+  padding: 6px var(--s-2) 6px 0;
+  text-align: left;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.checks-log th {
+  color: var(--text-muted);
+  font-weight: var(--w-medium);
+}
+
+@media (max-width: 720px) {
+  .checks-strip {
+    grid-template-columns: 1fr;
+  }
+
+  .check {
+    grid-template-columns: minmax(0, 1fr) auto;
+    border-top: 0;
+    border-left: 2px solid var(--border);
+    padding: 2px 0 2px var(--s-3);
+  }
+
+  .check.complete {
+    border-left-color: var(--ok-mark);
+  }
+
+  .check.currentStep {
+    border-left-color: var(--accent);
+  }
+
+  .check.blockedStep {
+    border-left-color: var(--danger-mark);
+  }
+}
+
+/* ============================================================ running */
+
+.run-stepper {
+  margin: var(--s-6) 0 0;
+}
+
+.run-stepper h2 {
+  margin: 0 0 var(--s-4);
+  color: var(--text-strong);
+  font-size: var(--t-h2);
+  font-weight: var(--w-semibold);
+}
+
+.run-stepper p {
+  margin: var(--s-4) 0 0;
+  color: var(--text-secondary);
+  font-size: var(--t-sm);
+}
+
+.skeleton {
+  margin-top: var(--s-8);
+  display: grid;
+  gap: var(--s-3);
+  max-width: 62ch;
+}
+
+.skeleton span {
+  display: block;
+  height: 14px;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(90deg, var(--bg-sunk), var(--bg-inset), var(--bg-sunk));
+  background-size: 200% 100%;
+  animation: shimmer 1.6s linear infinite;
+}
+
+.skeleton span:nth-child(2) {
+  width: 92%;
+}
+
+.skeleton span:nth-child(3) {
+  width: 78%;
+}
+
+.skeleton span:nth-child(4) {
+  width: 60%;
+  margin-top: var(--s-3);
+}
+
+@keyframes shimmer {
+  from {
+    background-position: 200% 0;
+  }
+
+  to {
+    background-position: -200% 0;
+  }
+}
+
+/* ============================================================ paper */
+
+/* Quoted source text: on paper, in the reading face, with a light term highlight. */
+.paper {
+  padding: var(--s-5) var(--s-6);
+  color: var(--text-strong);
+  background: var(--bg-paper);
+  border: 1px solid var(--paper-border);
+  border-radius: var(--radius-lg);
+  font-size: var(--t-reading);
+  line-height: 1.6;
+}
+
+.paper mark {
+  background: none;
+  color: inherit;
+  box-shadow: inset 0 -0.35em 0 var(--highlight-bg);
+}
+
+/* ============================================================ comparison */
+
+.compare-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: var(--s-4);
+}
+
+.compare-side {
+  display: grid;
+  gap: var(--s-2);
+  text-align: left;
+}
+
+.compare-side .paper {
+  font-size: var(--t-base);
+}
+
+.compare-side .compare-state {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--s-2);
+  color: var(--text-muted);
+  font-size: var(--t-xs);
+}
+
+.compare-side .compare-state strong {
+  color: var(--ok-text);
+  font-weight: var(--w-medium);
+}
+
+.compare-side.compare-superseded .compare-state strong {
+  color: var(--warn-text);
+}
+
+.compare-caption {
+  margin: var(--s-3) 0 0;
+  max-width: 68ch;
+  color: var(--text-secondary);
+  font-size: var(--t-sm);
+}
+
+/* ============================================================ start page */
+
+.start-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--s-8);
+  align-items: start;
+}
+
+@media (min-width: 1080px) {
+  .start-grid {
+    grid-template-columns: minmax(0, 7fr) minmax(0, 4fr);
+    gap: var(--s-10);
+  }
+}
+
+.start-aside {
+  display: grid;
+  gap: var(--s-6);
+  font-size: var(--t-sm);
+}
+
+.start-aside h2 {
+  margin: 0 0 var(--s-2);
+  color: var(--text-strong);
+  font-size: var(--t-h3);
+  font-weight: var(--w-semibold);
+}
+
+.start-aside dl {
+  margin: var(--s-3) 0 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--s-3) var(--s-4);
+}
+
+.start-aside dt {
+  color: var(--text-muted);
+  font-size: var(--t-xs);
+}
+
+.start-aside dd {
+  margin: 0;
+  color: var(--text-strong);
+  font-size: var(--t-lg);
+  font-weight: var(--w-semibold);
+  font-variant-numeric: tabular-nums;
+}
+
+.start-aside ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+}
+
+.start-aside li a {
+  display: block;
+  padding: var(--s-2) 0;
+  color: var(--text-primary);
+  border-top: 1px solid var(--border-subtle);
+  text-decoration: none;
+}
+
+.start-aside li a:hover {
+  color: var(--accent-text);
+}
+
+.start-aside li small {
+  display: block;
+  margin-top: 2px;
+  color: var(--text-muted);
+  font-size: var(--t-xs);
+}
+
+.start-aside .aside-link {
+  margin-top: var(--s-2);
+  display: inline-block;
+  font-size: var(--t-xs);
+}
+
+/* Examples as a short list of links, not chips. */
+.examples {
+  margin: var(--s-4) 0 0;
+  color: var(--text-muted);
+  font-size: var(--t-sm);
+}
+
+.examples ul {
+  margin: var(--s-1) 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 4px;
+}
+
+.examples button {
+  padding: 2px 0;
+  color: var(--accent-text);
+  font-size: var(--t-sm);
+  text-align: left;
+}
+
+.examples button:hover {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.field-help {
+  margin: var(--s-2) 0 0;
+  color: var(--text-muted);
+  font-size: var(--t-xs);
+}
+
+.summary-link {
+  padding: 0;
+  color: var(--warn-text);
+  font-size: var(--t-sm);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.summary-link:hover {
+  color: var(--text-strong);
+}
+
+/* Focus mode: the passage alone, full width. */
+.desk.workspace-focused {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.aside-empty {
+  margin: 0;
+  padding: var(--s-6);
+  color: var(--text-secondary);
+  background: var(--bg-sunk);
+  border-radius: var(--radius-lg);
+  font-size: var(--t-sm);
+}
+
+/* The completion notice overlays the top of the page instead of reserving a band. */
+.transient-feedback:not(:empty) {
+  position: fixed;
+  top: calc(var(--header-h) + var(--s-3));
+  left: 50%;
+  z-index: 40;
+  width: min(600px, calc(100vw - var(--s-8)));
+  transform: translateX(-50%);
+}
+
+/*
+ * Abstention as an answer state, not a warning box: no icon, no wash, no border - just
+ * the sentence a reader would expect a calm result to open with.
+ */
+.abstention-lead {
+  margin: 0 0 var(--s-4);
+  max-width: 62ch;
+  color: var(--text-strong);
+  font-size: var(--t-reading);
+  line-height: 1.55;
+}
+
+.abstention-lead strong {
+  font-weight: var(--w-semibold);
+}
+
+.abstention-roles,
+.abstention-next {
+  max-width: 62ch;
+  color: var(--text-secondary);
+  font-size: var(--t-sm);
+}
+
+.abstention-next button {
+  margin-right: var(--s-2);
+  padding: 0;
+  color: var(--accent-text);
+  font-weight: var(--w-medium);
+}
+
+.abstention-next button:hover {
+  text-decoration: underline;
+}
+
+.abstention-details {
+  margin-top: var(--s-4);
+  color: var(--text-muted);
+  font-size: var(--t-xs);
+}
+
+/* ============================================================ composer, quiet controls */
+
+/* The source and bank controls are words, not outlined pills; the black button is the
+   only filled control on the form. */
+.scope-details summary,
+.bank-details summary {
+  padding: 0 var(--s-1);
+  border-color: transparent;
+  color: var(--text-secondary);
+}
+
+.scope-details summary:hover,
+.bank-details summary:hover,
+.scope-details[open] summary,
+.bank-details[open] summary {
+  color: var(--text-strong);
+  background: var(--bg-sunk);
+}
+
+/* A warning that carries a decision: one line with a rule beside it, not a box. */
+.identifier-warning {
+  padding: var(--s-1) 0 var(--s-1) var(--s-3);
+  background: none;
+  border: 0;
+  border-left: 3px solid var(--warn-mark);
+  border-radius: 0;
+}
+
+.identifier-warning > svg {
+  display: none;
+}
+
+.composer-shell {
+  border-radius: var(--radius-lg);
+  box-shadow: none;
+}
+
+/* The start page: the composer in the first column, the aside in the second, in
+   document order, so the aside reads after the form on a phone. */
+@media (min-width: 1080px) {
+  .start-grid > * {
+    grid-column: 1;
+  }
+
+  .start-grid > .start-aside {
+    grid-column: 2;
+    grid-row: 1 / span 8;
+  }
+}
+
+/* The export menu: a native disclosure that lists what can leave the page. */
+.export-menu {
+  position: relative;
+}
+
+.export-menu summary {
+  min-height: 32px;
+  padding: 0 var(--s-2);
+  display: inline-flex;
+  align-items: center;
+  list-style: none;
+  color: var(--text-secondary);
+  border-radius: var(--radius-sm);
+  font-size: var(--t-xs);
+  font-weight: var(--w-medium);
+  cursor: pointer;
+}
+
+.export-menu summary::-webkit-details-marker {
+  display: none;
+}
+
+.export-menu summary:hover,
+.export-menu[open] summary {
+  color: var(--text-strong);
+  background: var(--bg-sunk);
+}
+
+.export-menu ul {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 4px);
+  z-index: 20;
+  min-width: 220px;
+  margin: 0;
+  padding: var(--s-1);
+  list-style: none;
+  background: var(--bg-overlay);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+}
+
+.export-menu li button {
+  width: 100%;
+  min-height: var(--control-sm);
+  padding: 0 var(--s-3);
+  display: flex;
+  align-items: center;
+  color: var(--text-primary);
+  border-radius: var(--radius-sm);
+  font-size: var(--t-sm);
+  text-align: left;
+}
+
+.export-menu li button:hover {
+  background: var(--bg-sunk);
+}
+
+/* ============================================================ reader */
+
+/* The inspector as a reader rather than a filing cabinet: the passage first, one line of
+   provenance above it, and everything else behind the details disclosure below. */
+.reader {
+  padding: 0;
+  display: grid;
+  gap: var(--s-4);
+}
+
+.reader h3 {
+  margin: 0;
+  color: var(--text-strong);
+  font-size: var(--t-h3);
+  font-weight: var(--w-semibold);
+}
+
+.reader-meta {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--t-xs);
+}
+
+.reader-note {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: var(--t-sm);
+}
+
+.reader-details {
+  color: var(--text-secondary);
+  font-size: var(--t-xs);
+}
+
+.reader-details summary {
+  color: var(--text-secondary);
+  font-weight: var(--w-medium);
+  cursor: pointer;
+}
+
+/* The rail reads as a document list, not as a locator dump: a sans face for the title and
+   the location, in place of the monospace one the rest of the rail's addresses still use. */
+.rail-locator,
+.rail-rank,
+.rail-flags {
+  font-family: var(--font-sans), system-ui, sans-serif;
+}
+
+.rail-locator {
+  color: var(--text-muted);
+  font-size: var(--t-xs);
+}
+
+.rail-source {
+  color: var(--text-primary);
+  font-size: var(--t-sm);
+}
+
+/* ============================================================ claim flags */
+
+.claim-flag {
+  margin-top: var(--s-2);
+  font-size: var(--t-xs);
+}
+
+.claim-flag-open,
+.claim-flag-state button,
+.claim-flag-form div button:last-child {
+  padding: 0;
+  color: var(--text-muted);
+  font-size: var(--t-xs);
+}
+
+.claim-flag-open:hover,
+.claim-flag-state button:hover {
+  color: var(--text-strong);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.claim-flag-state {
+  margin: 0;
+  color: var(--warn-text);
+}
+
+.claim-flag-form {
+  margin-top: var(--s-2);
+  padding: var(--s-3) var(--s-4);
+  display: grid;
+  gap: var(--s-3);
+  max-width: 520px;
+  background: var(--bg-sunk);
+  border-radius: var(--radius-lg);
+}
+
+.claim-flag-form fieldset {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.claim-flag-form legend {
+  margin-bottom: 4px;
+  color: var(--text-strong);
+  font-weight: var(--w-medium);
+}
+
+.claim-flag-form fieldset label,
+.claim-flag-form > label {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  color: var(--text-primary);
+}
+
+.claim-flag-form > label {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+  color: var(--text-strong);
+  font-weight: var(--w-medium);
+}
+
+.claim-flag-form input[type="text"] {
+  min-height: var(--control-sm);
+  padding: 0 var(--s-3);
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  font-size: var(--t-sm);
+  font-weight: var(--w-regular);
+}
+
+.claim-flag-form div {
+  display: flex;
+  gap: var(--s-3);
+  align-items: center;
+}
+
+.claim-flag-save {
+  min-height: var(--control-sm);
+  padding: 0 var(--s-3);
+  color: var(--ink-on);
+  background: var(--ink);
+  border-radius: var(--radius-md);
+  font-size: var(--t-sm);
+  font-weight: var(--w-medium);
+}
+
+/* ============================================================ desk corrections */
+
+/* The details list is a grid when shown; `hidden` must still win. */
+.provenance-details[hidden] {
+  display: none;
+}
+
+/* The provenance actions are words, not a segmented box, at every width. */
+.provenance-line .provenance-actions {
   padding: 0;
   background: none;
   border: 0;
+  box-shadow: none;
+  flex: 0 0 auto;
+  flex-direction: row;
+  width: auto;
+  margin-left: auto;
+}
+
+.provenance-line .provenance-actions button {
+  flex: 0 0 auto;
+  border: 0;
+  width: auto;
+}
+
+/* A conflict is two passages on paper with a caption; the card around them goes. */
+.conflict-panel article {
+  padding: 0;
+  background: none;
+  border: 0;
+  border-radius: 0;
+}
+
+.conflict-panel article + article {
+  margin-top: var(--s-8);
+  padding-top: var(--s-6);
+  border-top: 1px solid var(--border-subtle);
+}
+
+.compare-side {
+  padding: 0;
+  background: none;
+  border: 0;
+  box-shadow: none;
+}
+
+.compare-side[aria-pressed="true"] .paper {
+  border-color: var(--ink);
+}
+
+/* The passage label is a small caption, not an eyebrow. */
+.source-passage > span {
+  text-transform: none;
+  letter-spacing: 0;
   font-size: var(--t-xs);
+}
+
+/* Claim terms are marked lightly; an underline under every word is no mark at all. */
+.paper .term-hit,
+.paper mark {
+  font-weight: inherit;
+  text-decoration: none;
+  background: none;
+  color: inherit;
+  box-shadow: inset 0 -0.3em 0 var(--highlight-bg);
+}
+
+.abstention-lead strong {
+  display: block;
+  margin-bottom: var(--s-1);
+}
+
+.rail-divider {
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.provenance-line .provenance-fact {
+  padding: 0;
+  background: none;
+  border: 0;
+}
+
+/* The rail is a row on one column; it scrolls sideways rather than clipping. */
+@media (max-width: 1279px) {
+  .evidence-rail {
+    overflow-x: auto;
+    padding-bottom: var(--s-1);
+  }
 }

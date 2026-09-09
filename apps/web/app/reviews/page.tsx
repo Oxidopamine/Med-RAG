@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 
+import { FlaggedClaims } from "@/components/pages/flagged-claims";
 import { ReviewList } from "@/components/pages/review-list";
 import { PageFrame } from "@/components/shell/page-frame";
 
@@ -15,6 +16,7 @@ export default function ReviewsPage() {
       lede="Every review the evidence service still holds, newest first, with the ones opened in this browser. Open one to read it again, or export the list."
     >
       <ReviewList />
+      <FlaggedClaims />
     </PageFrame>
   );
 }

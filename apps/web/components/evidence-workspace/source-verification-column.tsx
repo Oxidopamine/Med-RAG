@@ -1,25 +1,6 @@
 "use client";
 
-import {
-  AlertTriangle,
-  ArrowDown,
-  ArrowUp,
-  Check,
-  ChevronDown,
-  ChevronUp,
-  ClipboardCheck,
-  ClipboardCopy,
-  Columns2,
-  ExternalLink,
-  FileSearch,
-  History,
-  Maximize2,
-  Minimize2,
-  Minus,
-  Plus,
-  Search,
-  X,
-} from "lucide-react";
+import { ExternalLink, FileSearch, Search, X } from "lucide-react";
 import {
   Fragment,
   useCallback,
@@ -30,10 +11,6 @@ import {
   type KeyboardEvent as ReactKeyboardEvent,
 } from "react";
 
-import type {
-  EvidenceProgressEvent,
-  EvidenceRunLifecycle,
-} from "@/components/evidence-workspace/use-evidence-run";
 import type { CitationIndex } from "@/lib/evidence-presentation";
 import {
   anchorGroups,
@@ -51,50 +28,12 @@ import {
   sourceAnchors,
 } from "@/lib/evidence-presentation";
 import type { RankedEvidence } from "@/lib/presentation";
-import type { EvidenceDetail, QuestionResult, QuestionStatus } from "@/lib/types";
+import type { EvidenceDetail } from "@/lib/types";
 
 import { AnchorViewer } from "./anchor-viewer";
 import { PassageBody, SourceAnchorList } from "./source-anchor";
 import { TableNeighbourhood } from "./table-neighbourhood";
 import styles from "./workspace.module.css";
-
-const VERIFICATION_STEPS: Array<{
-  activeLabel: string;
-  completeLabel: string;
-  label: string;
-  statuses: QuestionStatus[];
-}> = [
-  {
-    label: "Clinical context",
-    activeLabel: "Extracting context",
-    completeLabel: "Context extracted",
-    statuses: ["CONTEXT_EXTRACTED"],
-  },
-  {
-    label: "Evidence retrieval",
-    activeLabel: "Retrieving and ranking",
-    completeLabel: "Retrieval complete",
-    statuses: ["RETRIEVING", "RERANKING"],
-  },
-  {
-    label: "Counter-evidence",
-    activeLabel: "Searching exceptions",
-    completeLabel: "Counter-evidence checked",
-    statuses: ["SEARCHING_COUNTER_EVIDENCE"],
-  },
-  {
-    label: "Evidence completeness",
-    activeLabel: "Checking completeness",
-    completeLabel: "Completeness checked",
-    statuses: ["CHECKING_EVIDENCE_COMPLETENESS"],
-  },
-  {
-    label: "Final answer gate",
-    activeLabel: "Running final gates",
-    completeLabel: "Answer gate passed",
-    statuses: ["VERIFYING"],
-  },
-];
 
 interface SourceViewerProps {
   candidates: RankedEvidence[];
@@ -117,27 +56,7 @@ interface SourceViewerProps {
   onToggleFocus?: () => void;
   /** The record held beside the selected one for comparison, already resolved. */
   pinnedEvidence?: EvidenceDetail | null;
-  question?: string;
   selectedEvidenceId: string | null;
-}
-
-/**
- * The reader's text size, kept across runs.
- *
- * It is an accessibility preference, not a per-run whim, and it was resetting on every
- * question. Reads are wrapped because a browser set to block site data throws here rather
- * than returning null.
- */
-const TEXT_SCALE_KEY = "evidence-workspace.text-scale";
-
-function storedTextScale(): number {
-  if (typeof window === "undefined") return 100;
-  try {
-    const raw = Number(window.localStorage.getItem(TEXT_SCALE_KEY));
-    return Number.isFinite(raw) && raw >= 90 && raw <= 140 ? raw : 100;
-  } catch {
-    return 100;
-  }
 }
 
 export function SourceViewer({
@@ -150,13 +69,8 @@ export function SourceViewer({
   onSelectEvidence,
   onToggleFocus,
   pinnedEvidence = null,
-  question = "",
   selectedEvidenceId,
 }: SourceViewerProps) {
-  // Read in the initializer rather than an effect: this panel renders only once a result
-  // exists, which never happens during the server render, so there is no markup for a
-  // stored value to disagree with.
-  const [textScale, setTextScale] = useState(storedTextScale);
   /**
    * The passage search, and the passage it belongs to.
    *
@@ -191,13 +105,6 @@ export function SourceViewer({
   const stageRef = useRef<HTMLDivElement>(null);
   const copyTimerRef = useRef<number | null>(null);
 
-  useEffect(() => {
-    try {
-      window.localStorage.setItem(TEXT_SCALE_KEY, String(textScale));
-    } catch {
-      // A browser that refuses storage still gets the control; it just does not persist.
-    }
-  }, [textScale]);
   // Cited evidence first, then the ranked passages nothing cited. Reading order is the
   // retrieval ranking, so stepping past the last citation is what the next ranked result
   // means here - but the two halves stay labelled apart everywhere they are shown.
@@ -248,7 +155,7 @@ export function SourceViewer({
     [onSelectEvidence],
   );
 
-  const terms = useMemo(() => questionTerms(question, claimText), [claimText, question]);
+  const terms = useMemo(() => questionTerms(claimText), [claimText]);
   const selectedEvidenceKey = selected?.evidence_id ?? null;
   const find = search.evidenceId === selectedEvidenceKey ? search.find : "";
   // Counted over the text as it is rendered, not as it is stored: a workbook record is
@@ -339,14 +246,6 @@ export function SourceViewer({
    * boundary where citation stops.
    */
   const positionLabel = `Record ${selectedIndex + 1} of ${items.length}`;
-  /*
-   * Which document a row is from, only where the rows differ on it.
-   *
-   * A run against one annex retrieves nine passages from that annex, and repeating its
-   * title down nine rows is a column of identical text pretending to be a distinction.
-   * Where the ranking does span sources it is the first thing a reader needs.
-   */
-  const railNamesSource = new Set(items.map((item) => item.detail.source_title)).size > 1;
   const quotable = citationText(selected, locationSummary(selected));
   const tableGroup = anchorGroups(selected).find((group) => group.form === "TABLE_ROW") ?? null;
   const comparing = pinnedEvidence !== null && pinnedEvidence.evidence_id !== selected.evidence_id;
@@ -396,19 +295,13 @@ export function SourceViewer({
               a keyboard user needs to arrive with their focus rather than watch the page
               scroll away from it. Not in the tab order - it is a heading. */}
           <h2 id="source-heading" tabIndex={-1}>
-            Source inspector
+            Sources
           </h2>
         </div>
         {candidateRank === null ? (
-          <span className={styles["verified-source-label"]}>
-            <Check size={14} strokeWidth={3} aria-hidden="true" />
-            Canonical evidence
-          </span>
+          <span className={styles["verified-source-label"]}>Cited in this answer</span>
         ) : (
-          <span className={styles["uncited-source-label"]}>
-            <AlertTriangle size={14} aria-hidden="true" />
-            Retrieved, not cited
-          </span>
+          <span className={styles["uncited-source-label"]}>Not cited</span>
         )}
       </div>
 
@@ -423,7 +316,7 @@ export function SourceViewer({
             disabled={!canGoBack}
             aria-label="Previous ranked result"
           >
-            <ArrowUp size={19} aria-hidden="true" />
+            Previous
           </button>
           <button
             type="button"
@@ -431,7 +324,7 @@ export function SourceViewer({
             disabled={!canGoForward}
             aria-label="Next ranked result"
           >
-            <ArrowDown size={19} aria-hidden="true" />
+            Next
           </button>
           <span className={styles["evidence-position"]}>{positionLabel}</span>
         </div>
@@ -465,7 +358,7 @@ export function SourceViewer({
                 disabled={matchCount === 0}
                 aria-label="Previous match"
               >
-                <ChevronUp size={16} aria-hidden="true" />
+                Previous match
               </button>
               <button
                 type="button"
@@ -473,7 +366,7 @@ export function SourceViewer({
                 disabled={matchCount === 0}
                 aria-label="Next match"
               >
-                <ChevronDown size={16} aria-hidden="true" />
+                Next match
               </button>
               <button
                 type="button"
@@ -482,7 +375,7 @@ export function SourceViewer({
                 }
                 aria-label="Clear the search"
               >
-                <X size={15} aria-hidden="true" />
+                Clear
               </button>
               {/* The search runs over every retrieved record, not just the open one, so
                   it can answer "which of these mentions X" - which is the question a
@@ -500,38 +393,12 @@ export function SourceViewer({
         </div>
 
         <div className={styles["toolbar-end"]}>
-          {/* A text-size control, not a page zoom: the page, where the licence permits
-              one, carries its own zoom inside the location figure below. */}
-          <div className={styles["toolbar-group"]}>
-            <button
-              type="button"
-              onClick={() => setTextScale((current) => Math.max(90, current - 10))}
-              disabled={textScale <= 90}
-              aria-label="Decrease source text size"
-            >
-              <Minus size={18} aria-hidden="true" />
-            </button>
-            <span className={styles["text-size-label"]}>Text size</span>
-            <button
-              type="button"
-              onClick={() => setTextScale((current) => Math.min(140, current + 10))}
-              disabled={textScale >= 140}
-              aria-label="Increase source text size"
-            >
-              <Plus size={18} aria-hidden="true" />
-            </button>
-          </div>
           <div className={styles["toolbar-group"]}>
             {/* Offered only where the licence permits the passage. What leaves this
                 interface leaves it with its edition, its location and its research-use
                 notice attached, because it is going somewhere nothing can annotate it. */}
             {quotable === null ? null : (
               <button type="button" onClick={() => void copyQuote()}>
-                {copied ? (
-                  <ClipboardCheck size={16} aria-hidden="true" />
-                ) : (
-                  <ClipboardCopy size={16} aria-hidden="true" />
-                )}
                 {copied ? "Copied" : "Copy quote"}
               </button>
             )}
@@ -543,13 +410,12 @@ export function SourceViewer({
                 onClick={() => onPinEvidence(comparing || pinned ? null : selected.evidence_id)}
                 type="button"
               >
-                <Columns2 size={16} aria-hidden="true" />
                 {comparing ? "Stop comparing" : pinned ? "Unpin" : "Compare"}
               </button>
             ) : null}
             <a href={selected.source_url} target="_blank" rel="noreferrer">
-              <ExternalLink size={17} aria-hidden="true" />
               Open source
+              <span className={styles.srOnly}> (opens in a new tab)</span>
             </a>
             {onToggleFocus ? (
               <button
@@ -558,11 +424,7 @@ export function SourceViewer({
                 type="button"
                 aria-label={focusMode ? "Leave focus mode" : "Give the inspector the full width"}
               >
-                {focusMode ? (
-                  <Minimize2 size={16} aria-hidden="true" />
-                ) : (
-                  <Maximize2 size={16} aria-hidden="true" />
-                )}
+                {focusMode ? "Exit focus" : "Focus"}
               </button>
             ) : null}
           </div>
@@ -603,17 +465,16 @@ export function SourceViewer({
                   aria-label={railLabel(detail, rank, reference, retrievalRank, superseded, matches, find)}
                   aria-current={detail.evidence_id === selected.evidence_id ? "true" : undefined}
                 >
-                  {/* Rank identifies the row; the locator says where in the document it is
-                      and the title says which document. The reference number is what the
-                      claim above prints, so carrying it here is what lets a reader move
-                      between the two without re-reading titles - which is the whole reason
-                      the second copy of this list, in the other column, could go. */}
+                  {/* Rank identifies the row; the title says which document and the
+                      locator, on its own line under it, says where in that document. The
+                      reference number is what the claim above prints, so carrying it here
+                      is what lets a reader move between the two without re-reading titles -
+                      which is the whole reason the second copy of this list, in the other
+                      column, could go. */}
                   <span className={styles["rail-rank"]}>{rank + 1}</span>
                   <span className={styles["rail-copy"]}>
+                    <span className={styles["rail-source"]}>{detail.source_title}</span>
                     <span className={styles["rail-locator"]}>{railLocator(detail)}</span>
-                    {railNamesSource ? (
-                      <span className={styles["rail-source"]}>{detail.source_title}</span>
-                    ) : null}
                     {reference !== null || superseded ? (
                       <span className={styles["rail-flags"]}>
                         {reference !== null ? <span>[{reference}]</span> : null}
@@ -621,7 +482,6 @@ export function SourceViewer({
                             before opening a passage, and it used to take three clicks. */}
                         {superseded ? (
                           <span className={styles["rail-superseded"]}>
-                            <History size={11} aria-hidden="true" />
                             {humanize(detail.lifecycle_status)}
                           </span>
                         ) : null}
@@ -656,38 +516,40 @@ export function SourceViewer({
               onSelectEvidence={onSelectEvidence}
               onStop={() => onPinEvidence?.(null)}
               right={pinnedEvidence!}
-              textScale={textScale}
             />
           ) : (
-          <article className={styles["excerpt-sheet"]} style={{ fontSize: `${textScale}%` }}>
-            <header className={styles["paper-heading"]}>
-              <span>{selected.publisher_name}</span>
-              <span title={selected.source_version_label}>{selected.source_version_label}</span>
-            </header>
+          <article className={styles.reader}>
             <h3>{selected.source_title}</h3>
+            <p className={styles["reader-meta"]}>
+              {selected.publisher_name} &middot; {selected.source_version_label} &middot;{" "}
+              {sourceLocation(selected)}
+              {selected.effective_from || selected.effective_to
+                ? ` · ${dateRange(selected.effective_from, selected.effective_to)}`
+                : ""}
+            </p>
+
+            {candidateRank === null ? null : (
+              <p className={styles["uncited-notice"]} role="note">
+                <strong>No claim in this answer cites this passage.</strong> Retrieved at
+                rank {candidateRank}.
+              </p>
+            )}
+
             {selected.section_path.length ? (
               <p className={styles["paper-section"]}>{selected.section_path.join(" / ")}</p>
             ) : null}
 
-            {candidateRank === null ? null : (
-              <div className={styles["uncited-notice"]} role="note">
-                <AlertTriangle size={19} aria-hidden="true" />
-                <div>
-                  <strong>No claim in this answer cites this passage.</strong>
-                  <span>Retrieved at rank {candidateRank}.</span>
-                </div>
-              </div>
-            )}
+            <div className={`${styles.paper} reading`}>
+              <PassageBody
+                activeAnchor={activeAnchor}
+                detail={selected}
+                highlight={{ terms, find, currentMatch }}
+                onSelectBlock={(anchorIndex) => selectAnchor(anchorIndex, "passage")}
+              />
+            </div>
 
-            <PassageBody
-              activeAnchor={activeAnchor}
-              detail={selected}
-              highlight={{ terms, find, currentMatch }}
-              onSelectBlock={(anchorIndex) => selectAnchor(anchorIndex, "passage")}
-            />
-
-            {/* Directly under the row it is about, rather than below the location figure.
-                A reader checking a decision table wants the rows either side of the one
+            {/* Directly under the passage, rather than below the location figure. A
+                reader checking a decision table wants the rows either side of the one
                 they are reading, at the moment they are reading it. Keyed apart from the
                 figure: two static siblings carrying one key are duplicates as far as React
                 is concerned. */}
@@ -706,15 +568,11 @@ export function SourceViewer({
               onSelectAnchor={(anchorIndex) => selectAnchor(anchorIndex, "page")}
             />
 
-            <SourceMetadata evidence={selected} />
-
-            <footer className={styles["paper-footer"]}>
-              {/* Said plainly, because the surrounding chrome once implied otherwise:
-                  this is text extracted from the source at the location named, not an
-                  image of the page. */}
-              <span>Verified excerpt &middot; {selected.evidence_id}</span>
-              <span>{sourceLocation(selected)}</span>
-            </footer>
+            <details className={styles["reader-details"]}>
+              <summary>Details</summary>
+              <SourceMetadata evidence={selected} />
+              <p>Verified excerpt &middot; {selected.evidence_id}</p>
+            </details>
           </article>
           )}
         </div>
@@ -740,14 +598,12 @@ function ComparePair({
   onSelectEvidence,
   onStop,
   right,
-  textScale,
 }: {
   highlight: { terms: string[]; find: string; currentMatch: number };
   left: EvidenceDetail;
   onSelectEvidence: (evidenceId: string) => void;
   onStop: () => void;
   right: EvidenceDetail;
-  textScale: number;
 }) {
   return (
     <>
@@ -755,7 +611,6 @@ function ComparePair({
         <article
           className={`${styles["excerpt-sheet"]} ${styles["compare-sheet"]}`}
           key={detail.evidence_id}
-          style={{ fontSize: `${textScale}%` }}
         >
           <header className={styles["paper-heading"]}>
             <span>{index === 0 ? "Open" : "Pinned"}</span>
@@ -851,6 +706,12 @@ function SourceMetadata({ evidence }: { evidence: EvidenceDetail }) {
         <div>
           <dt>Version</dt>
           <dd className={styles["value-identifier"]}>{evidence.source_version_label}</dd>
+        </div>
+        <div>
+          {/* The identifier, not only the label: two editions can share a label and a
+              page, and this is what tells a reader which one the passage came from. */}
+          <dt>Version ID</dt>
+          <dd className={styles["value-identifier"]}>{evidence.source_version_id}</dd>
         </div>
         <div>
           <dt>Jurisdiction</dt>
@@ -956,231 +817,6 @@ function highlightSummary(evidence: EvidenceDetail, canHighlight: boolean): stri
   return "Not available";
 }
 
-interface VerificationPanelProps {
-  isRunning: boolean;
-  lifecycle: EvidenceRunLifecycle;
-  progressEvents: EvidenceProgressEvent[];
-  result: QuestionResult | null;
-  status: QuestionStatus | null;
-}
-
-export function VerificationPanel({
-  isRunning,
-  lifecycle,
-  progressEvents,
-  result,
-  status,
-}: VerificationPanelProps) {
-  const badge = verificationBadge(result, lifecycle);
-
-  return (
-    <section className={`${styles.panel} ${styles["verification-panel"]}`} aria-labelledby="verification-heading">
-      <div className={styles["verification-heading"]}>
-        <div>
-          <h2 id="verification-heading">Verification</h2>
-        </div>
-        <span
-          className={`${styles["gate-badge"]} ${styles[badge.tone]}`}
-          role="status"
-          aria-live="polite"
-        >
-          {badge.label}
-        </span>
-      </div>
-
-      <p className={styles["verification-summary"]}>{badge.message}</p>
-
-      {/* Open on every state, including answer-ready. Five named gates and what each one
-          concluded is the product's differentiator; collapsing it by default on the best
-          case was the interface being modest about the thing that distinguishes it. */}
-      <details className={styles["verification-details"]} open>
-        <summary>
-          <span aria-hidden="true" className={styles["summary-caret"]}>
-            ▾
-          </span>
-          Audit steps
-        </summary>
-        <ol className={styles["verification-timeline"]}>
-          {VERIFICATION_STEPS.map((step, index) => {
-            const state = verificationStepState({
-              index,
-              isRunning,
-              lifecycle,
-              progressEvents,
-              result,
-              status,
-            });
-            const event = progressEvents.findLast((progressEvent) =>
-              step.statuses.includes(progressEvent.status),
-            );
-            const duration = stepDuration(progressEvents, index);
-            return (
-              <li className={styles[state]} key={step.label}>
-                <span aria-hidden="true" className={styles["step-marker"]}>
-                  {stepMarker(state)}
-                </span>
-                <span className={styles["step-name"]}>{stepLabel(step, state)}</span>
-                <small data-tabular="" title={event ? formatTime(event.occurredAt) : undefined}>
-                  {duration ?? (event ? formatTime(event.occurredAt) : stepStateLabel(state))}
-                </small>
-              </li>
-            );
-          })}
-        </ol>
-      </details>
-
-      {result ? (
-        <div className={styles["run-metadata"]}>
-          <span>Run ID</span>
-          <code>{result.question_id}</code>
-          <span>Updated</span>
-          <time dateTime={result.updated_at}>{formatDateTime(result.updated_at)}</time>
-        </div>
-      ) : null}
-    </section>
-  );
-}
-
-function verificationStepState({
-  index,
-  isRunning,
-  lifecycle,
-  progressEvents,
-  result,
-  status,
-}: {
-  index: number;
-  isRunning: boolean;
-  lifecycle: EvidenceRunLifecycle;
-  progressEvents: EvidenceProgressEvent[];
-  result: QuestionResult | null;
-  status: QuestionStatus | null;
-}): "blockedStep" | "complete" | "currentStep" | "pendingStep" | "skippedStep" {
-  const step = VERIFICATION_STEPS[index]!;
-  const observed = progressEvents.some((event) => step.statuses.includes(event.status));
-  const isFinal = index === VERIFICATION_STEPS.length - 1;
-
-  if (isFinal && result?.status === "ANSWER_READY") return "complete";
-  if (isFinal && result && ["ABSTAINED", "FAILED"].includes(result.status)) {
-    return "blockedStep";
-  }
-  if (isRunning && status && step.statuses.includes(status)) return "currentStep";
-  if (observed) return "complete";
-  if (["abstained", "failed", "cancelled", "completed"].includes(lifecycle)) {
-    return "skippedStep";
-  }
-  return "pendingStep";
-}
-
-function stepLabel(
-  step: (typeof VERIFICATION_STEPS)[number],
-  state: ReturnType<typeof verificationStepState>,
-): string {
-  if (state === "currentStep") return step.activeLabel;
-  if (state === "complete") return step.completeLabel;
-  return step.label;
-}
-
-/**
- * How long a stage took, from the events already on the wire.
- *
- * Measured from the run *entering* this stage to the run entering the next one. The
- * previous version measured from the previous stage's last event to this stage's last
- * event, which is not this stage at all: `RETRIEVING` is emitted when retrieval begins and
- * `CONTEXT_EXTRACTED` immediately before it, so retrieval reported the microseconds
- * between two adjacent writes - a confident, permanent `0ms` against a stage that had in
- * fact taken most of the run.
- *
- * A stage with no event after it is still in it, and reports nothing rather than timing
- * against `now` - a number that grows while a reader looks at it is not a duration. The
- * first stage also reports nothing: the only marker before `CONTEXT_EXTRACTED` is `QUEUED`,
- * and the gap between those is mostly time spent waiting, not extracting.
- */
-function stepDuration(events: EvidenceProgressEvent[], index: number): string | null {
-  if (index === 0) return null;
-  const step = VERIFICATION_STEPS[index]!;
-  const entered = events.findIndex((event) => step.statuses.includes(event.status));
-  if (entered === -1) return null;
-  const left = events
-    .slice(entered + 1)
-    .find((event) => !step.statuses.includes(event.status));
-  if (!left) return null;
-
-  const ms = Date.parse(left.occurredAt) - Date.parse(events[entered]!.occurredAt);
-  if (!Number.isFinite(ms) || ms < 0) return null;
-  return ms < 1000 ? `${ms}ms` : `${(ms / 1000).toFixed(1)}s`;
-}
-
-function stepStateLabel(state: ReturnType<typeof verificationStepState>): string {
-  if (state === "complete") return "Complete";
-  if (state === "currentStep") return "In progress";
-  if (state === "blockedStep") return "Blocked";
-  if (state === "skippedStep") return "Skipped";
-  return "Not started";
-}
-
-/**
- * The status column of the audit log.
- *
- * Bracketed text rather than an icon: it keeps the column one width in every state, and
- * it is what makes five rows of gate names read as output from the run rather than as a
- * checklist somebody ticked. Decorative - the state is already in the step's own label
- * and in the timing beside it - so it is hidden from assistive technology.
- */
-function stepMarker(state: ReturnType<typeof verificationStepState>): string {
-  if (state === "complete") return "[✓]";
-  if (state === "currentStep") return "[>]";
-  if (state === "blockedStep") return "[!]";
-  if (state === "skippedStep") return "[-]";
-  return "[ ]";
-}
-
-function verificationBadge(
-  result: QuestionResult | null,
-  lifecycle: EvidenceRunLifecycle,
-): { label: string; message: string; tone: "neutral" | "passed" | "processing" | "withheld" } {
-  if (lifecycle === "running") {
-    return {
-      label: "Checks in progress",
-      message: "The system is evaluating context, source coverage, exceptions, and claim support.",
-      tone: "processing",
-    };
-  }
-  if (result?.status === "ANSWER_READY") {
-    return {
-      label: "Automated checks passed",
-      message: `${result.verification_summary.supported_claims} rendered claim${result.verification_summary.supported_claims === 1 ? "" : "s"} passed the configured source and evidence gates.`,
-      tone: "passed",
-    };
-  }
-  if (result?.status === "ABSTAINED") {
-    return {
-      label: "Answer gate blocked",
-      message: result.abstention?.message ?? "The evidence gate withheld the answer.",
-      tone: "withheld",
-    };
-  }
-  if (result?.status === "FAILED" || lifecycle === "failed") {
-    return {
-      label: "Review failed safely",
-      message: "No clinical claim was rendered. Retry the review or inspect the error details.",
-      tone: "withheld",
-    };
-  }
-  if (lifecycle === "cancelled") {
-    return {
-      label: "Monitoring stopped",
-      message: "This browser stopped waiting. Server processing may continue in the background.",
-      tone: "neutral",
-    };
-  }
-  return {
-    label: "Not started",
-    message: "Verification begins after a guideline question is submitted.",
-    tone: "neutral",
-  };
-}
-
 /**
  * The one line that distinguishes a rail row from the row above it.
  *
@@ -1228,19 +864,4 @@ function formatDay(value: string): string {
   return new Intl.DateTimeFormat("en", { dateStyle: "medium", timeZone: "UTC" }).format(
     new Date(`${value}T00:00:00Z`),
   );
-}
-
-function formatTime(value: string): string {
-  return new Intl.DateTimeFormat("en", {
-    hour: "numeric",
-    minute: "2-digit",
-    second: "2-digit",
-  }).format(new Date(value));
-}
-
-function formatDateTime(value: string): string {
-  return new Intl.DateTimeFormat("en", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(new Date(value));
 }

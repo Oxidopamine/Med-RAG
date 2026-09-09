@@ -30,21 +30,19 @@ describe("ClaimList", () => {
   it("shows every claim with the evidence it rests on", () => {
     renderClaims();
 
-    const claims = screen.getAllByRole("listitem");
+    const claims = within(screen.getByRole("list", { name: "Recommendations" })).getAllByRole(
+      "listitem",
+    );
+    expect(claims).toHaveLength(2);
     expect(screen.getByText(/Pharmacological treatment is recommended/)).toBeInTheDocument();
-    expect(screen.getByText("Claim 1 of 2 · Supported")).toBeInTheDocument();
 
-    const firstClaimCitations = within(claims[0]!).getByRole("list", {
-      name: "Evidence cited by claim 1",
-    });
-    expect(within(firstClaimCitations).getAllByRole("button")).toHaveLength(2);
+    // Citations are superscript numbers on the claim itself, one per cited passage.
+    expect(within(claims[0]!).getAllByRole("button", { name: /^Reference \d+:/ })).toHaveLength(2);
 
     // The gate decided this claim could be rendered by reading the roles its evidence
-    // carries; the claim shows them, so "supported" is a statement rather than a badge.
-    const roles = within(claims[0]!).getByRole("list", {
-      name: "Evidence roles behind claim 1",
-    });
-    expect(within(roles).getByText(/Current primary guideline/)).toBeInTheDocument();
+    // carries; the line under the claim names them, so "supported" is a statement
+    // rather than a badge.
+    expect(claims[0]!).toHaveTextContent(/Supported · current primary guideline/);
   });
 
   it("keeps one reference number per source across the whole answer", () => {
@@ -93,20 +91,17 @@ describe("ClaimList", () => {
     );
     renderClaims(result);
 
-    expect(
-      screen.getByText("Cited evidence for this claim is unavailable in this result."),
-    ).toBeInTheDocument();
+    expect(screen.getByText("The evidence for this claim could not be shown.")).toBeInTheDocument();
   });
 });
 
 describe("ClaimList, going to the evidence", () => {
   /*
-   * A citation chip is already a click on the thing you want to read, so the inspector
-   * updating under it is the whole action. "Inspect evidence" is a request to go
-   * somewhere, and on a stacked layout that somewhere was several screens below the
-   * button - which left the reader looking at the button.
+   * A citation number is a click on the thing the reader wants to read: it selects the
+   * claim and its passage, and asks to be taken to the source pane, which on a stacked
+   * layout is the pane the tabs switch to.
    */
-  it("asks to be taken to the inspector, not merely to select", async () => {
+  it("selects the claim and its passage, and asks to be taken to the source pane", async () => {
     const user = userEvent.setup();
     const onInspectClaim = vi.fn();
     const onSelectClaim = vi.fn();
@@ -125,10 +120,11 @@ describe("ClaimList, going to the evidence", () => {
       />,
     );
 
-    await user.click(screen.getAllByRole("button", { name: /Inspect evidence/ })[1]!);
+    const second = screen.getAllByRole("listitem")[1]!;
+    await user.click(within(second).getAllByRole("button", { name: /^Reference \d+:/ })[0]!);
 
     expect(onInspectClaim).toHaveBeenCalledWith("CL_002");
-    expect(onSelectClaim).not.toHaveBeenCalled();
+    expect(onSelectClaim).toHaveBeenCalledWith("CL_002");
   });
 
   it("still selects where nothing offered to take the reader anywhere", async () => {
@@ -148,7 +144,7 @@ describe("ClaimList, going to the evidence", () => {
       />,
     );
 
-    await user.click(screen.getAllByRole("button", { name: /Inspect evidence/ })[0]!);
+    await user.click(screen.getAllByRole("button", { name: /^Reference \d+:/ })[0]!);
 
     expect(onSelectClaim).toHaveBeenCalledWith("CL_001");
   });

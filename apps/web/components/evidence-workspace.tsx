@@ -4,30 +4,25 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { AnswerPanel } from "@/components/evidence-workspace/answer-panel";
 import { ContextDialog } from "@/components/evidence-workspace/context-dialog";
-import {
-  EvidenceDetails,
-  InterpretedContextPanel,
-} from "@/components/evidence-workspace/evidence-details";
+import { ConflictPanel } from "@/components/evidence-workspace/conflict-panel";
+import { ContextChips } from "@/components/evidence-workspace/context-chips";
+import { DeskTabs, type DeskTab } from "@/components/evidence-workspace/desk-tabs";
 import {
   FeedbackBanner,
   type FeedbackTone,
 } from "@/components/evidence-workspace/feedback-banner";
-import {
-  GettingStarted,
-  type CorpusStatus,
-} from "@/components/evidence-workspace/getting-started";
-import { ProvenanceStrip } from "@/components/evidence-workspace/provenance-strip";
+import { StartAside, type CorpusStatus } from "@/components/evidence-workspace/start-aside";
+import { ProvenanceLine } from "@/components/evidence-workspace/provenance-line";
 import { QuestionComposer } from "@/components/evidence-workspace/question-composer";
-import { RunProgress } from "@/components/evidence-workspace/run-progress";
-import {
-  SourceViewer,
-  VerificationPanel,
-} from "@/components/evidence-workspace/source-verification-column";
+import { RunStepper } from "@/components/evidence-workspace/run-stepper";
+import { VerificationPanel } from "@/components/evidence-workspace/checks-strip";
+import { SourceViewer } from "@/components/evidence-workspace/source-verification-column";
 import { useEvidenceRun } from "@/components/evidence-workspace/use-evidence-run";
 import { getCorpusReadiness } from "@/lib/api";
 import { withRetries } from "@/lib/readiness";
 import { recordRun } from "@/lib/run-history";
 import { buildCitations } from "@/lib/evidence-presentation";
+import { downloadText, toBibTeX, toRis } from "@/lib/export";
 import type { CitationIndex } from "@/lib/evidence-presentation";
 import { rankedCandidates } from "@/lib/presentation";
 import type { RankedEvidence } from "@/lib/presentation";
@@ -441,6 +436,30 @@ export function EvidenceWorkspace({
     );
   }
 
+  /*
+   * What leaves the page. The printable review is the browser's print of this page under
+   * the print stylesheet; the reference files carry the cited passages' references and
+   * never their text; the audit record is the whole result as JSON.
+   */
+  function exportReferences(format: "ris" | "bibtex") {
+    if (!workspaceResult) return;
+    const citationIndex = buildCitations(workspaceResult);
+    const safeQuestionId = workspaceResult.question_id.replaceAll(/[^a-zA-Z0-9_-]/g, "_");
+    if (format === "ris") {
+      downloadText(`references-${safeQuestionId}.ris`, toRis(citationIndex, workspaceResult), "application/x-research-info-systems");
+    } else {
+      downloadText(`references-${safeQuestionId}.bib`, toBibTeX(citationIndex, workspaceResult), "application/x-bibtex");
+    }
+    showTransient("success", "References exported", "One reference per cited passage, without the passage text.", 3000);
+  }
+
+  const exportActions = [
+    { label: "Print or save as PDF", run: () => window.print() },
+    { label: "References (RIS)", run: () => exportReferences("ris") },
+    { label: "References (BibTeX)", run: () => exportReferences("bibtex") },
+    { label: "Audit record (JSON)", run: () => exportAudit() },
+  ];
+
   function exportAudit() {
     if (!workspaceResult) return;
     const payload = JSON.stringify(
@@ -486,7 +505,7 @@ export function EvidenceWorkspace({
 
   return (
     <div className={styles.appShell}>
-      <main id="main-content">
+      <main className={shouldShowGettingStarted ? styles["start-grid"] : undefined} id="main-content">
         <QuestionComposer
           isRunning={run.isRunning}
           // Accepted here, not yet by the server: the run is live but has no identifier
@@ -502,6 +521,14 @@ export function EvidenceWorkspace({
           showExamples={shouldShowGettingStarted}
           sourceFilters={sourceFilters}
         />
+
+        {workspaceResult ? (
+          <ContextChips
+            allowEditing={Boolean(run.result) && !run.isRunning}
+            context={workspaceResult.interpreted_context}
+            onEdit={openContextEditor}
+          />
+        ) : null}
 
         {errorFeedback ? (
           <>
@@ -527,11 +554,7 @@ export function EvidenceWorkspace({
             as long as it showed. Occluding provenance is the worse of the two: this is the
             one panel whose whole job is to be read. Reserving the space keeps the result
             still without covering any of it. */}
-        <div
-          className={`${styles["transient-feedback"]} ${
-            workspaceResult ? styles["transient-feedback-reserved"] : ""
-          }`}
-        >
+        <div className={styles["transient-feedback"]}>
           {transientFeedback ? (
             <FeedbackBanner
               key={transientFeedback.id}
@@ -554,37 +577,27 @@ export function EvidenceWorkspace({
         ) : null}
 
         {shouldShowGettingStarted ? (
-          <GettingStarted corpusStatus={corpusStatus} onRecheck={checkReadiness} />
+          <StartAside corpusStatus={corpusStatus} onRecheck={checkReadiness} />
         ) : null}
 
         {run.isRunning ? (
-          <div className={styles["running-workspace"]}>
-            <RunProgress
-              onCopyRunId={copyRunId}
-              progressEvents={run.progressEvents}
-              questionId={run.questionId}
-              status={run.status}
-            />
-            <VerificationPanel
-              isRunning
-              lifecycle={run.lifecycle}
-              progressEvents={run.progressEvents}
-              result={null}
-              status={run.status}
-            />
-          </div>
+          <RunStepper
+            lifecycle={run.lifecycle}
+            onCopyRunId={copyRunId}
+            progressEvents={run.progressEvents}
+            questionId={run.questionId}
+            status={run.status}
+          />
         ) : null}
 
         {workspaceResult ? (
           <ResultWorkspace
-            allowContextEditing={Boolean(run.result) && !run.isRunning}
             candidates={candidates}
             citations={citations}
             isPrevious={isPreviousResult}
             onCopyAnswer={copyAnswer}
             onCopyLink={copyRunLink}
-            onEditContext={openContextEditor}
-            onExportAudit={exportAudit}
+            exports={exportActions}
             onRetry={() => void run.retry()}
             focusMode={focusMode}
             onCompareEvidence={compareEvidence}
@@ -620,7 +633,6 @@ export function EvidenceWorkspace({
 }
 
 function ResultWorkspace({
-  allowContextEditing,
   candidates,
   citations,
   focusMode,
@@ -628,8 +640,7 @@ function ResultWorkspace({
   onCompareEvidence,
   onCopyAnswer,
   onCopyLink,
-  onEditContext,
-  onExportAudit,
+  exports,
   onInspectClaim,
   onPinEvidence,
   onRetry,
@@ -645,7 +656,6 @@ function ResultWorkspace({
   selectedClaimId,
   selectedEvidenceId,
 }: {
-  allowContextEditing: boolean;
   candidates: RankedEvidence[];
   citations: CitationIndex;
   focusMode: boolean;
@@ -653,8 +663,7 @@ function ResultWorkspace({
   onCompareEvidence: (evidenceId: string, againstEvidenceId: string) => void;
   onCopyAnswer: () => void;
   onCopyLink: () => void;
-  onEditContext: () => void;
-  onExportAudit: () => void;
+  exports: Array<{ label: string; run: () => void }>;
   onInspectClaim: (claimId: string) => void;
   onPinEvidence: (evidenceId: string | null) => void;
   onRetry: () => void;
@@ -672,20 +681,13 @@ function ResultWorkspace({
 }) {
   const ready = result.status === "ANSWER_READY";
   /*
-   * The audit sits under the answer it audits, and the inspector gets a section of its own.
-   *
-   * Sharing one scrolling column with the verification timeline capped the inspector at
-   * roughly half the viewport, which is how a document viewer ended up 377px wide and
-   * 450px tall with 1600px of document inside it. Sharing a row with the answer capped
-   * its width the same way. It is now the second section of the page rather than the
-   * second column of a row, which is also the order the narrow layout has always
-   * used - answer, audit, evidence - so every width now agrees.
-   *
-   * When no answer was rendered there is no source to inspect, and the audit is what the
-   * section is for: an empty band under an abstention would be worse than the panel
-   * simply staying where it was.
+   * The desk: the answer and its checks on the left, the passage on the right, pinned,
+   * so a claim and the text it rests on are read against each other. Below 1280px the
+   * desk is one column and these three panes sit behind tabs; a citation chosen in the
+   * answer opens the evidence pane, which is what the reader asked for by choosing it.
    */
-  const verification = (
+  const [deskTab, setDeskTab] = useState<DeskTab>("answer");
+  const checks = (
     <VerificationPanel
       isRunning={false}
       lifecycle={runLifecycle}
@@ -696,47 +698,44 @@ function ResultWorkspace({
   );
   return (
     <>
-      <ProvenanceStrip onCopyLink={onCopyLink} onExportAudit={onExportAudit} result={result} />
-      {/* Focus mode hides the answer section so the inspector is the only thing on the
-          page. Reading a page of a guideline is the one task in this workspace limited by
-          how much room it gets, and the answer it came from is one keystroke away. */}
+      <DeskTabs active={deskTab} onChange={setDeskTab} />
       <div
-        className={`${styles["workspace-grid"]} ${focusMode && ready ? styles["workspace-focused"] : ""}`}
+        className={`${styles.desk} ${focusMode && ready ? styles["workspace-focused"] : ""}`}
+        data-tab={deskTab}
       >
-        <div className={styles["result-column"]} hidden={focusMode && ready}>
-          <AnswerPanel
-            isPrevious={isPrevious}
-            onCopyAnswer={onCopyAnswer}
-            onInspectClaim={onInspectClaim}
-            onRetry={onRetry}
-            onSelectClaim={onSelectClaim}
-            onSelectEvidence={onSelectEvidence}
-            result={result}
-            selectedClaimId={selectedClaimId}
-            selectedEvidenceId={selectedEvidenceId}
-          />
-          {ready ? verification : null}
-          {ready ? (
-            <EvidenceDetails
-              allowContextEditing={allowContextEditing}
-              citations={citations}
-              context={result.interpreted_context}
-              onCompareEvidence={onCompareEvidence}
-              onEditContext={onEditContext}
+        <div className={styles["desk-main"]} hidden={focusMode && ready}>
+          <div className={styles["pane-answer"]} id="desk-pane-answer">
+            <ProvenanceLine exports={exports} onCopyLink={onCopyLink} result={result} />
+            <AnswerPanel
+              isPrevious={isPrevious}
+              onCopyAnswer={onCopyAnswer}
+              onInspectClaim={(claimId) => {
+                setDeskTab("evidence");
+                onInspectClaim(claimId);
+              }}
+              onRetry={onRetry}
+              onSelectClaim={onSelectClaim}
               onSelectEvidence={onSelectEvidence}
               result={result}
+              selectedClaimId={selectedClaimId}
               selectedEvidenceId={selectedEvidenceId}
             />
-          ) : (
-            <InterpretedContextPanel
-              allowEditing={allowContextEditing}
-              context={result.interpreted_context}
-              onEdit={onEditContext}
-            />
-          )}
+          </div>
+          <div className={styles["pane-checks"]} id="desk-pane-checks">
+            {checks}
+            {ready ? (
+              <ConflictPanel
+                citations={citations}
+                onCompareEvidence={onCompareEvidence}
+                onSelectEvidence={onSelectEvidence}
+                result={result}
+                selectedEvidenceId={selectedEvidenceId}
+              />
+            ) : null}
+          </div>
         </div>
 
-        <div className={styles["source-column"]}>
+        <aside className={styles["desk-aside"]} id="desk-pane-evidence" aria-label="Source pane">
           {ready ? (
             <SourceViewer
               candidates={candidates}
@@ -754,13 +753,15 @@ function ResultWorkspace({
               onSelectEvidence={onSelectEvidence}
               onToggleFocus={onToggleFocus}
               pinnedEvidence={pinnedEvidence}
-              question={result.question}
               selectedEvidenceId={selectedEvidenceId}
             />
           ) : (
-            verification
+            <p className={styles["aside-empty"]}>
+              No passage to show: the review gave no answer. The passages that came closest
+              are listed under the answer.
+            </p>
           )}
-        </div>
+        </aside>
       </div>
     </>
   );

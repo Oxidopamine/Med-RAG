@@ -1,0 +1,246 @@
+/* The workbench: an item (question, gold, claim, passages) beside its controls. Above
+   1080px the two sit side by side with the controls held in view while the item scrolls;
+   below that width they stack. */
+
+.grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--s-6);
+  align-items: start;
+}
+
+@media (min-width: 1080px) {
+  .grid {
+    grid-template-columns: minmax(0, 1.3fr) minmax(280px, 0.7fr);
+  }
+}
+
+.item {
+  padding: var(--s-5);
+  display: grid;
+  gap: var(--s-4);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+}
+
+.itemId {
+  color: var(--text-muted);
+  font-size: var(--t-xs);
+  font-weight: var(--w-medium);
+}
+
+.question {
+  color: var(--text-strong);
+  font-size: var(--t-md);
+  font-weight: var(--w-medium);
+}
+
+.gold {
+  color: var(--text-secondary);
+  font-size: var(--t-sm);
+}
+
+.claimText {
+  font-size: var(--t-lg);
+  line-height: 1.55;
+  color: var(--text-primary);
+}
+
+.controls {
+  display: grid;
+  gap: var(--s-5);
+  align-self: start;
+}
+
+@media (min-width: 1080px) {
+  .controls {
+    position: sticky;
+    top: calc(var(--header-h, 56px) + var(--s-4));
+    max-height: calc(100vh - var(--header-h, 56px) - var(--s-8));
+    overflow-y: auto;
+  }
+}
+
+/* A fieldset of options laid out in a row; wraps on narrow controls panes. */
+.radioGroup {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  display: grid;
+  gap: var(--s-2);
+}
+
+.radioGroup legend {
+  margin-bottom: var(--s-1);
+  color: var(--text-strong);
+  font-size: var(--t-sm);
+  font-weight: var(--w-medium);
+}
+
+.radioRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-3);
+}
+
+.radioRow label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--t-sm);
+  color: var(--text-primary);
+}
+
+.passage {
+  padding: var(--s-4);
+  display: grid;
+  gap: var(--s-2);
+  background: var(--bg-paper);
+  border: 1px solid var(--paper-border);
+  border-radius: var(--radius-lg);
+}
+
+.passageHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--s-2);
+  color: var(--text-muted);
+  font-size: var(--t-xs);
+}
+
+.passageMark {
+  color: var(--warn-text);
+  font-size: var(--t-xs);
+  font-style: italic;
+}
+
+.navBar {
+  display: grid;
+  gap: var(--s-2);
+}
+
+.navBar > div {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-2);
+}
+
+.hint {
+  color: var(--text-muted);
+  font-size: var(--t-xs);
+}
+
+.progressRow {
+  margin: 0 0 var(--s-4);
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: var(--s-4) var(--s-6);
+}
+
+.progressRow div {
+  display: grid;
+  gap: 2px;
+}
+
+.progressRow dt {
+  color: var(--text-muted);
+  font-size: var(--t-xs);
+}
+
+.progressRow dd {
+  margin: 0;
+  color: var(--text-strong);
+  font-size: var(--t-xl);
+  font-weight: var(--w-semibold);
+  font-variant-numeric: tabular-nums;
+}
+
+.tablist {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-1);
+  margin-bottom: var(--s-5);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.tab {
+  padding: var(--s-2) var(--s-3);
+  color: var(--text-secondary);
+  background: transparent;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  font-size: var(--t-sm);
+  font-weight: var(--w-medium);
+  cursor: pointer;
+}
+
+.tab[aria-selected="true"] {
+  color: var(--text-strong);
+  border-bottom-color: var(--accent);
+}
+
+.subNav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-1);
+  margin-bottom: var(--s-4);
+}
+
+.subNavButton {
+  padding: var(--s-1) var(--s-3);
+  color: var(--text-secondary);
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  font-size: var(--t-xs);
+  font-weight: var(--w-medium);
+  cursor: pointer;
+}
+
+.subNavButton[aria-pressed="true"] {
+  color: var(--ink-on);
+  background: var(--ink);
+  border-color: var(--ink);
+}
+
+.claim {
+  padding: var(--s-4) 0;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.claim:first-of-type {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.textarea {
+  min-height: 64px;
+  padding: var(--s-2) var(--s-3);
+  color: var(--text-primary);
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  font-size: var(--t-sm);
+  font-family: inherit;
+  resize: vertical;
+}
+
+.textarea:focus {
+  outline: none;
+  border-color: var(--ink);
+  box-shadow: 0 0 0 3px var(--ink-ring);
+}
+
+.numberInput {
+  min-height: var(--control-sm);
+  width: 140px;
+  padding: 0 var(--s-3);
+  color: var(--text-primary);
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  font-size: var(--t-sm);
+}

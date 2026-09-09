@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  ArrowRight,
   Check,
   ChevronDown,
   Clock,
@@ -314,24 +313,10 @@ export function QuestionComposer({
     >
       <form className={styles["question-form"]} id="ask" onSubmit={handleSubmit} noValidate>
         <div className={styles["composer-intro"]}>
-          <h1 id="composer-heading">What guideline decision are you reviewing?</h1>
-          {/* Visual cues only. The same guidance reaches assistive technology as prose in
-              the field description below, so announcing three bare nouns here would
-              repeat it worse. `aria-label` on a plain div is dropped anyway.
-
-              Set as a legend under the heading rather than as three filled chips beside
-              it. Filled, they sat at the weight of the source control below and read as
-              something to press; as small caps directly above the field they read as what
-              they are - the shape of a question worth asking. */}
-          <p className={styles["question-anatomy"]} aria-hidden="true">
-            <span>Population</span>
-            <span>Condition</span>
-            <span>Decision</span>
-          </p>
+          <h1 id="composer-heading">Guideline review</h1>
         </div>
-        <p className={styles.srOnly} id={questionHelpId}>
-          Ask one focused guideline question. Include the population, condition, and clinical
-          decision.
+        <p className={styles["field-help"]} id={questionHelpId}>
+          One question at a time. Include the population, the condition and the decision.
         </p>
 
         {/* The field takes the full width and the submit sits in the control row below it.
@@ -340,7 +325,6 @@ export function QuestionComposer({
         <div
           className={`${styles["question-field"]} ${questionError ? styles["question-field-error"] : ""}`}
         >
-          <Search className={styles["question-leading-icon"]} size={21} aria-hidden="true" />
           <label className={styles.srOnly} htmlFor={questionId}>
             Guideline question
           </label>
@@ -589,27 +573,25 @@ export function QuestionComposer({
       </form>
 
       {showExamples ? (
-        <div className={styles["example-questions"]} role="group" aria-labelledby="example-heading">
-          <span id="example-heading">Try a focused example</span>
-          <div>
+        <div className={styles.examples} role="group" aria-labelledby="example-heading">
+          <span id="example-heading">Examples</span>
+          <ul>
             {EXAMPLES.map(({ label, question: example }) => (
-              <button
-                // The visible topic leads the accessible name, then the question it
-                // fills in. WCAG 2.5.3 requires the visible label to be part of the
-                // accessible name, so speech input can activate the button by what it
-                // reads; the full question stays available to a screen reader.
-                aria-label={`${label}: ${example}`}
-                disabled={isBusy}
-                key={label}
-                title={example}
-                type="button"
-                onClick={() => chooseExample(example)}
-              >
-                <span>{label}</span>
-                <ArrowRight size={15} aria-hidden="true" />
-              </button>
+              <li key={label}>
+                <button
+                  // The visible topic leads the accessible name, then the question it
+                  // fills in, so speech input can activate the control by what it reads.
+                  aria-label={`${label}: ${example}`}
+                  disabled={isBusy}
+                  title={example}
+                  type="button"
+                  onClick={() => chooseExample(example)}
+                >
+                  {label}
+                </button>
+              </li>
             ))}
-          </div>
+          </ul>
         </div>
       ) : null}
     </section>

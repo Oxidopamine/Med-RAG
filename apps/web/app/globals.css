@@ -370,3 +370,57 @@ a:hover {
     scroll-behavior: auto !important;
   }
 }
+
+/* ============================================================ print */
+
+/* A review prints as a document: the question, the answer with its references, the
+   checks and the passages, in one column, with the chrome and the controls left out. */
+@media print {
+  html {
+    font-size: 11pt;
+  }
+
+  body {
+    background: #fff;
+    color: #000;
+  }
+
+  header,
+  footer,
+  nav,
+  button,
+  summary,
+  form,
+  [role="tablist"],
+  [data-print="hide"] {
+    display: none !important;
+  }
+
+  details {
+    display: block;
+  }
+
+  details > *:not(summary) {
+    display: block;
+  }
+
+  main {
+    padding: 0;
+    width: auto;
+  }
+
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  a[href^="http"]::after {
+    content: " (" attr(href) ")";
+    font-size: 0.85em;
+    color: #555;
+  }
+
+  * {
+    box-shadow: none !important;
+  }
+}

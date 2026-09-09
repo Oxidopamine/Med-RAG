@@ -31,6 +31,22 @@ const PRECISION_COPY: Record<AnchorPrecision, { icon: typeof MapPin; label: stri
 };
 
 /**
+ * The badge's tone, which the stylesheet only defines for three names.
+ *
+ * `styles[anchor.precision]` looked the class up by the raw enum, so it never matched
+ * `.anchor-precision.readable/.addressed/.withheld` and the badge carried no tone at all.
+ * A cell address is as exact as a rectangle for the reader's purposes, so it takes the
+ * same tone as one; a page with no drawn region is addressed but not pinpointed, and a
+ * document-scope anchor is the one the licence or the corpus withheld precision from.
+ */
+const PRECISION_TONE: Record<AnchorPrecision, "readable" | "addressed" | "withheld"> = {
+  EXACT_REGION: "readable",
+  CELL: "readable",
+  PAGE: "addressed",
+  DOCUMENT: "withheld",
+};
+
+/**
  * Where a passage sits in its source document, and how precisely that is known.
  *
  * The rows here are a summary, not the viewer: `AnchorViewer` groups these anchors by the
@@ -61,7 +77,7 @@ function AnchorRow({ anchor }: { anchor: SourceAnchor }) {
   const { icon: Icon, label } = PRECISION_COPY[anchor.precision];
   return (
     <div className={styles["anchor-row"]}>
-      <span className={`${styles["anchor-precision"]} ${styles[anchor.precision]}`}>
+      <span className={`${styles["anchor-precision"]} ${styles[PRECISION_TONE[anchor.precision]]}`}>
         <Icon size={14} aria-hidden="true" />
         {label}
       </span>

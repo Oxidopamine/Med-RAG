@@ -24,6 +24,24 @@ vi.mock("@/lib/api", async (importOriginal) => ({
 
 const UNAVAILABLE: SourcePageResult = { status: "unavailable" };
 
+/** A loaded page image, for the tests that need the frame to stay drawn deterministically. */
+function loadedPageResult(
+  overrides: Partial<{ pageWidth: number; pageHeight: number; pageCount: number }> = {},
+): SourcePageResult {
+  return {
+    status: "loaded",
+    image: {
+      objectUrl: "blob:page-frame",
+      pageWidth: 600,
+      pageHeight: 800,
+      pageCount: 30,
+      pageLabel: null,
+      dpi: 144,
+      ...overrides,
+    },
+  } as SourcePageResult;
+}
+
 beforeEach(async () => {
   const { getSourcePageImage } = await import("@/lib/api");
   vi.mocked(getSourcePageImage).mockReset().mockResolvedValue(UNAVAILABLE);
@@ -91,15 +109,14 @@ describe("AnchorViewer, restricted sources", () => {
   });
 });
 
+/*
+ * The edition block (title, version id, lifecycle, in force) moved out of this viewer: it
+ * is stated once in the reader above the figure and again in its details disclosure, so
+ * the two tests that asserted on it here were testing content this component no longer
+ * renders. What survives is that the edition is still named - inside the figure's own
+ * accessible name, which the switcher test below covers.
+ */
 describe("AnchorViewer, source version identity", () => {
-  it("names the edition the coordinates were measured against", () => {
-    render(<AnchorViewer detail={restrictedWhoEvidence()} />);
-
-    expect(screen.getByText("SV_WHO_HTN_2021")).toBeInTheDocument();
-    expect(screen.getByText(/World Health Organization · 2021/)).toBeInTheDocument();
-    expect(screen.getByText("Current")).toBeInTheDocument();
-  });
-
   it("separates two editions that carry the same page and near-identical text", () => {
     const { unmount } = render(<AnchorViewer detail={restrictedWhoEvidence()} />);
     const current = screen.getByRole("img").getAttribute("aria-label");
@@ -115,13 +132,6 @@ describe("AnchorViewer, source version identity", () => {
     expect(current).toContain("SV_WHO_HTN_2021");
     expect(prior).toContain("SV_WHO_HTN_2013");
     expect(current).not.toEqual(prior);
-  });
-
-  it("marks a superseded edition as no longer current", () => {
-    render(<AnchorViewer detail={priorEditionTwinEvidence()} />);
-
-    expect(screen.getByText("Superseded")).toBeInTheDocument();
-    expect(screen.getByText("May 1, 2013–Aug 23, 2021")).toBeInTheDocument();
   });
 });
 
@@ -426,9 +436,11 @@ describe("AnchorViewer, page images", () => {
   });
 
   /**
-   * A licence that withholds a page and a connection that dropped are not the same event.
-   * Collapsing them, as a bare `null` did, showed a licence explanation for a fault and
-   * offered no way out of it.
+   * A licence that withholds a page and a connection that dropped are not the same event
+   * to the reader deciding whether to try again, which is why the retry is offered for one
+   * and not the other - but neither is a page, so neither draws the frame a page would.
+   * Both now read as the one plain line the figure has for "no page rendering", and the
+   * fault is the one that also carries the retry.
    */
   it("tells a failed request apart from a withheld one, and offers a retry", async () => {
     const user = userEvent.setup();
@@ -441,7 +453,7 @@ describe("AnchorViewer, page images", () => {
     render(<AnchorViewer detail={pointSpaceEvidence(true)} />);
 
     expect(
-      await screen.findByText("The source page could not be reached."),
+      await screen.findByText(/No page rendering for this source/),
     ).toBeInTheDocument();
     // Not the licence note, which would be a claim about the publisher.
     expect(
@@ -494,6 +506,16 @@ describe("AnchorViewer, page images", () => {
 });
 
 describe("AnchorViewer, the page pointing back at the passage", () => {
+  // These fixtures place their regions with fractions of the page, which need no loaded
+  // image to draw - but the figure itself now only draws once the page has (a withheld or
+  // failed page draws no frame at all, only a note). Mocked to a loaded page so the frame
+  // - and the regions this describe block is about - are there regardless of how the
+  // default `unavailable` response happens to interleave with the interaction below.
+  beforeEach(async () => {
+    const { getSourcePageImage } = await import("@/lib/api");
+    vi.mocked(getSourcePageImage).mockReset().mockResolvedValue(loadedPageResult());
+  });
+
   /*
    * The extractor writes one anchor per text block in reading order, so a rectangle on the
    * page and a paragraph of the passage are the same thing seen twice. Until the regions
@@ -506,19 +528,19 @@ describe("AnchorViewer, the page pointing back at the passage", () => {
     render(<AnchorViewer detail={pageBlocksEvidence()} onSelectAnchor={onSelectAnchor} />);
 
     await user.click(
-      screen.getByRole("button", { name: "Paragraph 2 of 3 on this page" }),
+      await screen.findByRole("button", { name: "Paragraph 2 of 3 on this page" }),
     );
 
     expect(onSelectAnchor).toHaveBeenCalledWith(1);
   });
 
-  it("marks the region whose paragraph the reader is on", () => {
+  it("marks the region whose paragraph the reader is on", async () => {
     render(
       <AnchorViewer activeAnchor={2} detail={pageBlocksEvidence()} onSelectAnchor={vi.fn()} />,
     );
 
     expect(
-      screen.getByRole("button", { name: "Paragraph 3 of 3 on this page", pressed: true }),
+      await screen.findByRole("button", { name: "Paragraph 3 of 3 on this page", pressed: true }),
     ).toBeInTheDocument();
     // The tag rides the live region rather than sitting on the first one regardless.
     expect(screen.getByText(/3 of 3/)).toBeInTheDocument();
@@ -528,10 +550,10 @@ describe("AnchorViewer, the page pointing back at the passage", () => {
    * A `role="img"` hides everything inside it, so a frame holding controls must not claim
    * to be one - and a frame holding none should still describe itself as a picture.
    */
-  it("stays one image when there is nothing to point back at", () => {
+  it("stays one image when there is nothing to point back at", async () => {
     render(<AnchorViewer detail={pageBlocksEvidence()} />);
 
-    expect(screen.getByRole("img")).toBeInTheDocument();
+    expect(await screen.findByRole("img")).toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: /Paragraph 1 of 3/ }),
     ).not.toBeInTheDocument();

@@ -1,10 +1,4 @@
-import { AlertTriangle, CheckCircle2, GitCompareArrows, History, Info } from "lucide-react";
-
-import type {
-  CitationIndex,
-  ConflictTone,
-  PresentedConflict,
-} from "@/lib/evidence-presentation";
+import type { CitationIndex, PresentedConflict } from "@/lib/evidence-presentation";
 import {
   humanizeCode,
   locationSummary,
@@ -25,20 +19,13 @@ interface ConflictPanelProps {
   selectedEvidenceId: string | null;
 }
 
-const TONE_ICONS: Record<ConflictTone, typeof AlertTriangle> = {
-  cleared: CheckCircle2,
-  informational: Info,
-  caution: History,
-  critical: GitCompareArrows,
-};
-
 /**
  * Guideline disagreements, typed.
  *
  * For guideline evidence the right output is almost never a resolution; it is both
- * clauses, labelled with the kind of disagreement, with their provenance attached. So
- * this panel names the type, states what that type means and what to do about it, and
- * links every passage involved. It resolves nothing and merges nothing.
+ * clauses, side by side, labelled with the kind of disagreement, with their provenance
+ * attached. So this panel names the type, states what that type means and what to do
+ * about it, and links every passage involved. It resolves nothing and merges nothing.
  */
 export function ConflictPanel({
   citations,
@@ -56,24 +43,22 @@ export function ConflictPanel({
    * heading, a badge, and a sentence stacked over 20px of padding, three ways of reporting
    * one absence. It collapses to a single line. The distinction the line has to keep is
    * between a check that ran and cleared and no check being returned at all, so that is
-   * carried twice: in the words, and in the mark beside them. Green is a gate that passed,
-   * and only the first of these is one.
+   * carried twice: in the words, and in the mark beside them (`.conflict-count`'s dot,
+   * coloured green only where a gate actually passed).
    */
   if (!reviewable.length) {
     const checked = conflicts.length > 0;
-    const Mark = checked ? CheckCircle2 : Info;
     return (
       <section
-        className={`${styles.panel} ${styles["conflict-clear"]} ${checked ? styles["conflict-clear-checked"] : ""}`}
+        className={`${styles.panel} ${styles["conflict-panel"]}`}
         aria-labelledby="conflict-heading"
       >
-        <Mark size={15} aria-hidden="true" />
-        <h2 id="conflict-heading">Guideline conflict review</h2>
-        <span>
+        <h2 id="conflict-heading">Conflicts</h2>
+        <p className={`${styles["conflict-count"]} ${checked ? styles.passed : ""}`}>
           {checked
             ? `Checked, none open across ${cleared} check${cleared === 1 ? "" : "s"}`
-            : "None returned for the rendered claims"}
-        </span>
+            : "No conflicts found among these claims."}
+        </p>
       </section>
     );
   }
@@ -84,7 +69,7 @@ export function ConflictPanel({
       aria-labelledby="conflict-heading"
     >
       <div className={styles["conflict-heading-row"]}>
-        <h2 id="conflict-heading">Guideline conflict review</h2>
+        <h2 id="conflict-heading">Conflicts</h2>
         <span className={styles["conflict-count"]}>{reviewable.length} for review</span>
       </div>
 
@@ -117,107 +102,104 @@ function ConflictCard({
   result: QuestionResult;
   selectedEvidenceId: string | null;
 }) {
-  const Icon = TONE_ICONS[conflict.descriptor.tone];
   const compared = comparedPassages(conflict, result);
   return (
-    <article className={styles[`conflict-${conflict.descriptor.tone}`]}>
-      <Icon size={18} aria-hidden="true" />
-      <div>
-        <strong className={styles["conflict-type"]}>{conflict.descriptor.label}</strong>
-        <p className={styles["conflict-meaning"]}>{conflict.descriptor.meaning}</p>
+    <article>
+      <h3>{conflict.descriptor.label}</h3>
+      <p className={styles["conflict-meaning"]}>{conflict.descriptor.meaning}</p>
 
-        {/* The thing being compared is two passages. Describing them in prose asks the
-            reader to take the comparison on trust, in the one section whose whole purpose
-            is not resolving the disagreement for them. Shown only when exactly two
-            records resolve - three passages are a list, not a comparison. */}
-        {compared ? (
-          <div className={styles["conflict-compare"]}>
-            {compared.map((detail) => {
-              const superseded = detail.lifecycle_status !== "CURRENT";
-              return (
-                <button
-                  className={`${styles["compare-side"]} ${superseded ? styles["compare-superseded"] : ""} ${detail.evidence_id === selectedEvidenceId ? styles.selected : ""}`}
-                  key={detail.evidence_id}
-                  onClick={() => onSelectEvidence(detail.evidence_id)}
-                  type="button"
-                >
-                  <span className={styles["compare-state"]}>
-                    {superseded ? humanizeCode(detail.lifecycle_status) : "In force"}
-                    <span>{detail.source_version_label}</span>
-                  </span>
-                  <span className={styles["compare-passage"]}>
-                    {detail.exact_text ?? "Passage text withheld by licence."}
-                  </span>
-                  <span className={styles["compare-meta"]}>
-                    {detail.publisher_name} · {locationSummary(detail)} ·{" "}
-                    {effectiveRange(detail)}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        ) : null}
+      {/* The thing being compared is two passages. Describing them in prose asks the
+          reader to take the comparison on trust, in the one section whose whole purpose
+          is not resolving the disagreement for them. Shown only when exactly two
+          records resolve - three passages are a list, not a comparison. */}
+      {compared ? (
+        <div className={styles["compare-grid"]}>
+          {compared.map((detail) => {
+            const superseded = detail.lifecycle_status !== "CURRENT";
+            const selected = detail.evidence_id === selectedEvidenceId;
+            return (
+              <button
+                aria-pressed={selected}
+                className={`${styles["compare-side"]} ${superseded ? styles["compare-superseded"] : ""}`}
+                key={detail.evidence_id}
+                onClick={() => onSelectEvidence(detail.evidence_id)}
+                type="button"
+              >
+                <span className={styles["compare-state"]}>
+                  <strong>{superseded ? humanizeCode(detail.lifecycle_status) : "In force"}</strong>
+                  <span>{detail.source_version_label}</span>
+                </span>
+                <span className={`${styles.paper} reading`}>
+                  {detail.exact_text ?? "Passage text withheld by licence."}
+                </span>
+                <span className={styles["compare-meta"]}>
+                  {detail.publisher_name} · {locationSummary(detail)} ·{" "}
+                  {effectiveRange(detail)}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
 
-        {/* The two clauses, in the inspector, at full size and side by side. The cards
-            above are an excerpt of a comparison; this is the comparison. Offered only
-            where exactly two records resolve, which is the same condition that lets the
-            cards be drawn at all. */}
-        {compared && onCompareEvidence ? (
-          <button
-            className={styles["conflict-compare-open"]}
-            onClick={() => onCompareEvidence(compared[0].evidence_id, compared[1].evidence_id)}
-            type="button"
-          >
-            <GitCompareArrows size={15} aria-hidden="true" />
-            Compare both passages in the inspector
-          </button>
-        ) : null}
+      {conflict.summary ? (
+        <p className={styles["compare-caption"]}>{conflict.summary}</p>
+      ) : null}
 
-        {conflict.unrecognizedType ? (
-          <p className={styles["conflict-unrecognized"]}>
-            Reported as <code>{conflict.unrecognizedType}</code>, which this interface does
-            not classify.
-          </p>
-        ) : null}
+      {/* The two clauses, in the inspector, at full size and side by side. The cards
+          above are an excerpt of a comparison; this is the comparison. Offered only
+          where exactly two records resolve, which is the same condition that lets the
+          cards be drawn at all. */}
+      {compared && onCompareEvidence ? (
+        <button
+          className={styles["conflict-compare-open"]}
+          onClick={() => onCompareEvidence(compared[0].evidence_id, compared[1].evidence_id)}
+          type="button"
+        >
+          Compare in the source pane
+        </button>
+      ) : null}
 
-        {conflict.summary ? (
-          <p className={styles["conflict-summary"]}>{conflict.summary}</p>
-        ) : null}
+      {conflict.citations.length ? (
+        <ul className={styles["conflict-citations"]} aria-label="Passages in conflict">
+          {conflict.citations.map((citation) => (
+            <li key={citation.detail.evidence_id}>
+              <CitationChip
+                citation={citation}
+                isSelected={citation.detail.evidence_id === selectedEvidenceId}
+                onSelect={() => onSelectEvidence(citation.detail.evidence_id)}
+              />
+            </li>
+          ))}
+        </ul>
+      ) : null}
 
-        {conflict.citations.length ? (
-          <ul className={styles["conflict-citations"]} aria-label="Passages in conflict">
-            {conflict.citations.map((citation) => (
-              <li key={citation.detail.evidence_id}>
-                <CitationChip
-                  citation={citation}
-                  isSelected={citation.detail.evidence_id === selectedEvidenceId}
-                  onSelect={() => onSelectEvidence(citation.detail.evidence_id)}
-                />
-              </li>
-            ))}
-          </ul>
-        ) : null}
+      {conflict.unrecognizedType ? (
+        <p className={styles["conflict-unrecognized"]}>
+          Reported as <code>{conflict.unrecognizedType}</code>, which this interface does
+          not classify.
+        </p>
+      ) : null}
 
-        {conflict.unresolvedEvidenceIds.length ? (
-          <p className={styles["conflict-unresolved"]}>
-            Also names {conflict.unresolvedEvidenceIds.join(", ")}, which no rendered claim
-            cites.
-          </p>
-        ) : null}
+      {conflict.extraFields.length ? (
+        <dl className={styles["conflict-fields"]}>
+          {conflict.extraFields.map(([field, value]) => (
+            <div key={field}>
+              <dt>{humanizeCode(field)}</dt>
+              <dd>{value}</dd>
+            </div>
+          ))}
+        </dl>
+      ) : null}
 
-        {conflict.extraFields.length ? (
-          <dl className={styles["conflict-fields"]}>
-            {conflict.extraFields.map(([field, value]) => (
-              <div key={field}>
-                <dt>{humanizeCode(field)}</dt>
-                <dd>{value}</dd>
-              </div>
-            ))}
-          </dl>
-        ) : null}
+      {conflict.unresolvedEvidenceIds.length ? (
+        <p className={styles["conflict-unresolved"]}>
+          Also names {conflict.unresolvedEvidenceIds.join(", ")}, which no rendered claim
+          cites.
+        </p>
+      ) : null}
 
-        <p className={styles["conflict-guidance"]}>{conflict.descriptor.guidance}</p>
-      </div>
+      <p className={styles["conflict-guidance"]}>{conflict.descriptor.guidance}</p>
     </article>
   );
 }

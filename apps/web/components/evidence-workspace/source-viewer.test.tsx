@@ -88,7 +88,6 @@ function ViewerHarness({
   onPinEvidence,
   onToggleFocus,
   pinnedEvidence = null,
-  question = "",
 }: {
   candidates?: RankedEvidence[];
   citations?: CitationIndex;
@@ -97,7 +96,6 @@ function ViewerHarness({
   onPinEvidence?: (evidenceId: string | null) => void;
   onToggleFocus?: () => void;
   pinnedEvidence?: EvidenceDetail | null;
-  question?: string;
 }) {
   const [selectedEvidenceId, setSelectedEvidenceId] = useState<string | null>(
     evidence[0]?.evidence_id ?? null,
@@ -112,7 +110,6 @@ function ViewerHarness({
       onSelectEvidence={setSelectedEvidenceId}
       onToggleFocus={onToggleFocus}
       pinnedEvidence={pinnedEvidence}
-      question={question}
       selectedEvidenceId={selectedEvidenceId}
     />
   );
@@ -131,7 +128,7 @@ describe("SourceViewer", () => {
     render(<ViewerHarness />);
 
     expect(screen.getByText("Record 1 of 2")).toBeInTheDocument();
-    expect(screen.getByText("Canonical evidence")).toBeInTheDocument();
+    expect(screen.getByText("Cited in this answer")).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Next ranked result" }));
 
@@ -144,8 +141,10 @@ describe("SourceViewer", () => {
     render(<ViewerHarness />);
     await user.click(screen.getByRole("button", { name: "Next ranked result" }));
 
-    expect(screen.queryByText("Canonical evidence")).not.toBeInTheDocument();
-    expect(screen.getByText("Retrieved, not cited")).toBeInTheDocument();
+    expect(screen.queryByText("Cited in this answer")).not.toBeInTheDocument();
+    // "Not cited" is also the rail's own divider label where citation stops, so two
+    // instances are expected here; the status badge is the one in document order first.
+    expect(screen.getAllByText("Not cited")[0]).toBeInTheDocument();
     expect(screen.getByText("No claim in this answer cites this passage.")).toBeInTheDocument();
   });
 
@@ -162,7 +161,7 @@ describe("SourceViewer", () => {
     await user.click(screen.getByRole("button", { name: "Previous ranked result" }));
 
     expect(screen.getByText("Record 1 of 2")).toBeInTheDocument();
-    expect(screen.getByText("Canonical evidence")).toBeInTheDocument();
+    expect(screen.getByText("Cited in this answer")).toBeInTheDocument();
   });
 });
 
@@ -268,12 +267,12 @@ describe("SourceViewer, finding a word in a passage", () => {
     expect(screen.getByRole("searchbox", { name: "Find in passage" })).toHaveValue("");
   });
 
-  it("marks where the question and the passage meet, without being asked", () => {
+  it("marks where the selected claim and the passage meet, without being asked", () => {
     render(
       <ViewerHarness
         candidates={[]}
+        claimText="How often should viral load be monitored?"
         evidence={[PAGE_PASSAGE]}
-        question="How often should viral load be monitored?"
       />,
     );
 

@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { answerReadyResult } from "@/lib/fixtures/answer-lane";
 import type { QuestionStatus } from "@/lib/types";
 
-import { VerificationPanel } from "./source-verification-column";
+import { VerificationPanel } from "./checks-strip";
 import type { EvidenceProgressEvent } from "./use-evidence-run";
 
 afterEach(cleanup);
@@ -107,15 +107,15 @@ describe("VerificationPanel, how long each stage took", () => {
 });
 
 describe("VerificationPanel, what each stage concluded", () => {
-  it("names the gates and their outcome", () => {
+  it("names the checks and their outcome", () => {
     renderPanel([at("CONTEXT_EXTRACTED", 0), at("RETRIEVING", 1), at("ANSWER_READY", 2)]);
 
-    expect(screen.getByText("Context extracted")).toBeInTheDocument();
-    expect(screen.getByText("Retrieval complete")).toBeInTheDocument();
-    expect(screen.getByText("Answer gate passed")).toBeInTheDocument();
+    expect(screen.getByText("Context read")).toBeInTheDocument();
+    expect(screen.getByText("Evidence retrieved")).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent("Checks passed");
   });
 
-  it("reports a withheld answer as a blocked gate rather than a passed one", () => {
+  it("reports a withheld answer as blocked rather than passed", () => {
     render(
       <VerificationPanel
         isRunning={false}
@@ -126,6 +126,31 @@ describe("VerificationPanel, what each stage concluded", () => {
       />,
     );
 
-    expect(screen.getByRole("status")).toHaveTextContent("Answer gate blocked");
+    expect(screen.getByRole("status")).toHaveTextContent("Answer withheld by the checks");
+  });
+});
+
+describe("VerificationPanel, the log", () => {
+  it("lists every stage, its start time, duration, and outcome in a table behind a disclosure", () => {
+    render(
+      <VerificationPanel
+        isRunning={false}
+        lifecycle="completed"
+        progressEvents={[at("CONTEXT_EXTRACTED", 0), at("RETRIEVING", 1), at("ANSWER_READY", 2)]}
+        result={answerReadyResult()}
+        status="ANSWER_READY"
+      />,
+    );
+
+    const log = screen.getByText("Log").closest("details");
+    expect(log).not.toBeNull();
+    const table = within(log!).getByRole("table");
+    const rows = within(table).getAllByRole("row");
+    // A header row plus one row per stage.
+    expect(rows).toHaveLength(6);
+    expect(within(table).getByText("Stage")).toBeInTheDocument();
+    expect(within(table).getByText("Started")).toBeInTheDocument();
+    expect(within(table).getByText("Duration")).toBeInTheDocument();
+    expect(within(table).getByText("Outcome")).toBeInTheDocument();
   });
 });

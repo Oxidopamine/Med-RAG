@@ -79,20 +79,18 @@ describe("QuestionComposer", () => {
     render(<ComposerHarness onSubmit={onSubmit} />);
 
     expect(
-      screen.getByRole("heading", { name: "What guideline decision are you reviewing?" }),
+      screen.getByRole("heading", { name: "Guideline review" }),
     ).toBeInTheDocument();
-    // The Population/Condition/Decision chips are visual cues and are hidden from
-    // assistive technology on purpose: the same guidance reaches it as the field's own
-    // description, in prose, which is asserted there rather than here.
-    expect(screen.getByText("Population", { exact: true })).toBeInTheDocument();
-    expect(screen.getByText("Condition", { exact: true })).toBeInTheDocument();
-    expect(screen.getByText("Decision", { exact: true })).toBeInTheDocument();
+    // The shape of a good question is stated once, as the field's own help text.
+    expect(
+      screen.getByText("One question at a time. Include the population, the condition and the decision."),
+    ).toBeInTheDocument();
 
     const question = screen.getByRole("textbox", { name: "Guideline question" });
     expect(question).toHaveValue("");
     expect(question).toHaveAttribute("aria-keyshortcuts", "Control+Enter Meta+Enter");
     expect(question).toHaveAccessibleDescription(
-      /Include the population, condition, and clinical decision/i,
+      /Include the population, the condition and the decision/i,
     );
 
     const submit = screen.getByRole("button", { name: "Review evidence" });

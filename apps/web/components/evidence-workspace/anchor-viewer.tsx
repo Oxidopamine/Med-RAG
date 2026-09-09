@@ -53,8 +53,12 @@ import styles from "./workspace.module.css";
  *
  * The edition is always named. Two versions of one guideline can carry near-identical
  * text on similarly numbered pages, so a page and a rectangle do not identify a passage -
- * they identify a passage *within an edition*. The version block is part of the figure
- * rather than a caption beside it.
+ * they identify a passage *within an edition*. The edition itself - title, version id,
+ * lifecycle, dates - is stated once in the reader above this figure and again in its
+ * details disclosure; naming it a third time here was the same three facts repeated down
+ * the page, so this figure carries the edition only in the accessible name of its own
+ * region, where a screen reader is still told which edition a rectangle was measured
+ * against.
  */
 export function AnchorViewer({
   activeAnchor = null,
@@ -108,8 +112,6 @@ export function AnchorViewer({
         </div>
       ) : null}
 
-      <SourceVersionBlock version={group.primary.version} />
-
       <AnchorFigure
         key={group.key}
         activeAnchor={activeAnchor}
@@ -132,46 +134,6 @@ export function AnchorViewer({
         </p>
       )}
     </section>
-  );
-}
-
-/**
- * The edition the coordinates belong to.
- *
- * `source_version_id` is shown rather than only the version label, because the label is
- * what collides: two editions can both be captioned "2021" while being different
- * documents with different page numbering. The opaque identifier is the field that
- * settles which one a rectangle was measured against.
- */
-function SourceVersionBlock({ version }: { version: SourceVersionIdentity }) {
-  return (
-    <dl className={styles["anchor-version"]}>
-      <div className={styles["anchor-version-title"]}>
-        <dt>Edition</dt>
-        <dd>
-          {version.title}
-          <small>
-            {version.publisherName} &middot; {version.versionLabel}
-          </small>
-        </dd>
-      </div>
-      <div>
-        <dt>Version ID</dt>
-        <dd>
-          <code>{version.sourceVersionId}</code>
-        </dd>
-      </div>
-      <div>
-        <dt>Lifecycle</dt>
-        <dd className={version.superseded ? styles["anchor-version-superseded"] : ""}>
-          {humanizeCode(version.lifecycleStatus)}
-        </dd>
-      </div>
-      <div>
-        <dt>In force</dt>
-        <dd>{effectiveRange(version)}</dd>
-      </div>
-    </dl>
   );
 }
 
@@ -265,6 +227,23 @@ function PageFigure({
       : printedPage !== null
         ? `Printed page ${printedPage} · PDF page ${pageNumber}`
         : `PDF page ${pageNumber}`;
+
+  // A withheld page and a dropped connection are still different facts - the retry below
+  // only ever makes sense for the second one - but neither is a page, so neither draws the
+  // frame the page would. An empty frame with a rectangle on it was the honest rendering
+  // when nothing else said so; asked in words instead, it is one plain line.
+  if (load.status === "unavailable" || load.status === "error") {
+    return (
+      <p className={styles["reader-note"]}>
+        No page rendering for this source. {caption}
+        {load.status === "error" ? (
+          <button type="button" onClick={reload}>
+            Try again
+          </button>
+        ) : null}
+      </p>
+    );
+  }
 
   return (
     <figure className={styles["anchor-figure"]}>
@@ -571,8 +550,10 @@ function AnchorCoordinates({ group }: { group: AnchorGroup }) {
 
   rows.push(["Source URI", group.primary.sourceUri]);
 
+  // The coordinates as recorded are for checking, not reading: folded away.
   return (
-    <>
+    <details className={styles["reader-details"]}>
+      <summary>Locator</summary>
       <dl className={styles["anchor-coordinates"]}>
         {rows.map(([label, value]) => (
           <div key={label}>
@@ -594,7 +575,7 @@ function AnchorCoordinates({ group }: { group: AnchorGroup }) {
           </ol>
         </details>
       ) : null}
-    </>
+    </details>
   );
 }
 
@@ -625,16 +606,3 @@ function pageMarks(group: AnchorGroup, onAnchoredPage: boolean): string {
   return `${group.regions.length} marked regions show where the passage sits.`;
 }
 
-function effectiveRange(version: SourceVersionIdentity): string {
-  const { effectiveFrom: start, effectiveTo: end } = version;
-  if (!start && !end) return "Dates not supplied";
-  if (start && end) return `${formatDate(start)}–${formatDate(end)}`;
-  if (start) return `From ${formatDate(start)}`;
-  return `Until ${formatDate(end!)}`;
-}
-
-function formatDate(value: string): string {
-  return new Intl.DateTimeFormat("en", { dateStyle: "medium", timeZone: "UTC" }).format(
-    new Date(`${value}T00:00:00Z`),
-  );
-}
