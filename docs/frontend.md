@@ -12,8 +12,9 @@ Events. The page and layout remain server components; the client boundary begins
 show an empty dashboard or decorative document viewer before the API has returned
 verified source data:
 
-1. The initial view shows the question composer, example questions, research-use/PHI
-   guidance, and the readiness state of the approved corpus.
+1. The initial view shows the question composer, example questions, and the readiness
+   state of the approved corpus. The research-use boundary is stated once, in the footer
+   badge and in the menu; the identifier guard speaks only when a question trips it.
 2. A running review shows one progress card and the live verification audit. The user
    can stop browser monitoring without implying that the server job was cancelled.
 3. An `ANSWER_READY` result reveals the provenance strip, rendered claims,

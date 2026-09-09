@@ -60,10 +60,9 @@ export function AnswerPanel({
       {isReady ? (
         <>
           <div className={styles["answer-intro"]}>
-            Automated evidence checks passed for {result.verification_summary.supported_claims}{" "}
-            supported claim{result.verification_summary.supported_claims === 1 ? "" : "s"}, drawn
-            from {citations.ordered.length} cited source
-            {citations.ordered.length === 1 ? "" : "s"}. Review the cited source before use.
+            {result.verification_summary.supported_claims} supported claim
+            {result.verification_summary.supported_claims === 1 ? "" : "s"} from{" "}
+            {citations.ordered.length} cited source{citations.ordered.length === 1 ? "" : "s"}.
           </div>
 
           <SourceProvenance citations={citations} onSelectEvidence={onSelectEvidence} />
@@ -79,24 +78,21 @@ export function AnswerPanel({
             selectedEvidenceId={selectedEvidenceId}
           />
 
-          <div className={styles["answer-signals"]} role="group" aria-label="Answer checks">
-            <Signal label="Evidence gate passed" />
-            <Signal
-              label={
-                result.verification_summary.withheld_claims
-                  ? `${result.verification_summary.withheld_claims} claim${result.verification_summary.withheld_claims === 1 ? "" : "s"} withheld`
-                  : "No unsupported claims rendered"
-              }
-              warning={Boolean(result.verification_summary.withheld_claims)}
-            />
-            {licenceRestricted ? (
-              <Signal
-                icon={FileLock2}
-                label="Passage text withheld by licence"
-                warning
-              />
-            ) : null}
-          </div>
+          {/* Only what changes the reading: a withheld claim or withheld text. The badge
+              beside the heading already says the checks passed. */}
+          {result.verification_summary.withheld_claims || licenceRestricted ? (
+            <div className={styles["answer-signals"]} role="group" aria-label="Answer checks">
+              {result.verification_summary.withheld_claims ? (
+                <Signal
+                  label={`${result.verification_summary.withheld_claims} claim${result.verification_summary.withheld_claims === 1 ? "" : "s"} withheld`}
+                  warning
+                />
+              ) : null}
+              {licenceRestricted ? (
+                <Signal icon={FileLock2} label="Passage text withheld by licence" warning />
+              ) : null}
+            </div>
+          ) : null}
 
           <div className={styles["answer-actions"]}>
             <button className={styles["primary-action"]} type="button" onClick={onCopyAnswer}>

@@ -55,7 +55,7 @@ describe("ConflictPanel", () => {
     expect(screen.getByText("Conflicting recommendations")).toBeInTheDocument();
     expect(
       screen.getByText(
-        "Both recommendations are shown as published. Choosing between them is a clinical judgement, not a system output.",
+        "Both recommendations are shown as published.",
       ),
     ).toBeInTheDocument();
   });

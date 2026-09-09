@@ -75,7 +75,7 @@ export function InterpretedContextPanel({
       <div className={styles["mini-panel-heading"]}>
         <div>
           <h2 id="context-heading">Interpreted patient context</h2>
-          <span className={styles["neutral-label"]}>Extracted, not clinically validated</span>
+          <span className={styles["neutral-label"]}>From the question</span>
         </div>
         {context && allowEditing ? (
           <button className={styles["edit-context"]} type="button" onClick={onEdit}>

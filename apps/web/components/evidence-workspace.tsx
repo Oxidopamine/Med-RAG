@@ -251,7 +251,7 @@ export function EvidenceWorkspace({
       showTransient(
         "success",
         "Evidence review ready",
-        "Automated checks completed. Review the claim-linked source passages before use.",
+        "Automated checks completed.",
       );
     } else if (run.lifecycle === "cancelled") {
       showTransient(
@@ -403,7 +403,7 @@ export function EvidenceWorkspace({
     void copyText(
       `${claims}\n\nResearch use only. Run ID: ${workspaceResult.question_id}`,
       "Answer copied",
-      "The answer, source links, and research-use notice were copied.",
+      "Answer and citations copied.",
     );
   }
 
@@ -757,6 +757,6 @@ function friendlyError(error: string): { message: string; title: string } {
   }
   return {
     title: "The review could not be started",
-    message: "Nothing unsafe was displayed. Try once more or share the run details if the problem continues.",
+    message: "Try once more, or share the run details if the problem continues.",
   };
 }

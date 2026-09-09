@@ -1,10 +1,8 @@
 import {
-  BookOpenCheck,
   CheckCircle2,
   CircleDashed,
   FlaskConical,
   History,
-  ShieldCheck,
   TriangleAlert,
   Trash2,
 } from "lucide-react";
@@ -47,23 +45,6 @@ export function GettingStarted({ corpusStatus }: { corpusStatus: CorpusStatus })
       </div>
 
       <p className={styles["getting-started-copy"]}>{coverage.message}</p>
-
-      <div className={styles["start-principles"]}>
-        <div>
-          <BookOpenCheck size={20} aria-hidden="true" />
-          <span>
-            <strong>Be specific</strong>
-            Include the population, condition, and decision you are evaluating.
-          </span>
-        </div>
-        <div>
-          <ShieldCheck size={20} aria-hidden="true" />
-          <span>
-            <strong>Evidence stays visible</strong>
-            Supported claims link to exact source details; unsupported claims are withheld.
-          </span>
-        </div>
-      </div>
 
       <RecentRuns />
     </section>
@@ -114,7 +95,7 @@ function RecentRuns() {
         {/* Said plainly, because a list of clinical questions in a browser invites the
             assumption that the answers are there too. They are not: this is a list of
             addresses, and every result is fetched from the server when one is opened. */}
-        Kept in this browser only. Opening one fetches the review from the server again.
+        Kept in this browser only.
       </p>
     </div>
   );
@@ -156,8 +137,8 @@ function coverageMessage(status: CorpusStatus): {
       icon: <FlaskConical size={15} aria-hidden="true" />,
       label: "Research release",
       message: status.releaseId
-        ? `Questions will be checked against research release ${status.releaseId}, which has not passed clinical acceptance. Answers are for research review only.`
-        : "Questions will be checked against a research release that has not passed clinical acceptance. Answers are for research review only.",
+        ? `Questions will be checked against research release ${status.releaseId}, which has not passed clinical acceptance.`
+        : "Questions will be checked against a research release that has not passed clinical acceptance.",
       tone: "research",
     };
   }

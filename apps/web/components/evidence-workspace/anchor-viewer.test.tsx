@@ -69,7 +69,7 @@ describe("AnchorViewer, restricted sources", () => {
     render(<AnchorViewer detail={restrictedWhoEvidence()} />);
 
     expect(
-      screen.getByText(/withheld under licence and is not reproduced here/),
+      screen.getByText(/withheld under licence/),
     ).toBeInTheDocument();
     expect(document.querySelector("mark")).toBeNull();
   });
@@ -77,7 +77,7 @@ describe("AnchorViewer, restricted sources", () => {
   it("does not blame the licence when the release simply carried no text", () => {
     render(<AnchorViewer detail={licensedWhoEvidence({ exact_text: null })} />);
 
-    expect(screen.getByText(/carried no text for that location/)).toBeInTheDocument();
+    expect(screen.getByText(/carried no text for this location/)).toBeInTheDocument();
     expect(screen.queryByText(/withheld under licence/)).not.toBeInTheDocument();
   });
 
@@ -445,7 +445,7 @@ describe("AnchorViewer, page images", () => {
     ).toBeInTheDocument();
     // Not the licence note, which would be a claim about the publisher.
     expect(
-      screen.queryByText(/withheld under licence and is not reproduced here/),
+      screen.queryByText(/withheld under licence/),
     ).not.toBeInTheDocument();
 
     vi.mocked(getSourcePageImage).mockResolvedValue(loadedPage());

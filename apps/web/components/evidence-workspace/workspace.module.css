@@ -350,31 +350,6 @@
   color: var(--text-faint);
 }
 
-/*
- * The one thing on this page that may never be styled down. It is a clinical and legal
- * boundary, so it gets a full-bleed rule rather than a pill that reads as decoration -
- * but it is set quietly, because a banner people learn to ignore protects nobody.
- */
-.safety-strip {
-  padding: 7px var(--s-6);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 7px;
-  color: var(--warn-text);
-  background: var(--warn-wash);
-  border-bottom: 1px solid var(--warn-border);
-  font-size: var(--t-2xs);
-  line-height: 1.45;
-  text-align: center;
-}
-
-.safety-strip svg {
-  flex: 0 0 auto;
-  width: 14px;
-  height: 14px;
-}
-
 /* ============================================================ buttons */
 
 /*
@@ -1122,7 +1097,6 @@
   gap: var(--s-4);
 }
 
-.privacy-cue,
 .composer-run-note {
   display: inline-flex;
   align-items: center;
@@ -1130,14 +1104,6 @@
   color: var(--text-muted);
   font-size: var(--t-2xs);
   white-space: nowrap;
-}
-
-/* Grey, not green: this is a rule for the reader, not a check the system passed. Green is
-   reserved in this workspace for a gate that actually ran. */
-.privacy-cue svg {
-  width: 13px;
-  height: 13px;
-  color: var(--text-faint);
 }
 
 .composer-run-note {
@@ -1400,44 +1366,6 @@
   color: var(--text-secondary);
   font-size: var(--t-sm);
   line-height: 1.6;
-}
-
-.start-principles {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: var(--s-3);
-}
-
-.start-principles > div {
-  padding: var(--s-4);
-  display: flex;
-  align-items: flex-start;
-  gap: var(--s-3);
-  background: var(--bg-sunk);
-  border-radius: var(--radius-lg);
-}
-
-.start-principles svg {
-  flex: 0 0 auto;
-  width: 17px;
-  height: 17px;
-  margin-top: 1px;
-  color: var(--text-muted);
-}
-
-.start-principles span {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  color: var(--text-secondary);
-  font-size: var(--t-xs);
-  line-height: 1.5;
-}
-
-.start-principles strong {
-  color: var(--text-strong);
-  font-size: var(--t-sm);
-  font-weight: var(--w-semibold);
 }
 
 /* ============================================================ run progress */
@@ -5295,11 +5223,6 @@ button.provenance-fact:hover {
 
   .example-questions {
     padding: var(--s-3) var(--s-4);
-  }
-
-  .safety-strip {
-    padding: 7px var(--s-3);
-    text-align: left;
   }
 
   .answer-title h2 {

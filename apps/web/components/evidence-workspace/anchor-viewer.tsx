@@ -126,8 +126,8 @@ export function AnchorViewer({
           <FileLock2 size={15} aria-hidden="true" />
           <span>
             {policy.licenceRestricted
-              ? "The location is placed from the recorded anchor. The publisher content at that location is withheld under licence and is not reproduced here."
-              : "The location is placed from the recorded anchor. This release carried no text for that location."}
+              ? "Passage text at this location is withheld under licence."
+              : "This release carried no text for this location."}
           </span>
         </p>
       )}

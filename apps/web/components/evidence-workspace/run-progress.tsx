@@ -1,4 +1,4 @@
-import { CircleDashed, Clipboard, Clock3, ShieldCheck } from "lucide-react";
+import { CircleDashed, Clipboard, Clock3 } from "lucide-react";
 
 import type { EvidenceProgressEvent } from "@/components/evidence-workspace/use-evidence-run";
 import { STATUS_LABELS } from "@/lib/presentation";
@@ -29,10 +29,6 @@ export function RunProgress({
         <h2 id="run-progress-heading">{status ? STATUS_LABELS[status] : "Starting review"}</h2>
         <p>{progressMessage(status)}</p>
         <div className={styles["run-progress-meta"]}>
-          <span>
-            <ShieldCheck size={15} aria-hidden="true" />
-            Unsupported claims remain withheld
-          </span>
           <span>
             <Clock3 size={15} aria-hidden="true" />
             {progressEvents.length} update{progressEvents.length === 1 ? "" : "s"} received

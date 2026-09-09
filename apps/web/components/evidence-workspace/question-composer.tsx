@@ -9,7 +9,6 @@ import {
   Globe,
   Search,
   ShieldAlert,
-  ShieldCheck,
   SlidersHorizontal,
   Square,
   X,
@@ -332,7 +331,7 @@ export function QuestionComposer({
         </div>
         <p className={styles.srOnly} id={questionHelpId}>
           Ask one focused guideline question. Include the population, condition, and clinical
-          decision. Do not include names or patient identifiers.
+          decision.
         </p>
 
         {/* The field takes the full width and the submit sits in the control row below it.
@@ -400,8 +399,7 @@ export function QuestionComposer({
                     <mark>{item.text}</mark>
                   </span>
                 ))}{" "}
-                before running. This is a research prototype and nothing you enter should
-                identify a person.
+                before running.
               </p>
               <div className={styles["identifier-actions"]}>
                 <button
@@ -550,16 +548,7 @@ export function QuestionComposer({
                 <CircleDashed className={styles.spin} size={15} aria-hidden="true" />
                 {isStartingRun ? "Starting review" : "Question and sources locked to this review"}
               </span>
-            ) : (
-              /* Grey, not green. Green in this workspace means a gate passed, and nothing
-                 has been checked here - this is an instruction to the reader, not a
-                 result. A tick that claims a verification it did not do is worse than no
-                 tick at all. */
-              <span className={styles["privacy-cue"]}>
-                <ShieldCheck size={15} aria-hidden="true" />
-                No patient identifiers
-              </span>
-            )}
+            ) : null}
 
             {/* The Ctrl/Cmd+Enter shortcut still works and is still announced through
                 `aria-keyshortcuts` on the textarea; it is no longer drawn here. A key cap

@@ -674,11 +674,8 @@ export function SourceViewer({
               <div className={styles["uncited-notice"]} role="note">
                 <AlertTriangle size={19} aria-hidden="true" />
                 <div>
-                  <strong>Retrieved at rank {candidateRank}. No claim cites it.</strong>
-                  <span>
-                    This passage passed no claim gate and supports nothing rendered above.
-                    Read it as background on what retrieval returned.
-                  </span>
+                  <strong>No claim in this answer cites this passage.</strong>
+                  <span>Retrieved at rank {candidateRank}.</span>
                 </div>
               </div>
             )}

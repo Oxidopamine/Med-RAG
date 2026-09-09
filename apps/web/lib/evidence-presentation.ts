@@ -65,8 +65,7 @@ const CONFLICT_DESCRIPTORS: Record<ConflictType, ConflictDescriptor> = {
   CONFLICTING_RECOMMENDATIONS: {
     label: "Conflicting recommendations",
     meaning: "The passages recommend different actions for the same situation.",
-    guidance:
-      "Both recommendations are shown as published. Choosing between them is a clinical judgement, not a system output.",
+    guidance: "Both recommendations are shown as published.",
     requiresReview: true,
     tone: "critical",
   },
@@ -91,8 +90,7 @@ const UNCLASSIFIED_CONFLICT: ConflictDescriptor = {
   label: "Unclassified disagreement",
   meaning:
     "The answer lane reported a disagreement without a type this interface recognises.",
-  guidance:
-    "Treat it as unreviewed. The record is shown as returned, with nothing inferred about its kind.",
+  guidance: "Shown as returned, with its type left unclassified.",
   requiresReview: true,
   tone: "caution",
 };

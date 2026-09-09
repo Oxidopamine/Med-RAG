@@ -87,7 +87,6 @@ describe("QuestionComposer", () => {
     expect(screen.getByText("Population", { exact: true })).toBeInTheDocument();
     expect(screen.getByText("Condition", { exact: true })).toBeInTheDocument();
     expect(screen.getByText("Decision", { exact: true })).toBeInTheDocument();
-    expect(screen.getByText("No patient identifiers")).toBeInTheDocument();
 
     const question = screen.getByRole("textbox", { name: "Guideline question" });
     expect(question).toHaveValue("");

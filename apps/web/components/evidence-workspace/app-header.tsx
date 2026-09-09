@@ -1,4 +1,3 @@
-import { ShieldAlert } from "lucide-react";
 import Link from "next/link";
 
 import { AppMenu } from "./app-menu";
@@ -36,13 +35,6 @@ export function AppHeader() {
           <div className={styles["header-status"]}>
             <AppMenu />
           </div>
-        </div>
-        <div className={styles["safety-strip"]} role="note" aria-label="Research use notice">
-          <ShieldAlert size={16} aria-hidden="true" />
-          <span>
-            Research prototype. Not authorized for patient care. Do not enter names, identifiers,
-            or other protected health information.
-          </span>
         </div>
       </header>
     </>

@@ -451,12 +451,6 @@ test("starts empty and progressively discloses guidance, examples, scope, and sa
   await expect(page.getByText("Condition", { exact: true })).toBeVisible();
   await expect(page.getByText("Decision", { exact: true })).toBeVisible();
   await expect(
-    page.getByRole("note", { name: "Research use notice" }),
-  ).toContainText("Not authorized for patient care");
-  await expect(page.getByRole("note", { name: "Research use notice" })).toContainText(
-    "Do not enter names, identifiers, or other protected health information",
-  );
-  await expect(
     page.getByRole("heading", { name: "Evidence-gated guideline review" }),
   ).toBeVisible();
   await expect(page.getByText("Approved corpus available", { exact: true })).toBeVisible();
@@ -501,7 +495,7 @@ test("renders an actionable fail-closed abstention without an empty source viewe
   await expect(
     page.getByRole("heading", { name: "Interpreted patient context" }),
   ).toBeVisible();
-  await expect(page.getByText("Extracted, not clinically validated")).toBeVisible();
+  await expect(page.getByText("From the question")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Source inspector" })).toHaveCount(0);
   await expect(page.getByRole("heading", { name: /Exact guideline|Evidence provenance/ })).toHaveCount(
     0,
@@ -606,13 +600,13 @@ test("connects verified claims to exact and restricted source evidence", async (
   await expect(anchorViewer.getByText("No region recorded on this page")).toBeVisible();
   await expect(anchorViewer.getByText("source-who-testing-2019")).toBeVisible();
   await expect(
-    anchorViewer.getByText(/withheld under licence and is not reproduced here/),
+    anchorViewer.getByText(/withheld under licence/),
   ).toBeVisible();
 
   await page.getByRole("button", { name: "Next ranked result" }).click();
   await expect(page.getByText("Record 3 of 3", { exact: true })).toBeVisible();
   await expect(page.getByText("Retrieved, not cited", { exact: true })).toBeVisible();
-  await expect(page.getByText("Retrieved at rank 4. No claim cites it.")).toBeVisible();
+  await expect(page.getByText("No claim in this answer cites this passage.")).toBeVisible();
   // A table-cell anchor resolves to the address the source document itself uses.
   await expect(
     anchorViewer.getByText("Cell C4 of table FollowUpSchedule in 2026"),
@@ -635,7 +629,7 @@ test("connects verified claims to exact and restricted source evidence", async (
   await expect(page.getByText("Conflicting recommendations")).toBeVisible();
   await expect(
     page.getByText(
-      "Both recommendations are shown as published. Choosing between them is a clinical judgement, not a system output.",
+      "Both recommendations are shown as published.",
     ),
   ).toBeVisible();
   await expect(page.getByText("Unclassified disagreement")).toBeVisible();
@@ -663,7 +657,7 @@ test("presents a calm request error and retries the same request", async ({ page
     .getByRole("alert")
     .filter({ hasText: "The review could not be started" });
   await expect(error).toContainText("The review could not be started");
-  await expect(error).toContainText("Nothing unsafe was displayed");
+  await expect(error).toContainText("Try once more");
   await expect(page.getByRole("heading", { name: "Answer" })).toHaveCount(0);
   await expect(page.getByText("Technical details", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Dismiss error message" })).toBeVisible();

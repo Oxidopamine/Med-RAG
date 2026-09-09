@@ -146,7 +146,7 @@ describe("SourceViewer", () => {
 
     expect(screen.queryByText("Canonical evidence")).not.toBeInTheDocument();
     expect(screen.getByText("Retrieved, not cited")).toBeInTheDocument();
-    expect(screen.getByText(/Retrieved at rank 3\. No claim cites it\./)).toBeInTheDocument();
+    expect(screen.getByText("No claim in this answer cites this passage.")).toBeInTheDocument();
   });
 
   it("stops at the last citation when retrieval offered nothing further", () => {
