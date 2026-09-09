@@ -3,7 +3,9 @@ import {
   CircleDashed,
   FlaskConical,
   History,
+  RotateCw,
   TriangleAlert,
+  Unplug,
   Trash2,
 } from "lucide-react";
 import { useSyncExternalStore, type ReactNode } from "react";
@@ -28,7 +30,13 @@ export interface CorpusStatus {
   servingMode: "ACTIVATED" | "RESEARCH_UNACTIVATED" | null;
 }
 
-export function GettingStarted({ corpusStatus }: { corpusStatus: CorpusStatus }) {
+export function GettingStarted({
+  corpusStatus,
+  onRecheck,
+}: {
+  corpusStatus: CorpusStatus;
+  onRecheck?: () => void;
+}) {
   const coverage = coverageMessage(corpusStatus);
 
   return (
@@ -44,7 +52,15 @@ export function GettingStarted({ corpusStatus }: { corpusStatus: CorpusStatus })
         </span>
       </div>
 
-      <p className={styles["getting-started-copy"]}>{coverage.message}</p>
+      <p className={styles["getting-started-copy"]}>
+        {coverage.message}
+        {corpusStatus.error && onRecheck ? (
+          <button className={styles["coverage-recheck"]} type="button" onClick={onRecheck}>
+            <RotateCw size={13} aria-hidden="true" />
+            Check again
+          </button>
+        ) : null}
+      </p>
 
       <RecentRuns />
     </section>
@@ -152,12 +168,20 @@ function coverageMessage(status: CorpusStatus): {
       tone: "passed",
     };
   }
+  if (status.error) {
+    // Unreachable is not withheld: nothing has been refused, the service simply did
+    // not answer. Said quietly, in the neutral tone, with the way back beside it.
+    return {
+      icon: <Unplug size={15} aria-hidden="true" />,
+      label: "Evidence service not reached",
+      message: "The corpus could not be checked just now. It is checked again when this tab regains focus.",
+      tone: "neutral",
+    };
+  }
   return {
     icon: <TriangleAlert size={15} aria-hidden="true" />,
-    label: status.registryAvailable ? "No active corpus" : "Corpus status unavailable",
-    message: status.error
-      ? "Coverage could not be confirmed. The evidence gate will fail closed rather than display an unsupported answer."
-      : "No approved release is active. You can still review interpreted context, but no clinical answer will be rendered.",
+    label: "No active corpus",
+    message: "No approved release is active. Reviews will abstain until one is activated.",
     tone: "withheld",
   };
 }

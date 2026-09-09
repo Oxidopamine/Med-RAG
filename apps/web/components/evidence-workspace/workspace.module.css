@@ -1368,6 +1368,26 @@
   line-height: 1.6;
 }
 
+.coverage-recheck {
+  margin-left: var(--s-2);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 24px;
+  padding: 0 var(--s-1);
+  color: var(--text-primary);
+  background: none;
+  border: 0;
+  font-size: var(--t-xs);
+  font-weight: var(--w-medium);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.coverage-recheck:hover {
+  color: var(--ink);
+}
+
 /* ============================================================ run progress */
 
 .running-workspace {

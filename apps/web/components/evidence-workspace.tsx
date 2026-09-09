@@ -27,6 +27,7 @@ import {
 } from "@/components/evidence-workspace/source-verification-column";
 import { useEvidenceRun } from "@/components/evidence-workspace/use-evidence-run";
 import { getCorpusReadiness } from "@/lib/api";
+import { withRetries } from "@/lib/readiness";
 import { recordRun } from "@/lib/run-history";
 import { buildCitations } from "@/lib/evidence-presentation";
 import type { CitationIndex } from "@/lib/evidence-presentation";
@@ -212,11 +213,23 @@ export function EvidenceWorkspace({
     recordRun(run.questionId, recordedQuestion);
   }, [run.questionId, recordedQuestion]);
 
-  useEffect(() => {
-    let active = true;
-    void getCorpusReadiness()
+  /*
+   * Readiness is checked with retries, and checked again when the tab regains focus or
+   * the browser comes back online. One failed request used to pin "unavailable" on the
+   * page until a reload: an API still starting, or a laptop waking, read as a broken
+   * corpus. The status stays "checking" while the retries run and settles on unreachable
+   * only after the last one; a later focus or reconnect, or the reader's own request,
+   * checks again.
+   */
+  const readinessAttemptRef = useRef(0);
+  const readinessFailedRef = useRef(false);
+  const runReadinessCheck = useCallback(() => {
+    const attempt = (readinessAttemptRef.current += 1);
+    const current = () => readinessAttemptRef.current === attempt;
+    readinessFailedRef.current = false;
+    void withRetries(getCorpusReadiness, { isActive: current })
       .then((readiness) => {
-        if (!active) return;
+        if (!current()) return;
         setCorpusStatus({
           approvedCorpusAvailable: readiness.approved_corpus_available,
           servingMode: readiness.serving_mode,
@@ -227,7 +240,8 @@ export function EvidenceWorkspace({
         });
       })
       .catch((error: unknown) => {
-        if (!active) return;
+        if (!current()) return;
+        readinessFailedRef.current = true;
         setCorpusStatus({
           approvedCorpusAvailable: false,
           servingMode: null,
@@ -237,10 +251,32 @@ export function EvidenceWorkspace({
           releaseId: null,
         });
       });
-    return () => {
-      active = false;
-    };
   }, []);
+
+  // The first check starts from the initial "checking" status; a later one, asked for by
+  // a focus, a reconnect or the reader, announces itself before it runs.
+  const checkReadiness = useCallback(() => {
+    setCorpusStatus((previous) => ({ ...previous, error: null, isLoading: true }));
+    runReadinessCheck();
+  }, [runReadinessCheck]);
+
+  useEffect(() => {
+    runReadinessCheck();
+    function recheckIfFailed() {
+      if (readinessFailedRef.current && document.visibilityState === "visible") {
+        checkReadiness();
+      }
+    }
+    window.addEventListener("focus", recheckIfFailed);
+    window.addEventListener("online", recheckIfFailed);
+    document.addEventListener("visibilitychange", recheckIfFailed);
+    return () => {
+      readinessAttemptRef.current += 1;
+      window.removeEventListener("focus", recheckIfFailed);
+      window.removeEventListener("online", recheckIfFailed);
+      document.removeEventListener("visibilitychange", recheckIfFailed);
+    };
+  }, [checkReadiness, runReadinessCheck]);
 
   useEffect(() => {
     const previousLifecycle = previousLifecycleRef.current;
@@ -521,7 +557,9 @@ export function EvidenceWorkspace({
           />
         ) : null}
 
-        {shouldShowGettingStarted ? <GettingStarted corpusStatus={corpusStatus} /> : null}
+        {shouldShowGettingStarted ? (
+          <GettingStarted corpusStatus={corpusStatus} onRecheck={checkReadiness} />
+        ) : null}
 
         {run.isRunning ? (
           <div className={styles["running-workspace"]}>
