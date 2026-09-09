@@ -17,44 +17,56 @@ import type { ClinicalContext } from "@/lib/types";
 
 import styles from "./context-dialog.module.css";
 
+// The vocabulary follows the releases the instrument serves: the HIV guidelines first,
+// then the hypertension and chronic-care releases that are planned. A list written for a
+// release the corpus does not carry misleads about what the review reads.
 const CONDITION_SUGGESTIONS = [
-  "ATRIAL_FIBRILLATION",
-  "CHRONIC_KIDNEY_DISEASE",
-  "DIABETES_MELLITUS",
-  "HEART_FAILURE",
+  "HIV_INFECTION",
+  "ADVANCED_HIV_DISEASE",
+  "TUBERCULOSIS",
+  "HEPATITIS_B",
+  "HEPATITIS_C",
+  "CRYPTOCOCCAL_MENINGITIS",
   "HYPERTENSION",
-  "ISCHEMIC_HEART_DISEASE",
-  "VALVULAR_HEART_DISEASE",
+  "DIABETES_MELLITUS",
+  "CHRONIC_KIDNEY_DISEASE",
+  "HEART_FAILURE",
 ];
 
 const POPULATION_SUGGESTIONS = [
-  "HEPATIC_IMPAIRMENT",
-  "OLDER_ADULT",
-  "PEDIATRIC",
   "PREGNANCY",
+  "BREASTFEEDING",
+  "PEDIATRIC",
+  "ADOLESCENT",
+  "OLDER_ADULT",
+  "KEY_POPULATION",
   "RENAL_IMPAIRMENT",
+  "HEPATIC_IMPAIRMENT",
 ];
 
 const MEASUREMENT_SUGGESTIONS = [
+  "HIV_VIRAL_LOAD",
+  "CD4_COUNT",
+  "WEIGHT",
   "BMI",
+  "SYSTOLIC_BLOOD_PRESSURE",
   "CREATININE_CLEARANCE",
   "EGFR",
-  "HEART_RATE",
-  "INR",
-  "SYSTOLIC_BLOOD_PRESSURE",
-  "WEIGHT",
+  "HEMOGLOBIN",
 ];
 
 const UNIT_SUGGESTIONS = [
-  "%",
-  "bpm",
+  "copies/mL",
+  "cells/mm3",
   "kg",
   "kg/m2",
-  "mg/dL",
+  "mmHg",
   "mL/min",
   "mL/min/1.73m2",
-  "mmHg",
+  "mg/dL",
   "mmol/L",
+  "g/dL",
+  "%",
 ];
 
 const SEX_OPTIONS = [
@@ -86,6 +98,28 @@ const DISPLAY_NAMES: Record<string, string> = {
   BMI: "BMI",
   EGFR: "eGFR",
   INR: "INR",
+  HIV_INFECTION: "HIV infection",
+  ADVANCED_HIV_DISEASE: "Advanced HIV disease",
+  HIV_VIRAL_LOAD: "HIV viral load",
+  CD4_COUNT: "CD4 count",
+  HEPATITIS_B: "Hepatitis B",
+  HEPATITIS_C: "Hepatitis C",
+  CRYPTOCOCCAL_MENINGITIS: "Cryptococcal meningitis",
+  KEY_POPULATION: "Key population",
+};
+
+/** Acronyms a title-casing pass would otherwise turn into words. */
+const ACRONYMS: Record<string, string> = {
+  hiv: "HIV",
+  tb: "TB",
+  art: "ART",
+  prep: "PrEP",
+  pep: "PEP",
+  cd4: "CD4",
+  who: "WHO",
+  egfr: "eGFR",
+  bmi: "BMI",
+  inr: "INR",
 };
 
 function normalizeConcept(value: string): string {
@@ -101,7 +135,11 @@ function humanizeConcept(value: string): string {
   return value
     .replaceAll("_", " ")
     .toLowerCase()
-    .replaceAll(/\b\w/g, (character) => character.toUpperCase());
+    .split(" ")
+    .map((word, index) =>
+      ACRONYMS[word] ?? (index === 0 ? word.charAt(0).toUpperCase() + word.slice(1) : word),
+    )
+    .join(" ");
 }
 
 function joinIds(...ids: Array<string | undefined>): string | undefined {

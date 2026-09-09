@@ -90,13 +90,13 @@ describe("ContextDialog", () => {
     await user.type(absentInput, "diabetes mellitus{Enter}");
     expect(
       screen.getByRole("button", {
-        name: "Remove Diabetes Mellitus from known absent conditions",
+        name: "Remove Diabetes mellitus from known absent conditions",
       }),
     ).toBeInTheDocument();
 
     await user.click(
       screen.getByRole("button", {
-        name: "Remove Diabetes Mellitus from known absent conditions",
+        name: "Remove Diabetes mellitus from known absent conditions",
       }),
     );
     await user.type(absentInput, "pregnancy, pregnancy{Enter}");
@@ -151,7 +151,7 @@ describe("ContextDialog", () => {
     const sex = screen.getByRole("combobox", { name: "Sex" });
     expect(sex).toHaveValue("SELF_DESCRIBED");
     expect(
-      within(sex).getByRole("option", { name: "Self Described (current value)" }),
+      within(sex).getByRole("option", { name: "Self described (current value)" }),
     ).toBeInTheDocument();
     expect(screen.getByText("No changes yet.")).toBeInTheDocument();
 

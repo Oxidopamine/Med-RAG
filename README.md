@@ -261,6 +261,13 @@ The Next.js page and layout are server components; the interactive evidence work
 client boundary, with presentation panels separated from the hook that owns question submission,
 SSE progress, polling fallback, and stale-run cancellation.
 
+The client is a set of pages under one shell: the workspace (a review desk with the answer and
+its checks beside the cited passage), the corpus catalogue and a per-document reader, the review
+list, the methods and evaluation pages, the labelling workbench for the pre-registered census,
+and settings. The workbench reproduces the worksheet builder's seeded orderings exactly, so the
+label file it writes is the one the analysis code reads. [docs/frontend.md](docs/frontend.md)
+describes each page.
+
 FastAPI's OpenAPI document is checked in and generates the TypeScript HTTP contract, consumed
 through `openapi-fetch`; strict Zod schemas validate HTTP and SSE payloads at runtime. The two
 layers prevent compile-time schema drift and malformed network data from being treated as trusted

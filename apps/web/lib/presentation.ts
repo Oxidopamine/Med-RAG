@@ -19,6 +19,20 @@ export const TERMINAL_STATUSES = new Set<QuestionStatus>([
   "FAILED",
 ]);
 
+const ACRONYMS: Record<string, string> = {
+  hiv: "HIV",
+  tb: "TB",
+  art: "ART",
+  prep: "PrEP",
+  pep: "PEP",
+  cd4: "CD4",
+  who: "WHO",
+  egfr: "eGFR",
+  crcl: "CrCl",
+  bmi: "BMI",
+  inr: "INR",
+};
+
 export function humanizeConcept(concept: string): string {
   const known: Record<string, string> = {
     ATRIAL_FIBRILLATION: "Atrial fibrillation",
@@ -27,7 +41,14 @@ export function humanizeConcept(concept: string): string {
     EGFR: "eGFR",
     CRCL: "CrCl",
   };
-  return known[concept] ?? concept.replaceAll("_", " ").toLowerCase();
+  if (known[concept]) return known[concept];
+  // Lower-case words, with the acronyms a clinician writes in capitals kept so.
+  return concept
+    .replaceAll("_", " ")
+    .toLowerCase()
+    .split(" ")
+    .map((word) => ACRONYMS[word] ?? word)
+    .join(" ");
 }
 
 /**
