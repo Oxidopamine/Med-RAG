@@ -37,7 +37,7 @@ SCOPE += [REPO_ROOT / "benchmarks" / "qdrant_compat" / "README.md"]
 # The checker never runs pytest itself: `main()` calls `recomputed_checks()` twice and
 # `test_stated_figures.py` runs the checker from inside pytest, so a collection here would
 # nest four full collections in every CI run.
-API_TEST_COUNT = "645"
+API_TEST_COUNT = "648"
 
 
 def _load(name: str) -> dict:
