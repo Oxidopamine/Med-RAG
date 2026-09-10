@@ -45,8 +45,11 @@ type AbstainedEntry = {
   note?: string;
 };
 
-type LoadedFile<T> = { name: string; data: T; summary: string };
-type BundleFile = { name: string; summary: string; renderFull: (evidenceId: string) => string | null };
+type LoadedFile<T> = { name: string; size: number; data: T; summary: string };
+type BundleFile = { name: string; size: number; summary: string; renderFull: (evidenceId: string) => string | null };
+
+type SlotKind = "production" | "closed_book" | "naive" | "questions" | "bundle" | "labels";
+type RunArm = "production" | "closed_book" | "naive";
 
 function humanize(value: string): string {
   const text = value.toLowerCase().replaceAll("_", " ");
@@ -56,6 +59,44 @@ function humanize(value: string): string {
 function clamp(index: number, total: number): number {
   if (total <= 0) return 0;
   return Math.min(Math.max(index, 0), total - 1);
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+/**
+ * What a dropped or picked file looks like, read the way `lib/labelling.ts` reads it: a
+ * run file carries a `results` array, a question set an `items` array, a release bundle
+ * an `evidence` array, and a label file `schema_version: 1` with a `records` object. The
+ * three run files share a shape, so the caller still needs the filename to tell them apart.
+ */
+function shapeKind(json: unknown): "run" | "questions" | "bundle" | "labels" | null {
+  if (!json || typeof json !== "object") return null;
+  const obj = json as Record<string, unknown>;
+  if (obj.schema_version === 1 && typeof obj.records === "object" && obj.records !== null) return "labels";
+  if (Array.isArray(obj.results)) return "run";
+  if (Array.isArray(obj.items)) return "questions";
+  if (Array.isArray(obj.evidence)) return "bundle";
+  return null;
+}
+
+/**
+ * Which run arm a run-shaped file belongs to: the filename first, since it is the only
+ * signal that distinguishes production from closed-book from naive; failing that, the
+ * first arm slot still empty, so an anonymous batch of three still lands somewhere sane.
+ */
+function armForRunFile(name: string, filled: Record<RunArm, boolean>): RunArm {
+  const lower = name.toLowerCase();
+  if (/naive/.test(lower)) return "naive";
+  if (/closed[_-]?book/.test(lower)) return "closed_book";
+  if (/production/.test(lower)) return "production";
+  if (!filled.production) return "production";
+  if (!filled.closed_book) return "closed_book";
+  if (!filled.naive) return "naive";
+  return "production";
 }
 
 function findClaim(records: LabelFile["records"], key: string, index: number): ClaimLabel | null {
@@ -147,13 +188,15 @@ function RadioGroup({
   onChange: (value: string) => void;
 }) {
   return (
-    <fieldset className={styles.radioGroup}>
+    <fieldset className={styles.fieldset}>
       <legend>{legend}</legend>
-      <div className={styles.radioRow}>
+      <div className={`${shellStyles.choices} ${styles.choicesInline}`}>
         {options.map((option) => (
-          <label key={option}>
+          <label className={shellStyles.choice} key={option}>
             <input checked={value === option} name={name} onChange={() => onChange(option)} type="radio" value={option} />
-            {humanize(option)}
+            <span className={shellStyles["choice-body"]}>
+              <strong>{humanize(option)}</strong>
+            </span>
           </label>
         ))}
       </div>
@@ -173,16 +216,20 @@ function YesNoGroup({
   onChange: (value: boolean) => void;
 }) {
   return (
-    <fieldset className={styles.radioGroup}>
+    <fieldset className={styles.fieldset}>
       <legend>{legend}</legend>
-      <div className={styles.radioRow}>
-        <label>
+      <div className={`${shellStyles.choices} ${styles.choicesInline}`}>
+        <label className={shellStyles.choice}>
           <input checked={value === true} name={name} onChange={() => onChange(true)} type="radio" value="yes" />
-          Yes
+          <span className={shellStyles["choice-body"]}>
+            <strong>Yes</strong>
+          </span>
         </label>
-        <label>
+        <label className={shellStyles.choice}>
           <input checked={value === false} name={name} onChange={() => onChange(false)} type="radio" value="no" />
-          No
+          <span className={shellStyles["choice-body"]}>
+            <strong>No</strong>
+          </span>
         </label>
       </div>
     </fieldset>
@@ -223,6 +270,130 @@ function EligibilitySelect({ value, onChange }: { value: string | null; onChange
         />
       )}
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------------------
+// Setup: the drop zone and the slot list
+// ---------------------------------------------------------------------------------------
+
+const SLOTS: Array<{ kind: SlotKind; title: string; required: boolean; hint: string }> = [
+  {
+    kind: "production",
+    title: "Production run",
+    required: true,
+    hint: "The arm every label file is built from. Required to start the census.",
+  },
+  {
+    kind: "closed_book",
+    title: "Closed-book run",
+    required: false,
+    hint: "Adds the closed-book arm to Pass A's concealed comparison.",
+  },
+  {
+    kind: "naive",
+    title: "Naive run",
+    required: false,
+    hint: "Adds the naive arm to Pass B's attribution records.",
+  },
+  {
+    kind: "questions",
+    title: "Question set",
+    required: false,
+    hint: "Supplies each question's gold statement.",
+  },
+  {
+    kind: "bundle",
+    title: "Release bundle",
+    required: false,
+    hint: "Supplies full passage text; without it, the census falls back to the run file and is not valid.",
+  },
+  {
+    kind: "labels",
+    title: "Existing label file",
+    required: false,
+    hint: "Resumes labelling from a label file already in progress.",
+  },
+];
+
+/** A single bordered drop target, with a hidden multi-file input for click and keyboard. */
+function FileDropZone({ onFiles }: { onFiles: (files: FileList) => void }) {
+  const [dragActive, setDragActive] = useState(false);
+
+  return (
+    <label
+      className={`${styles.dropzone} ${dragActive ? styles.dropzoneActive : ""}`}
+      htmlFor="census-file-input"
+      onDragLeave={() => setDragActive(false)}
+      onDragOver={(event) => {
+        event.preventDefault();
+        setDragActive(true);
+      }}
+      onDrop={(event) => {
+        event.preventDefault();
+        setDragActive(false);
+        if (event.dataTransfer.files.length) onFiles(event.dataTransfer.files);
+      }}
+    >
+      <strong>Drop census files here</strong>
+      <span className={shellStyles.muted}>
+        or choose files. Several at once is fine: each is routed to the slot it matches.
+      </span>
+      <input
+        accept="application/json"
+        className={shellStyles.srOnly}
+        id="census-file-input"
+        multiple
+        onChange={(event) => {
+          if (event.target.files?.length) onFiles(event.target.files);
+          event.target.value = "";
+        }}
+        type="file"
+      />
+    </label>
+  );
+}
+
+function SlotRow({
+  slot,
+  loaded,
+  onClear,
+}: {
+  slot: { kind: SlotKind; title: string; required: boolean; hint: string };
+  loaded: { name: string; size: number; summary: string } | null;
+  onClear: () => void;
+}) {
+  return (
+    <li className={styles.slotRow}>
+      <div className={styles.slotInfo}>
+        <p className={styles.slotTitle}>
+          {slot.title}
+          {slot.required && <span className={styles.requiredMark}> (required)</span>}
+        </p>
+        <p className={styles.slotHint}>{slot.hint}</p>
+      </div>
+      <div className={styles.slotState}>
+        {loaded ? (
+          <>
+            <p className={styles.slotFile}>
+              {loaded.name}
+              <span className={shellStyles.muted}>
+                {" "}
+                {formatBytes(loaded.size)}, {loaded.summary}
+              </span>
+            </p>
+            <span className={`${shellStyles.status} ${shellStyles.ok}`}>Loaded</span>
+            <button className={`${shellStyles.button} ${shellStyles.small}`} onClick={onClear} type="button">
+              Clear
+            </button>
+          </>
+        ) : (
+          <span className={`${shellStyles.status} ${slot.required ? shellStyles.warn : shellStyles.neutral}`}>
+            {slot.required ? "Required, not loaded" : "Not loaded"}
+          </span>
+        )}
+      </div>
+    </li>
   );
 }
 
@@ -785,19 +956,30 @@ export function LabellingWorkbench({
 } = {}) {
   const [productionFile, setProductionFile] = useState<LoadedFile<RunFile> | null>(() =>
     initialFiles?.production
-      ? { name: "production.json", data: initialFiles.production, summary: `${initialFiles.production.results.length} records` }
+      ? {
+          name: "production.json",
+          size: 0,
+          data: initialFiles.production,
+          summary: `${initialFiles.production.results.length} records`,
+        }
       : null,
   );
   const [closedBookFile, setClosedBookFile] = useState<LoadedFile<RunFile> | null>(null);
   const [naiveFile, setNaiveFile] = useState<LoadedFile<RunFile> | null>(null);
   const [questionFile, setQuestionFile] = useState<LoadedFile<QuestionSet> | null>(() =>
     initialFiles?.questions
-      ? { name: "questions.json", data: initialFiles.questions, summary: `${initialFiles.questions.items.length} questions` }
+      ? {
+          name: "questions.json",
+          size: 0,
+          data: initialFiles.questions,
+          summary: `${initialFiles.questions.items.length} questions`,
+        }
       : null,
   );
   const [bundleFile, setBundleFile] = useState<BundleFile | null>(null);
   const [existingLabelFile, setExistingLabelFile] = useState<LoadedFile<LabelFile> | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
+  const [fileAnnouncement, setFileAnnouncement] = useState<string | null>(null);
   const [shuffleSeed, setShuffleSeed] = useState(20260906);
   const [annotator, setAnnotator] = useState("");
   const [priorLabels, setPriorLabels] = useState<LabelFile | null>(() => (typeof window !== "undefined" ? loadLabels() : null));
@@ -824,63 +1006,97 @@ export function LabellingWorkbench({
     });
   }
 
-  async function handleFile(
-    event: React.ChangeEvent<HTMLInputElement>,
-    kind: "production" | "closed_book" | "naive" | "questions" | "bundle" | "labels",
-  ) {
-    const input = event.target;
-    const file = input.files?.[0] ?? null;
-    input.value = "";
-    if (!file) return;
-    try {
-      const text = await file.text();
-      const json = JSON.parse(text) as Record<string, unknown>;
-      if (kind === "production" || kind === "closed_book" || kind === "naive") {
-        if (!json || !Array.isArray(json.results)) throw new Error("expected a run file with a results array");
-        const entry: LoadedFile<RunFile> = {
-          name: file.name,
-          data: json as unknown as RunFile,
-          summary: `${(json.results as unknown[]).length} records`,
-        };
-        if (kind === "production") setProductionFile(entry);
-        else if (kind === "closed_book") setClosedBookFile(entry);
-        else setNaiveFile(entry);
-      } else if (kind === "questions") {
-        if (!json || !Array.isArray(json.items)) throw new Error("expected a question set with an items array");
-        setQuestionFile({
-          name: file.name,
-          data: json as unknown as QuestionSet,
-          summary: `${(json.items as unknown[]).length} questions`,
-        });
-      } else if (kind === "bundle") {
-        if (!json || !Array.isArray(json.evidence)) throw new Error("expected a release bundle with an evidence array");
-        const byId = new Map<string, { exact_text?: unknown; text?: unknown }>();
-        for (const record of json.evidence as unknown[]) {
-          if (record && typeof record === "object" && typeof (record as { evidence_id?: unknown }).evidence_id === "string") {
-            byId.set((record as { evidence_id: string }).evidence_id, record as { exact_text?: unknown; text?: unknown });
+  /**
+   * Reads every file in a drop or a picker selection, works out which slot each belongs
+   * in from its JSON shape and, for the three run files, its name, and assigns it. One
+   * bad file does not stop the rest: every failure is collected and reported together.
+   */
+  async function processFiles(fileList: FileList) {
+    const files = Array.from(fileList);
+    const errors: string[] = [];
+    const loaded: string[] = [];
+    const filled: Record<RunArm, boolean> = {
+      production: productionFile !== null,
+      closed_book: closedBookFile !== null,
+      naive: naiveFile !== null,
+    };
+
+    for (const file of files) {
+      try {
+        const text = await file.text();
+        const json = JSON.parse(text) as Record<string, unknown>;
+        const shape = shapeKind(json);
+        if (shape === "run") {
+          const arm = armForRunFile(file.name, filled);
+          filled[arm] = true;
+          const entry: LoadedFile<RunFile> = {
+            name: file.name,
+            size: file.size,
+            data: json as unknown as RunFile,
+            summary: `${(json.results as unknown[]).length} records`,
+          };
+          if (arm === "production") setProductionFile(entry);
+          else if (arm === "closed_book") setClosedBookFile(entry);
+          else setNaiveFile(entry);
+          loaded.push(`${file.name} as the ${humanize(arm).toLowerCase()} run`);
+        } else if (shape === "questions") {
+          setQuestionFile({
+            name: file.name,
+            size: file.size,
+            data: json as unknown as QuestionSet,
+            summary: `${(json.items as unknown[]).length} questions`,
+          });
+          loaded.push(`${file.name} as the question set`);
+        } else if (shape === "bundle") {
+          const byId = new Map<string, { exact_text?: unknown; text?: unknown }>();
+          for (const record of json.evidence as unknown[]) {
+            if (record && typeof record === "object" && typeof (record as { evidence_id?: unknown }).evidence_id === "string") {
+              byId.set((record as { evidence_id: string }).evidence_id, record as { exact_text?: unknown; text?: unknown });
+            }
           }
+          const renderFull = (id: string): string | null => {
+            const record = byId.get(id);
+            if (!record) return null;
+            if (typeof record.exact_text === "string") return record.exact_text;
+            if (typeof record.text === "string") return record.text;
+            return null;
+          };
+          setBundleFile({
+            name: file.name,
+            size: file.size,
+            summary: `${(json.evidence as unknown[]).length} passages`,
+            renderFull,
+          });
+          loaded.push(`${file.name} as the release bundle`);
+        } else if (shape === "labels") {
+          const records = (json.records as Record<string, unknown>) ?? {};
+          setExistingLabelFile({
+            name: file.name,
+            size: file.size,
+            data: json as unknown as LabelFile,
+            summary: `${Object.keys(records).length} records`,
+          });
+          loaded.push(`${file.name} as the existing label file`);
+        } else {
+          errors.push(`${file.name}: not a run file, question set, release bundle or label file`);
         }
-        const renderFull = (id: string): string | null => {
-          const record = byId.get(id);
-          if (!record) return null;
-          if (typeof record.exact_text === "string") return record.exact_text;
-          if (typeof record.text === "string") return record.text;
-          return null;
-        };
-        setBundleFile({ name: file.name, summary: `${(json.evidence as unknown[]).length} passages`, renderFull });
-      } else {
-        if (!json || json.schema_version !== 1) throw new Error("expected a label file with schema_version 1");
-        const records = (json.records as Record<string, unknown>) ?? {};
-        setExistingLabelFile({
-          name: file.name,
-          data: json as unknown as LabelFile,
-          summary: `${Object.keys(records).length} records`,
-        });
+      } catch (error) {
+        errors.push(`${file.name}: ${error instanceof Error ? error.message : "not valid JSON"}`);
       }
-      setFileError(null);
-    } catch (error) {
-      setFileError(`Could not read ${file.name}: ${error instanceof Error ? error.message : "the file is not valid JSON"}`);
     }
+
+    setFileError(errors.length ? errors.join(" ") : null);
+    setFileAnnouncement(loaded.length ? `Loaded ${loaded.join(", ")}.` : null);
+  }
+
+  function clearSlot(kind: SlotKind) {
+    if (kind === "production") setProductionFile(null);
+    else if (kind === "closed_book") setClosedBookFile(null);
+    else if (kind === "naive") setNaiveFile(null);
+    else if (kind === "questions") setQuestionFile(null);
+    else if (kind === "bundle") setBundleFile(null);
+    else setExistingLabelFile(null);
+    setFileAnnouncement(null);
   }
 
   function startCensus() {
@@ -926,6 +1142,7 @@ export function LabellingWorkbench({
     if (!priorLabels) return;
     setExistingLabelFile({
       name: "(an earlier session in this browser)",
+      size: 0,
       data: priorLabels,
       summary: `${Object.keys(priorLabels.records).length} records`,
     });
@@ -1076,6 +1293,18 @@ export function LabellingWorkbench({
     { id: "mislead", label: "Pass C, mislead" },
   ];
 
+  /** Attribution folds in abstention, since one tab holds both sections. */
+  const tabProgress: Partial<Record<"agreement" | "attribution" | "mislead", { done: number; total: number }>> = progress
+    ? {
+        agreement: { done: progress.agreement.done, total: progress.agreement.total },
+        attribution: {
+          done: progress.attribution.done + progress.abstention.done,
+          total: progress.attribution.total + progress.abstention.total,
+        },
+        mislead: { done: progress.mislead.done, total: progress.mislead.total },
+      }
+    : {};
+
   return (
     <>
       {priorLabels && !census && (
@@ -1094,71 +1323,70 @@ export function LabellingWorkbench({
 
       <section aria-labelledby="labelling-files">
         <h2 id="labelling-files">Files</h2>
+        <p className={shellStyles["section-lede"]}>
+          Drop every file the census needs at once, or add them one at a time. Each is routed to the slot it matches
+          by name and by shape; nothing here leaves the browser.
+        </p>
         {fileError && (
           <p className={shellStyles.notice} role="alert">
             {fileError}
           </p>
         )}
-        <div className={shellStyles.field}>
-          <label htmlFor="file-production">Production run (required)</label>
-          <input accept="application/json" id="file-production" onChange={(event) => void handleFile(event, "production")} type="file" />
-          <p className={shellStyles.muted}>{productionFile ? `${productionFile.name} — ${productionFile.summary}` : "Not loaded."}</p>
+        <p aria-live="polite" className={shellStyles.srOnly} role="status">
+          {fileAnnouncement}
+        </p>
+
+        <FileDropZone onFiles={(files) => void processFiles(files)} />
+
+        <ul className={styles.slotList}>
+          {SLOTS.map((slot) => (
+            <SlotRow
+              key={slot.kind}
+              loaded={
+                slot.kind === "production"
+                  ? productionFile
+                  : slot.kind === "closed_book"
+                    ? closedBookFile
+                    : slot.kind === "naive"
+                      ? naiveFile
+                      : slot.kind === "questions"
+                        ? questionFile
+                        : slot.kind === "bundle"
+                          ? bundleFile
+                          : existingLabelFile
+              }
+              onClear={() => clearSlot(slot.kind)}
+              slot={slot}
+            />
+          ))}
+        </ul>
+
+        <div className={styles.settingsRow}>
+          <div className={`${shellStyles.field} ${styles.seedField}`}>
+            <label htmlFor="shuffle-seed">Shuffle seed</label>
+            <input
+              className={shellStyles["text-input"]}
+              id="shuffle-seed"
+              onChange={(event) => {
+                const value = Math.trunc(Number(event.target.value));
+                setShuffleSeed(Number.isFinite(value) ? Math.min(4294967295, Math.max(0, value)) : 0);
+              }}
+              type="number"
+              value={shuffleSeed}
+            />
+          </div>
+          <div className={`${shellStyles.field} ${styles.annotatorField}`}>
+            <label htmlFor="annotator-name">Annotator</label>
+            <input
+              className={shellStyles["text-input"]}
+              id="annotator-name"
+              onChange={(event) => setAnnotator(event.target.value)}
+              type="text"
+              value={annotator}
+            />
+          </div>
         </div>
-        <div className={shellStyles.field}>
-          <label htmlFor="file-closed-book">Closed-book run</label>
-          <input
-            accept="application/json"
-            id="file-closed-book"
-            onChange={(event) => void handleFile(event, "closed_book")}
-            type="file"
-          />
-          <p className={shellStyles.muted}>{closedBookFile ? `${closedBookFile.name} — ${closedBookFile.summary}` : "Not loaded."}</p>
-        </div>
-        <div className={shellStyles.field}>
-          <label htmlFor="file-naive">Naive run</label>
-          <input accept="application/json" id="file-naive" onChange={(event) => void handleFile(event, "naive")} type="file" />
-          <p className={shellStyles.muted}>{naiveFile ? `${naiveFile.name} — ${naiveFile.summary}` : "Not loaded."}</p>
-        </div>
-        <div className={shellStyles.field}>
-          <label htmlFor="file-questions">Question set</label>
-          <input accept="application/json" id="file-questions" onChange={(event) => void handleFile(event, "questions")} type="file" />
-          <p className={shellStyles.muted}>{questionFile ? `${questionFile.name} — ${questionFile.summary}` : "Not loaded."}</p>
-        </div>
-        <div className={shellStyles.field}>
-          <label htmlFor="file-bundle">Release bundle</label>
-          <input accept="application/json" id="file-bundle" onChange={(event) => void handleFile(event, "bundle")} type="file" />
-          <p className={shellStyles.muted}>{bundleFile ? `${bundleFile.name} — ${bundleFile.summary}` : "Not loaded."}</p>
-        </div>
-        <div className={shellStyles.field}>
-          <label htmlFor="file-labels">Existing label file</label>
-          <input accept="application/json" id="file-labels" onChange={(event) => void handleFile(event, "labels")} type="file" />
-          <p className={shellStyles.muted}>
-            {existingLabelFile ? `${existingLabelFile.name} — ${existingLabelFile.summary}` : "Not loaded."}
-          </p>
-        </div>
-        <div className={shellStyles.field}>
-          <label htmlFor="shuffle-seed">Shuffle seed</label>
-          <input
-            className={styles.numberInput}
-            id="shuffle-seed"
-            onChange={(event) => {
-              const value = Math.trunc(Number(event.target.value));
-              setShuffleSeed(Number.isFinite(value) ? Math.min(4294967295, Math.max(0, value)) : 0);
-            }}
-            type="number"
-            value={shuffleSeed}
-          />
-        </div>
-        <div className={shellStyles.field}>
-          <label htmlFor="annotator-name">Annotator</label>
-          <input
-            className={shellStyles["text-input"]}
-            id="annotator-name"
-            onChange={(event) => setAnnotator(event.target.value)}
-            type="text"
-            value={annotator}
-          />
-        </div>
+
         <div className={shellStyles.actions}>
           <button
             className={`${shellStyles.button} ${shellStyles.primary}`}
@@ -1168,6 +1396,7 @@ export function LabellingWorkbench({
           >
             Start the census
           </button>
+          {!productionFile && <span className={shellStyles.muted}>Load the production run to continue.</span>}
         </div>
         {keyMismatch !== null && keyMismatch > 0 && (
           <p className={shellStyles.notice} role="alert">
@@ -1216,20 +1445,28 @@ export function LabellingWorkbench({
           <section aria-labelledby="labelling-passes">
             <h2 id="labelling-passes">Passes</h2>
             <div aria-label="Labelling passes" className={styles.tablist} role="tablist">
-              {tabs.map((tab) => (
-                <button
-                  aria-controls={`panel-${tab.id}`}
-                  aria-selected={activeTab === tab.id}
-                  className={styles.tab}
-                  id={`tab-${tab.id}`}
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  role="tab"
-                  type="button"
-                >
-                  {tab.label}
-                </button>
-              ))}
+              {tabs.map((tab) => {
+                const stat = tabProgress[tab.id];
+                return (
+                  <button
+                    aria-controls={`panel-${tab.id}`}
+                    aria-selected={activeTab === tab.id}
+                    className={styles.tab}
+                    id={`tab-${tab.id}`}
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id)}
+                    role="tab"
+                    type="button"
+                  >
+                    {tab.label}
+                    {stat && (
+                      <span className={styles.tabProgress}>
+                        {stat.done} / {stat.total}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
             </div>
             <div aria-labelledby={`tab-${activeTab}`} id={`panel-${activeTab}`} role="tabpanel">
               {activeTab === "agreement" && (

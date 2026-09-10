@@ -1,0 +1,298 @@
+/*
+ * Page-specific rules for Methods, Settings and About.
+ *
+ * The shared control kit (page frame, prose, cards, form controls) lives in
+ * components/shell/shell.module.css and is imported as `shell` alongside this module.
+ * Only what is genuinely these three pages' own lives here: the methods contents rail and
+ * pipeline diagram, the settings text-size preview, and the about page's grid.
+ */
+
+/* ============================================================ methods: layout */
+
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--s-6) var(--s-8);
+  align-items: start;
+}
+
+@media (min-width: 1000px) {
+  .layout {
+    grid-template-columns: 220px minmax(0, 1fr);
+  }
+}
+
+.toc {
+  min-width: 0;
+  padding-bottom: var(--s-5);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.toc-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-1);
+}
+
+.toc-list a {
+  display: block;
+  padding: var(--s-2) var(--s-3);
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  font-size: var(--t-sm);
+  font-weight: var(--w-medium);
+  white-space: nowrap;
+  text-decoration: none;
+}
+
+.toc-list a:hover {
+  color: var(--text-strong);
+  background: var(--bg-sunk);
+  text-decoration: none;
+}
+
+@media (min-width: 1000px) {
+  .toc {
+    position: sticky;
+    top: calc(var(--header-h) + var(--s-6));
+    padding-bottom: 0;
+    border-bottom: 0;
+  }
+
+  .toc-list {
+    flex-direction: column;
+    flex-wrap: nowrap;
+    gap: 1px;
+    padding-left: var(--s-3);
+    border-left: 2px solid var(--border-subtle);
+  }
+
+  .toc-list a {
+    white-space: normal;
+  }
+}
+
+.content {
+  min-width: 0;
+}
+
+.content section {
+  scroll-margin-top: calc(var(--header-h) + var(--s-4));
+}
+
+.content section:first-child {
+  margin-top: 0;
+}
+
+/* ============================================================ methods: pipeline diagram */
+
+.pipeline {
+  margin: var(--s-4) 0 var(--s-6);
+  padding: var(--s-5);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-xs);
+  overflow-x: auto;
+}
+
+.pipeline-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-2);
+}
+
+.pipeline-step {
+  flex: 0 0 auto;
+  min-width: 104px;
+  padding: var(--s-3);
+  display: grid;
+  gap: 2px;
+  justify-items: center;
+  text-align: center;
+  background: var(--bg-canvas);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+
+.pipeline-num {
+  color: var(--text-faint);
+  font-size: var(--t-2xs);
+  font-weight: var(--w-semibold);
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+}
+
+.pipeline-label {
+  color: var(--text-strong);
+  font-size: var(--t-sm);
+  font-weight: var(--w-medium);
+  line-height: 1.3;
+}
+
+.pipeline-connector {
+  flex: 1 1 20px;
+  min-width: 16px;
+  max-width: 32px;
+  height: 2px;
+  background: var(--border-strong);
+}
+
+.pipeline-fork {
+  flex: 0 0 auto;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-3);
+  padding-left: var(--s-2);
+  border-left: 2px solid var(--border-strong);
+}
+
+.pipeline-branch {
+  display: grid;
+  gap: 2px;
+}
+
+.pipeline-branch-tag {
+  color: var(--text-faint);
+  font-size: var(--t-2xs);
+  font-weight: var(--w-semibold);
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+}
+
+.pipeline-step-abstain {
+  background: var(--bg-sunk);
+  border-style: dashed;
+  border-color: var(--border-strong);
+}
+
+.pipeline-step-abstain .pipeline-label {
+  color: var(--text-muted);
+}
+
+@media (max-width: 700px) {
+  .pipeline {
+    padding: var(--s-4) var(--s-3);
+  }
+
+  .pipeline-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .pipeline-step {
+    min-width: 0;
+  }
+
+  .pipeline-connector {
+    width: 2px;
+    max-width: none;
+    height: 20px;
+    margin: 0 auto;
+  }
+
+  .pipeline-fork {
+    flex-direction: column;
+    align-items: stretch;
+    padding-left: 0;
+    padding-top: var(--s-2);
+    border-left: 0;
+    border-top: 2px solid var(--border-strong);
+  }
+}
+
+/* ============================================================ methods: glossary */
+
+.glossary {
+  margin: 0;
+}
+
+.glossary-row {
+  padding: var(--s-4) 0;
+  display: grid;
+  gap: var(--s-1) var(--s-5);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.glossary-row:first-child {
+  padding-top: 0;
+}
+
+.glossary-row:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.glossary-row dt {
+  color: var(--text-strong);
+  font-weight: var(--w-medium);
+}
+
+.glossary-row dd {
+  margin: 0;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+@media (min-width: 640px) {
+  .glossary-row {
+    grid-template-columns: 200px minmax(0, 1fr);
+    align-items: baseline;
+  }
+}
+
+/* ============================================================ settings */
+
+.scale-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--s-6);
+}
+
+.scale-choices {
+  flex: 1 1 260px;
+  margin: 0;
+}
+
+.scale-preview {
+  flex: 1 1 220px;
+  min-width: 0;
+  padding: var(--s-4) var(--s-5);
+  display: grid;
+  gap: var(--s-2);
+  align-content: start;
+  background: var(--bg-canvas);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+}
+
+.scale-preview-label {
+  color: var(--text-muted);
+  font-size: var(--t-xs);
+  font-weight: var(--w-medium);
+}
+
+.scale-preview-sample {
+  color: var(--text-primary);
+  line-height: 1.6;
+}
+
+.scale-preview-sample[data-scale="large"] {
+  font-size: 112.5%;
+}
+
+.scale-preview-sample[data-scale="larger"] {
+  font-size: 125%;
+}
+
+/* ============================================================ not-found */
+
+.not-found-actions {
+  margin-top: var(--s-2);
+}

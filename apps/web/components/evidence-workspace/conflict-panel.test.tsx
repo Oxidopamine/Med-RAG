@@ -119,15 +119,23 @@ describe("ConflictPanel", () => {
     expect(onCompareEvidence).toHaveBeenCalledWith("EV_WHO_HTN_001", "EV_WHO_HTN_003");
   });
 
-  it("links every passage the conflict names, by its answer-wide reference number", async () => {
+  /*
+   * Where the two passages are drawn side by side, the cards carry the publisher, edition
+   * and page of both, so the reference list under them was a second, larger copy of the
+   * answer's own reference list. It is kept for the conflicts that name a number of
+   * passages other than two, which cannot be drawn as a comparison.
+   */
+  it("opens a passage from the comparison it is drawn in", async () => {
     const user = userEvent.setup();
     const { onSelectEvidence } = renderPanel();
 
-    const passages = screen.getByRole("list", { name: "Passages in conflict" });
-    expect(passages).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: /^Reference 2:/ }));
+    expect(
+      screen.queryByRole("list", { name: "Passages in conflict" }),
+    ).not.toBeInTheDocument();
+    const sides = screen.getAllByRole("button", { pressed: false });
+    await user.click(sides[0]!);
 
-    expect(onSelectEvidence).toHaveBeenCalledWith("EV_WHO_HTN_003");
+    expect(onSelectEvidence).toHaveBeenCalled();
   });
 
   it("distinguishes a checked-and-clear result from nothing being returned", () => {

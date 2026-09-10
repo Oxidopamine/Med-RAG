@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import Link from "next/link";
+import { useEffect, useState, type ReactNode } from "react";
 
 import { getCorpusReadiness } from "@/lib/api";
 import { withRetries } from "@/lib/readiness";
@@ -25,7 +26,13 @@ function readiness(): Promise<CorpusReadiness> {
   return shared;
 }
 
-export function ReleaseChip({ prefix = "Release" }: { prefix?: string }) {
+export function ReleaseChip({
+  prefix = "Release",
+  href,
+}: {
+  prefix?: string;
+  href?: string;
+}) {
   const [state, setState] = useState<CorpusReadiness | "checking" | "unreachable">("checking");
 
   useEffect(() => {
@@ -42,20 +49,31 @@ export function ReleaseChip({ prefix = "Release" }: { prefix?: string }) {
     };
   }, []);
 
-  if (state === "checking") {
-    return <span className={styles.release}>Checking release</span>;
-  }
-  if (state === "unreachable") {
-    return <span className={`${styles.release} ${styles.none}`}>Evidence service not reached</span>;
-  }
-  if (!state.corpus_release_id) {
-    return <span className={`${styles.release} ${styles.none}`}>No active release</span>;
-  }
+  /** The chip is a link wherever it can lead somewhere: the release is a page. */
+  const chip = (tone: string, body: ReactNode, title?: string) => {
+    const className = `${styles.release} ${tone}`.trim();
+    return href ? (
+      <Link className={className} href={href} title={title}>
+        {body}
+      </Link>
+    ) : (
+      <span className={className} title={title}>
+        {body}
+      </span>
+    );
+  };
+
+  if (state === "checking") return chip("", "Checking release");
+  if (state === "unreachable") return chip(styles.none, "Evidence service not reached");
+  if (!state.corpus_release_id) return chip(styles.none, "No active release");
+
   const tone = state.serving_mode === "ACTIVATED" ? styles.approved : styles.research;
-  return (
-    <span className={`${styles.release} ${tone}`} title={state.corpus_release_id}>
+  return chip(
+    tone,
+    <>
       {prefix} <strong>{state.corpus_release_id}</strong>
       {state.serving_mode === "RESEARCH_UNACTIVATED" ? " (research)" : ""}
-    </span>
+    </>,
+    state.corpus_release_id,
   );
 }

@@ -160,7 +160,11 @@ function ConflictCard({
         </button>
       ) : null}
 
-      {conflict.citations.length ? (
+      {/* The reference list is dropped where the comparison is drawn: the two cards
+          above already carry the publisher, edition and page of both passages, and
+          repeating them underneath produced a second, larger reference list directly
+          below the answer's own. */}
+      {!compared && conflict.citations.length ? (
         <ul className={styles["conflict-citations"]} aria-label="Passages in conflict">
           {conflict.citations.map((citation) => (
             <li key={citation.detail.evidence_id}>

@@ -486,11 +486,16 @@ test("renders an actionable fail-closed abstention without an empty source viewe
   await ask(page);
 
   await expect(page.getByRole("heading", { name: "Answer" })).toBeVisible();
-  await expect(page.getByText("No answer", { exact: true })).toBeVisible();
+  await expect(
+    page.getByLabel("Answer").getByText("No answer", { exact: true }),
+  ).toBeVisible();
   await expect(page.getByText("No approved guideline corpus is active")).toBeVisible();
+  // The service sends "No approved guideline corpus is configured", which is the
+  // headline above it in different words. It is not repeated in the lead; it stays
+  // reachable under Details.
   await expect(
     page.getByLabel("Answer").getByText("No approved guideline corpus is configured."),
-  ).toBeVisible();
+  ).toBeHidden();
   // A retry cannot change a structural abstention, so none is offered.
   await expect(page.getByRole("button", { name: "Try again" })).toHaveCount(0);
   await expect(page.getByRole("group", { name: "Interpreted context" })).toBeVisible();
@@ -499,9 +504,12 @@ test("renders an actionable fail-closed abstention without an empty source viewe
   await expect(page.getByRole("heading", { name: /Exact guideline|Evidence provenance/ })).toHaveCount(
     0,
   );
-  await expect(page.getByText("Answer withheld by the checks", { exact: true })).toBeVisible();
+  await expect(
+    page.getByRole("region", { name: "Checks" }).getByRole("status"),
+  ).toHaveText("No answer");
 
-  await expect(page.getByText(/The review could not verify: Current primary guideline/)).toBeVisible();
+  await expect(page.getByText("Could not verify")).toBeVisible();
+  await expect(page.getByText("Current primary guideline", { exact: true })).toBeVisible();
   // The reason code is for support, behind the disclosure.
   await page.getByLabel("Answer").getByText("Details", { exact: true }).click();
   await expect(page.getByText("NO_APPROVED_CORPUS", { exact: true })).toBeVisible();
@@ -625,8 +633,11 @@ test("connects verified claims to exact and restricted source evidence", async (
 
   // The five checks and what each concluded stay on screen with the answer.
   const checks = page.getByRole("region", { name: "Checks" });
-  await expect(checks.getByText("Answer checked", { exact: true })).toBeVisible();
-  await expect(checks.getByText("Passed", { exact: true }).first()).toBeVisible();
+  const answerCheck = checks.getByRole("listitem").last();
+  await expect(answerCheck).toContainText("Answer");
+  await expect(answerCheck).toContainText("Passed");
+  await checks.getByText("Log", { exact: true }).click();
+  await expect(checks.getByRole("cell", { name: "Answer checked" })).toBeVisible();
 
   await page.getByRole("button", { name: "Dismiss success message" }).click();
   await expect(page.getByText("Evidence review ready", { exact: true })).toHaveCount(0);
@@ -649,7 +660,9 @@ test("presents a calm request error and retries the same request", async ({ page
   await expect(page.getByRole("button", { name: "Dismiss error message" })).toBeVisible();
 
   await error.getByRole("button", { name: "Try again" }).click();
-  await expect(page.getByText("No answer", { exact: true })).toBeVisible();
+  await expect(
+    page.getByLabel("Answer").getByText("No answer", { exact: true }),
+  ).toBeVisible();
   await expect(error).toHaveCount(0);
   expect(run.attempts()).toBe(2);
   expect(run.submittedBodies[1]).toEqual(run.submittedBodies[0]);
@@ -661,8 +674,12 @@ test("falls back to polling when the progress stream is unavailable", async ({ p
   await page.goto("/");
   await ask(page);
 
-  await expect(page.getByText("No answer", { exact: true })).toBeVisible();
-  await expect(page.getByText("Answer withheld by the checks", { exact: true })).toBeVisible();
+  await expect(
+    page.getByLabel("Answer").getByText("No answer", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("region", { name: "Checks" }).getByRole("status"),
+  ).toHaveText("No answer");
 });
 
 test("fills the composer from the question bank without submitting", async ({ page }) => {

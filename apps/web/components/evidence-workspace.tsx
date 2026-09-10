@@ -78,6 +78,16 @@ export function EvidenceWorkspace({
   /** Whether the inspector has been given the whole workspace to itself. */
   const [focusMode, setFocusMode] = useState(false);
   const [corpusStatus, setCorpusStatus] = useState<CorpusStatus>(INITIAL_CORPUS_STATUS);
+  /*
+   * Whether the question form is open while a result is on screen.
+   *
+   * A finished review is about its question, not about the form that asked it, so the
+   * form folds into a one-line header once an answer exists. It reopens on request and is
+   * folded again the moment a new run is accepted, which is why this is set in the submit
+   * path rather than in an effect: a synchronous setState in an effect is a lint error
+   * here, and deriving it from the run would flicker the form open between two results.
+   */
+  const [composerOpen, setComposerOpen] = useState(false);
   const [transientFeedback, setTransientFeedback] = useState<TransientFeedback | null>(null);
   const feedbackTimerRef = useRef<number | null>(null);
   const previousLifecycleRef = useRef("idle");
@@ -502,10 +512,26 @@ export function EvidenceWorkspace({
   const shouldShowGettingStarted =
     run.lifecycle === "idle" ||
     ((run.lifecycle === "cancelled" || run.lifecycle === "failed") && !workspaceResult);
+  const showComposer = !workspaceResult || composerOpen;
+
+  async function submitAndFold(
+    submitted: string,
+    filters: SourceFilters,
+  ): Promise<boolean> {
+    const accepted = await run.submit(submitted, filters);
+    if (accepted) setComposerOpen(false);
+    return accepted;
+  }
+
+  function openComposer(clear: boolean) {
+    if (clear) setQuestion("");
+    setComposerOpen(true);
+  }
 
   return (
     <div className={styles.appShell}>
       <main className={shouldShowGettingStarted ? styles["start-grid"] : undefined} id="main-content">
+        {showComposer ? (
         <QuestionComposer
           isRunning={run.isRunning}
           // Accepted here, not yet by the server: the run is live but has no identifier
@@ -516,11 +542,18 @@ export function EvidenceWorkspace({
           onChange={setQuestion}
           onSourceFiltersChange={setSourceFilters}
           onStopWaiting={run.stopWaiting}
-          onSubmit={run.submit}
+          onSubmit={submitAndFold}
           question={question}
           showExamples={shouldShowGettingStarted}
           sourceFilters={sourceFilters}
         />
+        ) : workspaceResult ? (
+          <ReviewHeader
+            onEdit={() => openComposer(false)}
+            onNewReview={() => openComposer(true)}
+            question={workspaceResult.question}
+          />
+        ) : null}
 
         {workspaceResult ? (
           <ContextChips
@@ -629,6 +662,37 @@ export function EvidenceWorkspace({
         />
       ) : null}
     </div>
+  );
+}
+
+/**
+ * The question a finished review answered, as the page's headline.
+ *
+ * Before this, the form that asked the question stayed at full size above every result,
+ * so the loudest thing on a completed review was the button that had already been
+ * pressed. The question itself is the subject of the page; the form is a way back to it.
+ */
+function ReviewHeader({
+  onEdit,
+  onNewReview,
+  question,
+}: {
+  onEdit: () => void;
+  onNewReview: () => void;
+  question: string;
+}) {
+  return (
+    <section className={styles["review-header"]} aria-labelledby="composer-heading">
+      <h1 id="composer-heading">{question}</h1>
+      <div className={styles["review-header-actions"]}>
+        <button type="button" onClick={onEdit}>
+          Edit question
+        </button>
+        <button className={styles["review-header-new"]} type="button" onClick={onNewReview}>
+          New review
+        </button>
+      </div>
+    </section>
   );
 }
 

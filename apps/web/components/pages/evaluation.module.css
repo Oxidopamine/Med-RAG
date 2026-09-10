@@ -1,12 +1,24 @@
+/*
+ * Charts and headline figures for the Evaluation page.
+ *
+ * Two chart forms live here: a dot plot (arm-chart.tsx) for near-equal magnitudes on a
+ * shared axis, and a line chart (power-curve.tsx) for a curve that used to be a single
+ * table row. Both draw a mandatory axis - baseline, ticks, faint gridlines, a unit in the
+ * axis label - because a mark with no axis is a decoration, not a chart. Neither animates:
+ * nothing here uses `transition` or `animation` on a data mark, so the global
+ * prefers-reduced-motion rule in app/globals.css has nothing to suppress.
+ */
+
+/* ============================================================ figure shell */
+
 .figure {
   margin: 0 0 var(--s-6);
-  position: relative;
-  max-width: 640px;
 }
 
 .chart {
   width: 100%;
   height: auto;
+  max-height: 420px;
   display: block;
   font-family: var(--font-sans), system-ui, sans-serif;
 }
@@ -19,38 +31,16 @@
   fill: transparent;
 }
 
-.chart g:focus-visible .hit {
+.chart g:focus-visible .hit,
+.chart g:hover .hit {
   fill: var(--bg-sunk);
 }
 
-.rowLabel {
-  fill: var(--text-primary);
-  font-size: 13px;
-}
-
-.baseline {
-  stroke: var(--border-subtle);
-  stroke-width: 1;
-}
-
-.bar {
-  fill: var(--c-600);
-}
-
-.barActive {
-  fill: var(--c-700);
-}
-
-.value {
-  fill: var(--text-strong);
-  font-size: 13px;
-  font-weight: 500;
-  font-variant-numeric: tabular-nums;
-}
-
-.valueMuted {
-  fill: var(--text-muted);
-  font-weight: 400;
+.caption {
+  margin-top: var(--s-2);
+  color: var(--text-muted);
+  font-size: var(--t-xs);
+  line-height: 1.6;
 }
 
 .tooltip {
@@ -66,8 +56,138 @@
   font-size: var(--t-xs);
 }
 
-.caption {
-  margin-top: var(--s-2);
+/* ============================================================ shared axis marks */
+
+.gridline {
+  stroke: var(--border-subtle);
+  stroke-width: 1;
+}
+
+.axis {
+  stroke: var(--border-strong);
+  stroke-width: 1;
+}
+
+.tickLabel {
+  fill: var(--text-muted);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.axisLabel {
+  fill: var(--text-muted);
+  font-size: 11px;
+  font-weight: var(--w-medium);
+  letter-spacing: var(--track-label);
+}
+
+/* ============================================================ arm chart (dot plot) */
+
+.rowLabel {
+  fill: var(--text-primary);
+  font-size: 13px;
+}
+
+.dotAccent {
+  fill: var(--accent);
+}
+
+.dotNeutral {
+  fill: var(--text-secondary);
+}
+
+.dotActive {
+  fill: var(--accent-strong);
+}
+
+.dotValue {
+  fill: var(--text-strong);
+  font-size: 12px;
+  font-weight: var(--w-medium);
+  font-variant-numeric: tabular-nums;
+}
+
+.whisker {
+  stroke: var(--text-faint);
+  stroke-width: 2;
+}
+
+/* ============================================================ power curve (line chart) */
+
+.line {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2;
+}
+
+.point {
+  fill: var(--accent);
+}
+
+.reference {
+  stroke: var(--text-faint);
+  stroke-width: 1;
+  stroke-dasharray: 4 3;
+}
+
+.referenceLabel {
+  fill: var(--text-muted);
+  font-size: 11px;
+}
+
+.marker {
+  fill: var(--accent-strong);
+  stroke: var(--bg-surface);
+  stroke-width: 2;
+}
+
+.markerLabel {
+  fill: var(--text-strong);
+  font-size: 12px;
+  font-weight: var(--w-medium);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ============================================================ the one stat component */
+
+/*
+ * "Value, unit, interval" in one place: the value is the large number, the unit sits
+ * small beside it, and anything second (a confidence interval, an "of N" total) drops to
+ * its own line at label size. Used everywhere a headline figure appears, so a percentage,
+ * a 95% interval and a plain count never again share one line at three different sizes.
+ */
+.stat {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+
+.statValue {
+  color: var(--text-strong);
+  font-size: var(--t-xl);
+  font-weight: var(--w-semibold);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: var(--track-snug);
+  line-height: 1.2;
+}
+
+.statUnit {
+  margin-left: 3px;
+  color: var(--text-muted);
+  font-size: var(--t-sm);
+  font-weight: var(--w-regular);
+}
+
+.statNote {
   color: var(--text-muted);
   font-size: var(--t-xs);
+  font-weight: var(--w-regular);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ============================================================ page helpers */
+
+.detailsTable {
+  margin-top: var(--s-3);
 }

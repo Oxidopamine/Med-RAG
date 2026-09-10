@@ -1,0 +1,18 @@
+/*
+ * Page-specific rules for the corpus catalogue.
+ *
+ * Everything else here comes from the shared control kit (`shell.module.css`): the stat
+ * band, the table shell, status marks, the empty state and the details disclosure. This
+ * file only adds what the kit genuinely has no class for.
+ */
+
+/*
+ * A handful of table cells carry short, structured content — a date range, a status
+ * mark, a count, an identifier — that must never wrap onto a second line. Wrapping is
+ * what made a two-row table as tall as a paragraph; the title (and scope) columns keep
+ * the kit's default wrapping behaviour because they hold the one field that has the
+ * slack to spare.
+ */
+.nowrap {
+  white-space: nowrap;
+}

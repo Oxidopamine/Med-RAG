@@ -1,3 +1,13 @@
+/*
+ * The shell and the shared control kit.
+ *
+ * Every page frame, table, form control, status mark and stat band in the product is
+ * defined once here. Pages import this module and add only what is genuinely their own.
+ * Nothing native ships unstyled: a select, a radio, a checkbox and a file input each have
+ * a rule below, because a browser default in the middle of a designed page is the loudest
+ * thing on the screen.
+ */
+
 /* ============================================================ skip link */
 
 .skip-link {
@@ -41,12 +51,12 @@
   padding: 0 var(--s-6);
   display: flex;
   align-items: center;
-  gap: var(--s-6);
+  gap: var(--s-5);
 }
 
 .brand {
   min-width: 0;
-  min-height: var(--control-min);
+  min-height: var(--control-sm);
   display: inline-flex;
   align-items: center;
   gap: var(--s-2);
@@ -59,18 +69,19 @@
 }
 
 .brand-mark {
-  width: 26px;
-  height: 26px;
+  width: 28px;
+  height: 28px;
   display: grid;
   place-items: center;
   color: var(--ink-on);
   background: var(--ink);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-ink);
 }
 
 .brand-mark svg {
-  width: 15px;
-  height: 15px;
+  width: 16px;
+  height: 16px;
 }
 
 .brand-name {
@@ -80,154 +91,233 @@
   white-space: nowrap;
 }
 
-/* The navigation is a row of words. The active one carries a rule in the accent, which
-   is the only place the accent appears in the chrome. */
+/*
+ * The navigation is a segmented row. The current page carries a filled ground rather than
+ * a rule: a 2px accent underline outweighed every other mark in the chrome, and the fill
+ * reads as "you are here" at a glance without competing with the page beneath it.
+ */
 .nav {
   display: flex;
-  align-items: stretch;
-  gap: var(--s-1);
-  height: var(--header-h);
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
 }
 
 .nav a {
+  height: var(--control-sm);
   padding: 0 var(--s-3);
   display: inline-flex;
   align-items: center;
+  border-radius: var(--radius-md);
   color: var(--text-secondary);
   font-size: var(--t-sm);
   font-weight: var(--w-medium);
+  white-space: nowrap;
   text-decoration: none;
-  border-bottom: 2px solid transparent;
-  border-top: 2px solid transparent;
+  transition: background-color 120ms ease, color 120ms ease;
 }
 
 .nav a:hover {
   color: var(--text-strong);
+  background: var(--bg-sunk);
   text-decoration: none;
 }
 
 .nav a[aria-current="page"] {
   color: var(--text-strong);
-  border-bottom-color: var(--accent);
+  background: var(--bg-inset);
+  font-weight: var(--w-semibold);
 }
 
 .header-side {
   margin-left: auto;
   display: flex;
   align-items: center;
-  gap: var(--s-4);
+  gap: var(--s-2);
 }
 
-/* The served release, as a fact in the bar. */
+/* The served release, as a chip that opens the corpus rather than a decorative dot. */
 .release {
+  height: var(--control-sm);
+  padding: 0 var(--s-3);
   display: inline-flex;
   align-items: center;
   gap: 7px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
   color: var(--text-secondary);
   font-size: var(--t-xs);
   white-space: nowrap;
+  text-decoration: none;
+}
+
+a.release:hover {
+  border-color: var(--border-strong);
+  text-decoration: none;
 }
 
 .release::before {
   content: "";
-  width: 8px;
-  height: 8px;
+  width: 7px;
+  height: 7px;
+  flex: 0 0 auto;
   border-radius: 50%;
   background: var(--text-faint);
 }
 
 .release.approved::before {
   background: var(--ok-mark);
+  box-shadow: 0 0 0 3px var(--ok-wash);
 }
 
 .release.research::before {
   background: var(--warn-mark);
+  box-shadow: 0 0 0 3px var(--warn-wash);
 }
 
 .release.none::before {
   background: var(--danger-mark);
+  box-shadow: 0 0 0 3px var(--danger-wash);
 }
 
 .release strong {
   color: var(--text-primary);
   font-weight: var(--w-medium);
+  font-variant-numeric: tabular-nums;
 }
 
 .settings-link {
+  height: var(--control-sm);
+  padding: 0 var(--s-3);
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border-radius: var(--radius-md);
   color: var(--text-secondary);
   font-size: var(--t-sm);
   font-weight: var(--w-medium);
+  text-decoration: none;
 }
 
-/* Phone: the navigation folds into a native disclosure under the bar. */
+.settings-link svg {
+  width: 15px;
+  height: 15px;
+  opacity: 0.8;
+}
+
+.settings-link:hover {
+  color: var(--text-strong);
+  background: var(--bg-sunk);
+  text-decoration: none;
+}
+
+.settings-link[aria-current="page"] {
+  color: var(--text-strong);
+  background: var(--bg-inset);
+}
+
+/*
+ * Phone: the navigation folds into a disclosure whose button sits *inside* the bar. It
+ * used to sit under the bar on the page background, where it read as a stray link rather
+ * than as the way to reach the product.
+ */
 .drawer {
   display: none;
 }
 
-@media (max-width: 860px) {
+.drawer summary {
+  width: var(--control-min);
+  height: var(--control-min);
+  display: inline-grid;
+  place-items: center;
+  list-style: none;
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.drawer summary::-webkit-details-marker {
+  display: none;
+}
+
+.drawer summary::before {
+  content: "";
+  width: 16px;
+  height: 2px;
+  border-radius: 2px;
+  background: currentColor;
+  box-shadow:
+    0 -5px 0 currentColor,
+    0 5px 0 currentColor;
+}
+
+.drawer[open] summary {
+  background: var(--bg-inset);
+}
+
+@media (max-width: 900px) {
   .nav {
     display: none;
   }
 
   .drawer {
     display: block;
-    width: min(var(--shell-max), 100%);
-    margin: 0 auto;
-    padding: 0 var(--s-4) var(--s-2);
   }
 
-  .drawer summary {
-    min-height: var(--control-min);
-    display: inline-flex;
-    align-items: center;
-    gap: var(--s-2);
-    list-style: none;
-    color: var(--text-secondary);
-    font-size: var(--t-sm);
-    font-weight: var(--w-medium);
-    cursor: pointer;
-  }
-
-  .drawer summary::-webkit-details-marker {
-    display: none;
-  }
-
-  .drawer summary::before {
-    content: "";
-    width: 14px;
-    height: 2px;
-    background: currentColor;
-    box-shadow:
-      0 -5px 0 currentColor,
-      0 5px 0 currentColor;
-  }
-
-  .drawer nav {
+  .drawer > nav {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: var(--header-h);
+    z-index: 30;
+    padding: var(--s-2) var(--s-4) var(--s-4);
     display: grid;
-    padding-bottom: var(--s-2);
+    background: var(--bg-surface);
+    border-bottom: 1px solid var(--border);
+    box-shadow: var(--shadow-lg);
   }
 
-  .drawer nav a {
+  .drawer > nav a {
     min-height: var(--control-min);
+    padding: 0 var(--s-2);
     display: flex;
     align-items: center;
+    border-radius: var(--radius-md);
     color: var(--text-primary);
     font-size: var(--t-md);
-    border-top: 1px solid var(--border-subtle);
+    font-weight: var(--w-medium);
     text-decoration: none;
   }
 
-  .drawer nav a[aria-current="page"] {
-    color: var(--accent-text);
-    font-weight: var(--w-medium);
+  .drawer > nav a[aria-current="page"] {
+    color: var(--text-strong);
+    background: var(--bg-inset);
+  }
+
+  .header {
+    position: relative;
   }
 
   .header-inner {
-    padding: 0 var(--s-4);
+    padding: 0 var(--s-3) 0 var(--s-4);
+    gap: var(--s-2);
+  }
+
+  .settings-link {
+    display: none;
   }
 
   .release {
-    display: none;
+    border: 0;
+    background: transparent;
+    padding: 0 var(--s-1);
+  }
+
+  .release strong {
+    max-width: 13ch;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 }
 
@@ -235,98 +325,152 @@
 
 .footer {
   margin-top: auto;
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--border-subtle);
   background: var(--bg-surface);
 }
 
 .footer-inner {
   width: min(var(--shell-max), 100%);
   margin: 0 auto;
-  padding: var(--s-6) var(--s-6) var(--s-8);
+  padding: var(--s-8) var(--s-6);
   display: flex;
   flex-wrap: wrap;
-  align-items: baseline;
+  align-items: center;
   gap: var(--s-3) var(--s-6);
-  color: var(--text-secondary);
+  color: var(--text-muted);
   font-size: var(--t-xs);
 }
 
 .footer-product {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
   color: var(--text-strong);
   font-weight: var(--w-semibold);
+  font-size: var(--t-sm);
+}
+
+.footer-mark {
+  width: 20px;
+  height: 20px;
+  display: grid;
+  place-items: center;
+  color: var(--ink-on);
+  background: var(--ink);
+  border-radius: var(--radius-sm);
+}
+
+.footer-mark svg {
+  width: 12px;
+  height: 12px;
 }
 
 .footer-links {
   margin-left: auto;
   display: flex;
   flex-wrap: wrap;
-  gap: var(--s-4);
+  gap: var(--s-5);
 }
 
 .footer-links a {
-  color: var(--text-secondary);
+  color: var(--text-muted);
+  text-decoration: none;
 }
 
 .footer-links a:hover {
   color: var(--text-strong);
+  text-decoration: underline;
 }
 
-@media (max-width: 860px) {
+@media (max-width: 900px) {
   .footer-inner {
-    padding: var(--s-5) var(--s-4) var(--s-8);
+    padding: var(--s-6) var(--s-4);
   }
 
   .footer-links {
     margin-left: 0;
+    width: 100%;
+    gap: var(--s-4);
   }
 }
 
 /* ============================================================ page frame */
 
-.page {
-  width: min(var(--shell-max), 100%);
-  margin: 0 auto;
-  padding: var(--s-8) var(--s-6) var(--s-16);
+/*
+ * A page is a band and a body. The band carries the title on the surface colour and is
+ * full-bleed, so the eye finds the top of every page in the same place; the body sits on
+ * the canvas below it. Before this, every page was a stack of blocks that began at the
+ * top of a flat grey field and stopped wherever the content ran out.
+ */
+.band {
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border-subtle);
 }
 
-.page.narrow {
-  width: min(760px, 100%);
+.band-inner {
+  width: min(var(--shell-max), 100%);
+  margin: 0 auto;
+  padding: var(--s-10) var(--s-6);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--s-5) var(--s-8);
+}
+
+.band-inner.narrow {
+  width: min(880px, 100%);
 }
 
 .page-head {
-  margin-bottom: var(--s-8);
-  max-width: 68ch;
+  max-width: 62ch;
+  min-width: 0;
 }
 
 .page-head h1 {
-  margin: 0 0 var(--s-2);
+  margin: 0;
   color: var(--text-strong);
   font-size: var(--t-h1);
   font-weight: var(--w-semibold);
   letter-spacing: var(--track-tight);
-  line-height: 1.2;
+  line-height: 1.15;
 }
 
 .page-head p {
-  margin: 0;
+  margin: var(--s-3) 0 0;
   color: var(--text-secondary);
-  font-size: var(--t-base);
+  font-size: var(--t-md);
   line-height: 1.6;
 }
 
+.band-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-2);
+}
+
+.page {
+  width: min(var(--shell-max), 100%);
+  margin: 0 auto;
+  padding: var(--s-10) var(--s-6) var(--s-16);
+}
+
+.page.narrow {
+  width: min(880px, 100%);
+}
+
 .page section + section {
-  margin-top: var(--s-10);
-  padding-top: var(--s-8);
-  border-top: 1px solid var(--border-subtle);
+  margin-top: var(--s-12);
 }
 
 .page h2 {
-  margin: 0 0 var(--s-4);
+  margin: 0 0 var(--s-2);
   color: var(--text-strong);
   font-size: var(--t-h2);
   font-weight: var(--w-semibold);
   letter-spacing: var(--track-snug);
-  line-height: 1.2;
+  line-height: 1.25;
 }
 
 .page h3 {
@@ -336,11 +480,36 @@
   font-weight: var(--w-semibold);
 }
 
+/* A section's own one-line explanation, under its heading. */
+.section-lede {
+  margin: 0 0 var(--s-5);
+  max-width: 68ch;
+  color: var(--text-secondary);
+  font-size: var(--t-base);
+  line-height: 1.6;
+}
+
+@media (max-width: 900px) {
+  .band-inner {
+    padding: var(--s-8) var(--s-4);
+  }
+
+  .page {
+    padding: var(--s-8) var(--s-4) var(--s-12);
+  }
+
+  .page section + section {
+    margin-top: var(--s-10);
+  }
+}
+
+/* ============================================================ prose */
+
 .prose {
   max-width: 68ch;
   color: var(--text-primary);
-  font-size: var(--t-base);
-  line-height: 1.65;
+  font-size: var(--t-md);
+  line-height: 1.7;
 }
 
 .prose p {
@@ -350,11 +519,15 @@
 .prose ol,
 .prose ul {
   margin: 0 0 var(--s-4);
-  padding-left: 1.4em;
+  padding-left: 1.3em;
 }
 
 .prose li {
-  margin-bottom: var(--s-2);
+  margin-bottom: var(--s-3);
+}
+
+.prose li::marker {
+  color: var(--text-faint);
 }
 
 .prose dl {
@@ -374,9 +547,33 @@
   color: var(--text-secondary);
 }
 
-/* A data table: rules, not boxes; numbers tabular and right-aligned. */
+/* ============================================================ surfaces */
+
+.card {
+  padding: var(--s-6);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-xs);
+}
+
+.card-tight {
+  padding: var(--s-4) var(--s-5);
+}
+
+/* ============================================================ tables */
+
+/*
+ * Rules, not boxes, inside a bordered surface. Column widths are the page's business:
+ * every table here sets a colgroup, because automatic widths were wrapping four columns
+ * of eight and making a three-row table as tall as a paragraph.
+ */
 .table-wrap {
   overflow-x: auto;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-xs);
 }
 
 .table {
@@ -387,18 +584,26 @@
 
 .table th,
 .table td {
-  padding: var(--s-3) var(--s-3);
+  padding: var(--s-3) var(--s-4);
   text-align: left;
-  vertical-align: top;
+  vertical-align: middle;
   border-bottom: 1px solid var(--border-subtle);
 }
 
-.table th {
+.table thead th {
+  padding-top: var(--s-3);
+  padding-bottom: var(--s-3);
   color: var(--text-muted);
-  font-size: var(--t-xs);
-  font-weight: var(--w-medium);
-  letter-spacing: 0;
+  background: var(--bg-canvas);
+  font-size: var(--t-2xs);
+  font-weight: var(--w-semibold);
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
   white-space: nowrap;
+}
+
+.table tbody tr:last-child td {
+  border-bottom: 0;
 }
 
 .table td.num,
@@ -407,38 +612,85 @@
   font-variant-numeric: tabular-nums;
 }
 
+.table tbody tr {
+  transition: background-color 100ms ease;
+}
+
 .table tbody tr:hover {
-  background: var(--bg-sunk);
+  background: var(--bg-canvas);
 }
 
 .table a {
   color: var(--text-strong);
+  font-weight: var(--w-medium);
+  text-decoration: none;
 }
 
 .table a:hover {
   color: var(--accent-text);
+  text-decoration: underline;
 }
 
-.muted {
+/* A row whose first cell is the link that opens it. */
+.table .row-link {
+  display: block;
+  color: var(--text-strong);
+  font-weight: var(--w-medium);
+}
+
+.table .row-link:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 3px;
+  border-radius: var(--radius-sm);
+}
+
+.table .sub {
+  display: block;
+  margin-top: 2px;
   color: var(--text-muted);
+  font-size: var(--t-xs);
+  font-weight: var(--w-regular);
 }
 
-/* Key facts in a row: a number and what it counts. */
+.table-note {
+  margin: var(--s-3) 0 0;
+  color: var(--text-muted);
+  font-size: var(--t-xs);
+  line-height: 1.6;
+}
+
+/* ============================================================ stat band */
+
+/*
+ * Key figures as one bordered band with dividers, rather than a full-width grid whose
+ * gaps were wider than its values.
+ */
 .facts {
   margin: 0 0 var(--s-6);
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap: var(--s-4) var(--s-6);
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-xs);
+  overflow: hidden;
 }
 
-.facts div {
+.facts > div {
+  padding: var(--s-4) var(--s-5);
   display: grid;
-  gap: 2px;
+  gap: var(--s-1);
+  border-left: 1px solid var(--border-subtle);
+}
+
+.facts > div:first-child {
+  border-left: 0;
 }
 
 .facts dt {
   color: var(--text-muted);
   font-size: var(--t-xs);
+  font-weight: var(--w-medium);
 }
 
 .facts dd {
@@ -448,14 +700,29 @@
   font-weight: var(--w-semibold);
   font-variant-numeric: tabular-nums;
   letter-spacing: var(--track-snug);
+  line-height: 1.2;
 }
 
 .facts dd small {
-  margin-left: 4px;
-  color: var(--text-secondary);
+  margin-left: 5px;
+  color: var(--text-muted);
   font-size: var(--t-xs);
   font-weight: var(--w-regular);
+  letter-spacing: 0;
 }
+
+@media (max-width: 700px) {
+  .facts > div {
+    border-left: 0;
+    border-top: 1px solid var(--border-subtle);
+  }
+
+  .facts > div:first-child {
+    border-top: 0;
+  }
+}
+
+/* ============================================================ status */
 
 .status {
   display: inline-flex;
@@ -463,12 +730,14 @@
   gap: 7px;
   font-size: var(--t-xs);
   font-weight: var(--w-medium);
+  white-space: nowrap;
 }
 
 .status::before {
   content: "";
-  width: 8px;
-  height: 8px;
+  width: 7px;
+  height: 7px;
+  flex: 0 0 auto;
   border-radius: 50%;
   background: currentColor;
 }
@@ -486,8 +755,330 @@
 }
 
 .status.neutral {
+  color: var(--text-muted);
+}
+
+/* The tinted form, for a status that has to hold its own beside a heading. */
+.status.pill {
+  height: 24px;
+  padding: 0 var(--s-2) 0 9px;
+  border-radius: var(--radius-md);
+  border: 1px solid currentColor;
+}
+
+.status.pill.ok {
+  background: var(--ok-wash);
+  border-color: var(--ok-border);
+}
+
+.status.pill.warn {
+  background: var(--warn-wash);
+  border-color: var(--warn-border);
+}
+
+.status.pill.danger {
+  background: var(--danger-wash);
+  border-color: var(--danger-border);
+}
+
+.status.pill.neutral {
+  background: var(--bg-sunk);
+  border-color: var(--border);
+}
+
+/* ============================================================ controls */
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-2);
+}
+
+.button {
+  min-height: var(--control-md);
+  padding: 0 var(--s-4);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  color: var(--text-primary);
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-xs);
+  font-size: var(--t-sm);
+  font-weight: var(--w-medium);
+  font-family: inherit;
+  white-space: nowrap;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background-color 120ms ease, border-color 120ms ease;
+}
+
+.button:hover {
+  background: var(--bg-canvas);
+  border-color: var(--border-strong);
+  text-decoration: none;
+}
+
+.button:disabled {
+  color: var(--text-faint);
+  background: var(--bg-sunk);
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+.button svg {
+  width: 15px;
+  height: 15px;
+  flex: 0 0 auto;
+}
+
+.button.primary {
+  color: var(--ink-on);
+  background: var(--ink);
+  border-color: var(--ink);
+  box-shadow: var(--shadow-ink);
+}
+
+.button.primary:hover {
+  background: var(--ink-hover);
+  border-color: var(--ink-hover);
+}
+
+/* A disabled primary is not a black button: the fill has to drop, or the control looks
+   pressable while it is not. Declared after `.primary` so it wins. */
+.button.primary:disabled {
+  color: var(--text-faint);
+  background: var(--bg-sunk);
+  border-color: var(--border);
+  box-shadow: none;
+}
+
+.button.ghost {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
   color: var(--text-secondary);
 }
+
+.button.ghost:hover {
+  color: var(--text-strong);
+  background: var(--bg-sunk);
+  border-color: transparent;
+}
+
+.button.small {
+  min-height: var(--control-sm);
+  padding: 0 var(--s-3);
+  font-size: var(--t-xs);
+}
+
+/* ============================================================ form kit */
+
+.field {
+  margin-bottom: var(--s-6);
+  display: grid;
+  gap: var(--s-2);
+  max-width: 520px;
+}
+
+.field > label,
+.field legend,
+.label {
+  padding: 0;
+  color: var(--text-strong);
+  font-weight: var(--w-medium);
+  font-size: var(--t-sm);
+}
+
+.field .help,
+.field > p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--t-xs);
+  line-height: 1.6;
+}
+
+.field fieldset {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  display: grid;
+  gap: var(--s-2);
+}
+
+.text-input,
+.select,
+.field input[type="text"],
+.field input[type="number"],
+.field select {
+  width: 100%;
+  min-height: var(--control-md);
+  padding: 0 var(--s-3);
+  color: var(--text-primary);
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-xs);
+  font-size: var(--t-sm);
+  font-family: inherit;
+}
+
+.text-input {
+  min-width: 0;
+}
+
+.text-input::placeholder {
+  color: var(--text-faint);
+}
+
+/* A select that agrees with the rest of the kit: no OS chrome, one chevron. */
+.select,
+.field select {
+  appearance: none;
+  padding-right: var(--s-8);
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2367676f' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right var(--s-3) center;
+  cursor: pointer;
+}
+
+.text-input:focus,
+.select:focus,
+.field input:focus,
+.field select:focus {
+  outline: none;
+  border-color: var(--ink);
+  box-shadow: 0 0 0 3px var(--ink-ring);
+}
+
+/*
+ * Radios and checkboxes, drawn rather than inherited. The browser default is the one
+ * blue in a product that has no blue.
+ */
+.field input[type="radio"],
+.field input[type="checkbox"],
+.choice input {
+  appearance: none;
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-strong);
+  box-shadow: var(--shadow-xs);
+  cursor: pointer;
+  transition: border-color 120ms ease, background-color 120ms ease;
+}
+
+.field input[type="radio"],
+.choice input[type="radio"] {
+  border-radius: 50%;
+}
+
+.field input[type="checkbox"],
+.choice input[type="checkbox"] {
+  border-radius: var(--radius-sm);
+}
+
+.field input[type="radio"]:checked,
+.choice input[type="radio"]:checked {
+  border: 5px solid var(--accent);
+  background: var(--bg-surface);
+}
+
+.field input[type="checkbox"]:checked,
+.choice input[type="checkbox"]:checked {
+  background: var(--accent) url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E") center no-repeat;
+  border-color: var(--accent);
+}
+
+.field input[type="radio"]:focus-visible,
+.field input[type="checkbox"]:focus-visible,
+.choice input:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+/* A choice, as a card you can click anywhere on. */
+.choices {
+  display: grid;
+  gap: var(--s-2);
+}
+
+.choice {
+  min-height: var(--control-min);
+  padding: var(--s-3) var(--s-4);
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  font-size: var(--t-sm);
+  font-weight: var(--w-regular);
+  cursor: pointer;
+  transition: border-color 120ms ease, background-color 120ms ease;
+}
+
+.choice:hover {
+  border-color: var(--border-strong);
+}
+
+.choice:has(input:checked) {
+  border-color: var(--accent-border-strong);
+  background: var(--accent-wash);
+}
+
+.choice-body {
+  display: grid;
+  gap: 2px;
+}
+
+.choice-body strong {
+  color: var(--text-strong);
+  font-weight: var(--w-medium);
+}
+
+.choice-body span {
+  color: var(--text-muted);
+  font-size: var(--t-xs);
+}
+
+/* ============================================================ empty & notice */
+
+.empty {
+  padding: var(--s-8) var(--s-6);
+  display: grid;
+  gap: var(--s-1);
+  justify-items: start;
+  background: var(--bg-surface);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-xl);
+  color: var(--text-muted);
+  font-size: var(--t-sm);
+  line-height: 1.6;
+}
+
+.empty strong {
+  color: var(--text-primary);
+  font-size: var(--t-md);
+  font-weight: var(--w-medium);
+}
+
+.notice {
+  padding: var(--s-3) var(--s-4);
+  color: var(--warn-text);
+  background: var(--warn-wash);
+  border: 1px solid var(--warn-border);
+  border-radius: var(--radius-md);
+  font-size: var(--t-sm);
+  line-height: 1.6;
+}
+
+/* ============================================================ details */
 
 .details {
   margin-top: var(--s-4);
@@ -495,9 +1086,35 @@
 }
 
 .details summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  list-style: none;
   cursor: pointer;
   color: var(--text-secondary);
   font-weight: var(--w-medium);
+}
+
+.details summary::-webkit-details-marker {
+  display: none;
+}
+
+.details summary::before {
+  content: "";
+  width: 0;
+  height: 0;
+  border-left: 5px solid currentColor;
+  border-top: 4px solid transparent;
+  border-bottom: 4px solid transparent;
+  transition: transform 120ms ease;
+}
+
+.details[open] summary::before {
+  transform: rotate(90deg);
+}
+
+.details summary:hover {
+  color: var(--text-strong);
 }
 
 .details dl {
@@ -518,98 +1135,14 @@
   overflow-wrap: anywhere;
 }
 
-.actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--s-2);
-  margin: var(--s-4) 0;
+/* ============================================================ helpers */
+
+.muted {
+  color: var(--text-muted);
 }
 
-.button {
-  min-height: var(--control-sm);
-  padding: 0 var(--s-3);
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  color: var(--text-primary);
-  background: var(--bg-surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  font-size: var(--t-sm);
-  font-weight: var(--w-medium);
-  text-decoration: none;
-}
-
-.button:hover {
-  border-color: var(--border-strong);
-  text-decoration: none;
-}
-
-.button.primary {
-  color: var(--ink-on);
-  background: var(--ink);
-  border-color: var(--ink);
-}
-
-.empty {
-  padding: var(--s-6) 0;
-  color: var(--text-secondary);
-  font-size: var(--t-sm);
-}
-
-.notice {
-  padding: var(--s-3) var(--s-4);
-  color: var(--warn-text);
-  background: var(--warn-wash);
-  border: 1px solid var(--warn-border);
-  border-radius: var(--radius-md);
-  font-size: var(--t-sm);
-}
-
-/* Settings */
-.field {
-  margin-bottom: var(--s-6);
-  display: grid;
-  gap: var(--s-2);
-  max-width: 480px;
-}
-
-.field label,
-.field legend {
-  color: var(--text-strong);
-  font-weight: var(--w-medium);
-  font-size: var(--t-sm);
-}
-
-.field p {
-  margin: 0;
-  color: var(--text-secondary);
-  font-size: var(--t-xs);
-}
-
-.field select,
-.field input[type="text"] {
-  min-height: var(--control-sm);
-  padding: 0 var(--s-3);
-  background: var(--bg-surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  font-size: var(--t-sm);
-}
-
-.field fieldset {
-  margin: 0;
-  padding: 0;
-  border: 0;
-  display: grid;
-  gap: var(--s-2);
-}
-
-.field fieldset label {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--s-2);
-  font-weight: var(--w-regular);
+.num {
+  font-variant-numeric: tabular-nums;
 }
 
 .srOnly {
@@ -624,24 +1157,12 @@
   border: 0;
 }
 
-.text-input,
-.select {
-  min-height: var(--control-sm);
-  padding: 0 var(--s-3);
-  color: var(--text-primary);
-  background: var(--bg-surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  font-size: var(--t-sm);
-}
-
-.text-input {
-  min-width: 240px;
-}
-
-.text-input:focus,
-.select:focus {
-  outline: none;
-  border-color: var(--ink);
-  box-shadow: 0 0 0 3px var(--ink-ring);
+/* A fact whose value is a sentence rather than a figure. */
+.facts dd .fact-note {
+  display: block;
+  margin-top: 3px;
+  color: var(--text-muted);
+  font-size: var(--t-xs);
+  font-weight: var(--w-regular);
+  letter-spacing: 0;
 }

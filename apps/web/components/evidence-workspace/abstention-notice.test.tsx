@@ -25,12 +25,16 @@ describe("AbstentionNotice", () => {
       message: "The retrieved guideline passages do not answer this question.",
     });
 
+    // The headline stands alone. The service's own sentence here says the same thing in
+    // almost the same words, and rendering both put one under the other in two different
+    // faces; it stays reachable under Details.
     expect(
       screen.getByText("The retrieved passages do not answer this question"),
     ).toBeInTheDocument();
-    expect(
-      screen.getByText("The retrieved guideline passages do not answer this question."),
-    ).toBeInTheDocument();
+    const repeated = screen.getByText(
+      "The retrieved guideline passages do not answer this question.",
+    );
+    expect(repeated.closest("details")).not.toBeNull();
     expect(
       screen.getByText(
         /Narrow the question to a decision the guideline addresses, or widen the source scope\./,
@@ -73,10 +77,9 @@ describe("AbstentionNotice", () => {
       missing_evidence_roles: ["PRIMARY_SUPPORT", "EXCEPTION_OR_CONTRAINDICATION"],
     });
 
+    expect(screen.getByText("Could not verify")).toBeInTheDocument();
     expect(
-      screen.getByText(
-        "The review could not verify: Primary support, Exception or contraindication.",
-      ),
+      screen.getByText("Primary support, Exception or contraindication"),
     ).toBeInTheDocument();
   });
 

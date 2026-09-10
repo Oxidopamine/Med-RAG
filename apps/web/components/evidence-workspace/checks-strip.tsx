@@ -6,6 +6,13 @@ import type { QuestionResult, QuestionStatus } from "@/lib/types";
 
 import styles from "./workspace.module.css";
 
+/**
+ * The five checks.
+ *
+ * `label` is the short name the strip shows, sized to a fifth of the panel: "Completeness"
+ * did not fit and was truncated to "Complete...". The log has the room for the full name,
+ * which is what `completeLabel` and `activeLabel` carry.
+ */
 const VERIFICATION_STEPS: Array<{
   activeLabel: string;
   completeLabel: string;
@@ -31,7 +38,7 @@ const VERIFICATION_STEPS: Array<{
     statuses: ["SEARCHING_COUNTER_EVIDENCE"],
   },
   {
-    label: "Completeness",
+    label: "Coverage",
     activeLabel: "Checking completeness",
     completeLabel: "Completeness checked",
     statuses: ["CHECKING_EVIDENCE_COMPLETENESS"],
@@ -88,13 +95,10 @@ export function VerificationPanel({
             result,
             status,
           });
-          const duration = stepDuration(progressEvents, index);
           return (
             <li className={`${styles.check} ${styles[state]}`} key={step.label}>
-              <span className={styles["check-name"]}>{stepLabel(step, state)}</span>
-              <span className={styles["check-state"]} data-tabular="">
-                {duration ?? stepStateLabel(state)}
-              </span>
+              <span className={styles["check-name"]}>{step.label}</span>
+              <span className={styles["check-state"]}>{stepStateLabel(state)}</span>
             </li>
           );
         })}
@@ -127,7 +131,7 @@ export function VerificationPanel({
               const duration = stepDuration(progressEvents, index);
               return (
                 <tr key={step.label}>
-                  <td>{step.label}</td>
+                  <td>{stepLabel(step, state)}</td>
                   <td data-tabular="">{event ? formatTime(event.occurredAt) : "—"}</td>
                   <td data-tabular="">{duration ?? "—"}</td>
                   <td>{stepStateLabel(state)}</td>
@@ -214,7 +218,7 @@ function stepDuration(events: EvidenceProgressEvent[], index: number): string | 
 function stepStateLabel(state: ReturnType<typeof verificationStepState>): string {
   if (state === "complete") return "Passed";
   if (state === "currentStep") return "In progress";
-  if (state === "blockedStep") return "Blocked";
+  if (state === "blockedStep") return "No answer";
   if (state === "skippedStep") return "Skipped";
   return "Not started";
 }
@@ -239,7 +243,7 @@ function verificationBadge(
   }
   if (result?.status === "ABSTAINED") {
     return {
-      label: "Answer withheld by the checks",
+      label: "No answer",
       message: result.abstention?.message ?? "The evidence checks withheld the answer.",
       tone: "withheld",
     };

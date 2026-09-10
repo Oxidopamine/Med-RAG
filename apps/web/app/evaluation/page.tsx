@@ -2,9 +2,28 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { ArmChart } from "@/components/pages/arm-chart";
+import chart from "@/components/pages/evaluation.module.css";
+import { PowerCurve } from "@/components/pages/power-curve";
 import { PageFrame } from "@/components/shell/page-frame";
 import styles from "@/components/shell/shell.module.css";
 import evaluation from "@/lib/generated/evaluation.json";
+
+/**
+ * One headline figure: the value large, its unit small beside it, and anything second on
+ * its own line. The page used to state a figure three different ways, once cramming a
+ * percentage, the words "95%" and an interval onto one line at three sizes.
+ */
+function Stat({ value, unit, note }: { value: string; unit?: string; note?: string }) {
+  return (
+    <span className={chart.stat}>
+      <span className={chart.statValue}>
+        {value}
+        {unit ? <span className={chart.statUnit}>{unit}</span> : null}
+      </span>
+      {note ? <span className={chart.statNote}>{note}</span> : null}
+    </span>
+  );
+}
 
 export const metadata: Metadata = {
   title: "Evaluation · Sentinel RAG",
@@ -34,6 +53,9 @@ export default function EvaluationPage() {
   const mde = evaluation.mde;
   const overlap = evaluation.retrieval_overlap;
   const production = arms.find((arm) => arm.key === "production_a");
+  const powerPoints = Object.entries(mde.power_by_delta).flatMap(([delta, power]) =>
+    power === null ? [] : [{ delta: Number(delta), power }],
+  );
 
   return (
     <PageFrame
@@ -53,38 +75,60 @@ export default function EvaluationPage() {
             <div>
               <dt>Answered by production</dt>
               <dd>
-                {production.answered}
-                <small>of {production.questions}</small>
+                <Stat
+                  value={String(production.answered)}
+                  note={`of ${production.questions} questions`}
+                />
               </dd>
             </div>
             <div>
               <dt>Abstained</dt>
-              <dd>{production.abstained}</dd>
+              <dd>
+                <Stat value={String(production.abstained)} note="the complement" />
+              </dd>
             </div>
             <div>
               <dt>Checks passed</dt>
               <dd>
-                {pct(production.gate_passed_rate)}
-                <small>95% {interval(production.gate_passed_wilson_95)}</small>
+                <Stat
+                  value={pct(production.gate_passed_rate)}
+                  note={`95% CI ${interval(production.gate_passed_wilson_95)}`}
+                />
               </dd>
             </div>
             <div>
               <dt>Error records</dt>
-              <dd>{production.error_records}</dd>
+              <dd>
+                <Stat value={String(production.error_records)} note="none recorded" />
+              </dd>
             </div>
           </dl>
         ) : null}
         <ArmChart
-          caption="Questions answered per arm, of 164. Abstention is the complement."
-          bars={arms.map((arm) => ({
+          caption="Answered rate per arm, of 164 questions. Abstention is the complement."
+          summary={`Answered rate by arm: ${arms
+            .map((arm) => `${arm.label}, ${pct(arm.answered_rate)}`)
+            .join("; ")}.`}
+          points={arms.map((arm) => ({
             key: arm.key,
             label: arm.label,
-            value: arm.answered,
-            total: arm.questions,
+            rate: arm.answered_rate,
+            emphasis: arm.key.startsWith("production")
+              ? ("accent" as const)
+              : ("neutral" as const),
           }))}
         />
         <div className={styles["table-wrap"]}>
-          <table className={styles.table}>
+          <table className={styles.table} aria-label="Coverage by arm">
+            <colgroup>
+              <col style={{ width: "28%" }} />
+              <col style={{ width: "11%" }} />
+              <col style={{ width: "11%" }} />
+              <col style={{ width: "13%" }} />
+              <col style={{ width: "13%" }} />
+              <col style={{ width: "16%" }} />
+              <col style={{ width: "8%" }} />
+            </colgroup>
             <thead>
               <tr>
                 <th scope="col">Arm</th>
@@ -95,12 +139,12 @@ export default function EvaluationPage() {
                   Abstained
                 </th>
                 <th scope="col" className={styles.num}>
-                  Answered rate
+                  Answered rate (%)
                 </th>
                 <th scope="col" className={styles.num}>
-                  Checks passed
+                  Checks passed (%)
                 </th>
-                <th scope="col">95% interval</th>
+                <th scope="col">Checks passed, 95% CI</th>
                 <th scope="col" className={styles.num}>
                   Errors
                 </th>
@@ -135,7 +179,17 @@ export default function EvaluationPage() {
           the discordant pairs. A replicate pair sets the noise floor first.
         </p>
         <div className={styles["table-wrap"]}>
-          <table className={styles.table}>
+          <table className={styles.table} aria-label="Paired comparisons">
+            <colgroup>
+              <col style={{ width: "26%" }} />
+              <col style={{ width: "10%" }} />
+              <col style={{ width: "9%" }} />
+              <col style={{ width: "9%" }} />
+              <col style={{ width: "8%" }} />
+              <col style={{ width: "12%" }} />
+              <col style={{ width: "16%" }} />
+              <col style={{ width: "10%" }} />
+            </colgroup>
             <thead>
               <tr>
                 <th scope="col">Comparison</th>
@@ -151,8 +205,8 @@ export default function EvaluationPage() {
                 <th scope="col" className={styles.num}>
                   Neither
                 </th>
-                <th scope="col">Difference</th>
-                <th scope="col">Tango 95%</th>
+                <th scope="col">Difference (points)</th>
+                <th scope="col">Tango 95% CI</th>
                 <th scope="col" className={styles.num}>
                   McNemar p
                 </th>
@@ -200,30 +254,40 @@ export default function EvaluationPage() {
           {Math.round(mde.mde_at_80_percent * 100)} percentage points. Smaller effects are not
           excluded by a null result here.
         </p>
-        <div className={styles["table-wrap"]}>
-          <table className={styles.table}>
-            <thead>
-              <tr>
-                <th scope="col">Difference in answered rate</th>
-                {Object.keys(mde.power_by_delta).map((delta) => (
-                  <th key={delta} scope="col" className={styles.num}>
-                    {Math.round(Number(delta) * 100)} pts
+        <PowerCurve
+          caption={`Power against the difference in answered rate, at alpha ${mde.alpha} with ${mde.n} paired questions. The dashed line is the ${Math.round(mde.power_target * 100)} percent target.`}
+          summary={`Power rises with the difference in answered rate and first reaches the ${Math.round(mde.power_target * 100)} percent target at ${Math.round(mde.mde_at_80_percent * 100)} percentage points.`}
+          marker={{ delta: mde.mde_at_80_percent, power: mde.power_target }}
+          points={powerPoints}
+          target={mde.power_target}
+        />
+        <details className={`${styles.details} ${chart.detailsTable}`}>
+          <summary>Power at each difference</summary>
+          <div className={styles["table-wrap"]}>
+            <table className={styles.table} aria-label="Power by difference in answered rate">
+              <colgroup>
+                <col style={{ width: "50%" }} />
+                <col style={{ width: "50%" }} />
+              </colgroup>
+              <thead>
+                <tr>
+                  <th scope="col">Difference in answered rate (points)</th>
+                  <th scope="col" className={styles.num}>
+                    Power (%)
                   </th>
+                </tr>
+              </thead>
+              <tbody>
+                {powerPoints.map((point) => (
+                  <tr key={point.delta}>
+                    <td>{Math.round(point.delta * 100)}</td>
+                    <td className={styles.num}>{Math.round(point.power * 100)}</td>
+                  </tr>
                 ))}
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <th scope="row">Power</th>
-                {Object.values(mde.power_by_delta).map((power, index) => (
-                  <td key={index} className={styles.num}>
-                    {power === null ? "" : `${Math.round(power * 100)}%`}
-                  </td>
-                ))}
-              </tr>
-            </tbody>
-          </table>
-        </div>
+              </tbody>
+            </table>
+          </div>
+        </details>
       </section>
 
       <section aria-labelledby="evaluation-retrieval">
@@ -232,21 +296,26 @@ export default function EvaluationPage() {
           <div>
             <dt>Retrieval slots</dt>
             <dd>
-              {overlap.slots}
-              <small>10 per question</small>
+              <Stat value={String(overlap.slots)} note="10 per question" />
             </dd>
           </div>
           <div>
             <dt>Distinct passages retrieved</dt>
-            <dd>{overlap.distinct_evidence_ids}</dd>
+            <dd>
+              <Stat value={String(overlap.distinct_evidence_ids)} note="across every slot" />
+            </dd>
           </div>
           <div>
             <dt>Slots holding a recurring passage</dt>
-            <dd>{pct(overlap.recurring_slot_share)}</dd>
+            <dd>
+              <Stat value={pct(overlap.recurring_slot_share)} note="of all slots" />
+            </dd>
           </div>
           <div>
             <dt>Question pairs sharing a passage</dt>
-            <dd>{pct(overlap.pair_sharing_rate)}</dd>
+            <dd>
+              <Stat value={pct(overlap.pair_sharing_rate)} note="of all pairs" />
+            </dd>
           </div>
         </dl>
         <p className={`${styles.prose} ${styles.muted}`}>

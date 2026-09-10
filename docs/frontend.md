@@ -36,27 +36,42 @@ The Evaluation page renders `lib/generated/evaluation.json`, written by
 ## Design foundations
 
 - **One accent.** A deep teal for links, selection and the active state. Black is the
-  primary action and nothing else. Status is a mark and a few words, never a pill;
-  colour is reserved for supported, withheld and abstained.
-- **Two container tiers.** A section is set apart by space and a rule. Only an object (a
-  form, a claim, a source) carries a border, and never inside another border. Radii are
-  capped at 8px.
+  primary action and nothing else. Status is a mark and a few words; colour is reserved
+  for supported, withheld and abstained.
+- **A page is a band and a body.** Every page opens with a full-bleed title band on the
+  surface colour carrying the title, one line of lede and the page's own controls, then
+  the body on the canvas below it. `PageFrame` is the only way to build one.
+- **One control kit.** `components/shell/shell.module.css` defines the buttons, inputs,
+  selects, radios, checkboxes, tables, stat bands, status marks, cards, empty states and
+  disclosures used across the product. Nothing native ships unstyled: a browser default
+  in the middle of a designed page is the loudest thing on it.
 - **Type.** Public Sans for the interface; Source Serif 4, the reading face, for claims
   and quoted passages at 18px; JetBrains Mono only for hashes and identifiers inside a
-  details disclosure. Headings are 28/24/18px and carry the hierarchy; there are no
+  details disclosure. Headings are 34/22/18px and carry the hierarchy; there are no
   eyebrow labels.
+- **Tables set their own widths.** Every table carries a `colgroup` with explicit
+  percentages. Automatic widths wrapped four columns of eight and made a three-row table
+  as tall as a paragraph.
 - **Paper.** Quoted source text sits on a warm paper tint with a light term highlight, so
   it reads as a quotation without a label.
 - **Icons** appear on actions only.
+- **One word per outcome.** A review that gave no answer says "No answer" on the answer,
+  on the checks badge, in the strip and in the log. It was called three different things
+  on one screen.
 - **Copy.** The Methods page explains; panels state. The research-use boundary is stated
   once, in the footer and on Methods; the identifier guard speaks only when a question
   trips it.
 
 ## The workspace
 
-**Start.** The form (title, question field with one line of help, sources and question
-bank as quiet controls, one black button, examples as links) with the corpus at a glance
-beside it: the served release, its counts, and the reviews this browser opened.
+**Start.** The form (title, question field sized for a question, sources and question
+bank as quiet controls, one black button, examples as cards carrying the question they
+fill in) with the corpus at a glance beside it: the served release, its counts as a ruled
+band, and the reviews this browser opened.
+
+**Answered.** The form folds away and the question becomes the page's headline, with
+"Edit question" and "New review" beside it. A finished review is about its question, not
+about the form that asked it.
 
 **Running.** The five stages as a strip with the current one marked, a skeleton of the
 answer beneath, and the run identifier.
@@ -73,9 +88,11 @@ Checks); choosing a citation in the answer opens the evidence pane.
   with superscript citations, one line of evidence roles under each, a flag control, then
   the references as footnotes numbered as the citations are.
 - *Interpreted context*: chips under the question, with Edit context beside them.
-- *Checks*: the five stages with their outcome and duration; the log behind a disclosure.
+- *Checks*: the five stages, each with one outcome, in one row of five. Durations and the
+  full stage names are in the log behind a disclosure.
 - *Conflicts*: two passages side by side on paper with the disagreement as the caption.
-- *Sources*: a reader. The passage first, one metadata line, the page where the licence
+- *Sources*: a reader. A vertical list of retrieved records, each naming its document,
+  page and citation state, then the passage, one metadata line, the page where the licence
   permits one and a single line where it does not, everything else behind Details. The
   toolbar has navigation, find, and actions; text size is an app setting.
 - *No answer*: the same desk, with the reason, the next step and the closest passages as
@@ -92,6 +109,14 @@ Checks); choosing a citation in the answer opens the evidence pane.
 - The labelling workbench reproduces the worksheet builder's seeded orderings exactly:
   `lib/labelling.ts` implements CPython's Mersenne Twister, `shuffle` and `sample`, so
   item numbers match the key files for the same seed.
+
+## Charts
+
+The evaluation page draws its own SVG; there is no chart library. Four arms whose answered
+rates are nearly identical are a dot plot on one labelled axis rather than four bars of
+almost the same length, and the power table is a curve with its numbers kept in a table
+behind a disclosure. Every chart carries `role="img"` and an `aria-label` that states the
+finding, and the table beside it is the text alternative.
 
 ## Testing
 

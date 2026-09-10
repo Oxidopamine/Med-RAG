@@ -39,7 +39,13 @@ describe("LabellingWorkbench", () => {
   it("shows the setup section and hides the passes before a run is loaded", () => {
     render(<LabellingWorkbench />);
     expect(screen.getByRole("heading", { name: "Files" })).toBeInTheDocument();
-    expect(screen.getByLabelText("Production run (required)")).toBeInTheDocument();
+    // One drop zone with a hidden, labelled file input, and a row per slot, in place of
+    // six bare `input type=file` controls wearing the operating system's chrome.
+    const picker = screen.getByLabelText(/Drop census files here/);
+    expect(picker).toHaveAttribute("type", "file");
+    expect(picker).toHaveAttribute("multiple");
+    expect(screen.getByText("Production run")).toBeInTheDocument();
+    expect(screen.getByText("Required, not loaded")).toBeInTheDocument();
     expect(screen.queryByRole("tablist")).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Passes" })).not.toBeInTheDocument();
   });

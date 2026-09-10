@@ -1,0 +1,75 @@
+/*
+ * Page-specific rules for Reviews. Everything that has a class in the shared kit (the
+ * table shell, statuses, buttons, form controls, the empty state) is used from there;
+ * what is here is the small amount the kit has no opinion on: a fixed column layout that
+ * never wraps, the row link's own ellipsis, the filter row's split between search and the
+ * outcome select, and the skeleton rows shown while the list loads.
+ */
+
+/* A table whose columns keep the widths its colgroup sets, rather than growing around
+   whichever cell has the most text. */
+.table {
+  table-layout: fixed;
+}
+
+/* The row's own link: one line, truncated rather than wrapped, at body size so the
+   question reads as the thing to scan rather than as a label. */
+.rowLink {
+  display: block;
+  overflow: hidden;
+  font-size: var(--t-md);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* The filter row: search takes the slack, the outcome select keeps a steady width, and
+   both already share a height with the kit's control classes. */
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-2);
+  margin-bottom: var(--s-4);
+}
+
+.search {
+  flex: 1 1 240px;
+}
+
+.outcomeSelect {
+  flex: 0 1 200px;
+}
+
+/* ============================================================ skeleton rows */
+
+.skeletonBar {
+  display: block;
+  height: 13px;
+  width: 70%;
+  border-radius: var(--radius-sm);
+  background: var(--bg-inset);
+}
+
+.skeletonBar.wide {
+  width: 88%;
+}
+
+.skeletonBar.narrow {
+  width: 40%;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .skeletonBar {
+    animation: reviews-skeleton-pulse 1.4s ease-in-out infinite;
+  }
+}
+
+@keyframes reviews-skeleton-pulse {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}

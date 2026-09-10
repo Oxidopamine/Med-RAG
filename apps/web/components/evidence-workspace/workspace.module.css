@@ -318,7 +318,7 @@
   width: 100%;
   min-width: 0;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   background: var(--bg-surface);
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-md);
@@ -340,18 +340,25 @@
   box-shadow: 0 0 0 3px var(--danger-glow);
 }
 
+/*
+ * The field is the point of the screen, so it is sized for a question rather than for a
+ * search box. At 46px with a single row it also clipped its own placeholder: the example
+ * question runs to two lines, and the second one was cut in half by the field's height.
+ * The left padding was 40px of empty gutter left over from an icon that is no longer in
+ * the field.
+ */
 .question-field textarea {
   width: 100%;
-  min-height: 46px;
-  max-height: 152px;
-  padding: 12px 42px 12px 40px;
+  min-height: 88px;
+  max-height: 220px;
+  padding: 14px 44px 14px 16px;
   color: var(--text-primary);
   background: transparent;
   border: 0;
   outline: none;
   resize: none;
-  font-size: var(--t-base);
-  line-height: 1.5;
+  font-size: var(--t-md);
+  line-height: 1.55;
 }
 
 .question-field textarea::placeholder {
@@ -360,15 +367,14 @@
 
 .clear-question {
   position: absolute;
-  top: 50%;
-  right: 9px;
+  top: 14px;
+  right: 10px;
   width: 26px;
   height: 26px;
   display: grid;
   place-items: center;
   color: var(--text-faint);
   border-radius: var(--radius-sm);
-  transform: translateY(-50%);
 }
 
 .clear-question:hover {
@@ -5010,5 +5016,1059 @@ button.provenance-fact:hover {
   .evidence-rail {
     overflow-x: auto;
     padding-bottom: var(--s-1);
+  }
+}
+
+/* ============================================================================
+   Redesign pass
+   ============================================================================
+   The rules below settle the six faults a screenshot review found across every
+   screen: pages with no composition, the loudest element never being the most
+   important one, native controls left unstyled, nine type sizes used
+   interchangeably, status said four ways, and colour with no assignment. They
+   are last in the file so they win over the incremental corrections above.
+   ============================================================================ */
+
+/* ---------------------------------------------------------------- shell */
+
+.appShell main {
+  padding: var(--s-8) var(--s-6) var(--s-16);
+}
+
+@media (max-width: 900px) {
+  .appShell main {
+    padding: var(--s-6) var(--s-4) var(--s-12);
+  }
+}
+
+/* ---------------------------------------------------------------- composer */
+
+.composer-shell {
+  border-color: var(--border-subtle);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-sm);
+}
+
+.question-form {
+  padding: var(--s-6);
+}
+
+.composer-intro h1 {
+  font-size: var(--t-h1);
+  line-height: 1.15;
+}
+
+.field-help {
+  margin: var(--s-2) 0 var(--s-4);
+  color: var(--text-secondary);
+  font-size: var(--t-sm);
+}
+
+/* A disabled action still has to look like a control. Grey on grey read as broken
+   rather than as waiting for a question. */
+.ask-button[aria-disabled="true"] {
+  color: var(--text-muted);
+  background: var(--bg-surface);
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-xs);
+}
+
+.composer-actions {
+  margin-top: var(--s-4);
+  gap: var(--s-2);
+}
+
+/*
+ * Examples carry the question they fill in, as cards. Five bare accent links under a
+ * grey label read as a site menu, which is what a reader treats them as.
+ */
+.examples {
+  margin-top: var(--s-6);
+}
+
+.examples > span {
+  display: block;
+  margin-bottom: var(--s-3);
+  color: var(--text-strong);
+  font-size: var(--t-sm);
+  font-weight: var(--w-medium);
+}
+
+.examples ul {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: var(--s-2);
+}
+
+.examples button {
+  width: 100%;
+  height: 100%;
+  padding: var(--s-3) var(--s-4);
+  display: grid;
+  gap: 3px;
+  color: var(--text-primary);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-xs);
+  text-align: left;
+  transition: border-color 120ms ease, background-color 120ms ease;
+}
+
+.examples button:hover {
+  border-color: var(--accent-border-strong);
+  background: var(--accent-wash);
+  text-decoration: none;
+}
+
+.examples button strong {
+  color: var(--text-strong);
+  font-size: var(--t-sm);
+  font-weight: var(--w-semibold);
+}
+
+.examples button span {
+  color: var(--text-muted);
+  font-size: var(--t-xs);
+  line-height: 1.5;
+}
+
+/* ---------------------------------------------------- the folded composer */
+
+/*
+ * Once a review exists the page is about its question, so the question is the headline
+ * and the form is a control that brings it back.
+ */
+.review-header {
+  padding-bottom: var(--s-5);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--s-4);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.review-header h1 {
+  margin: 0;
+  max-width: 46ch;
+  color: var(--text-strong);
+  font-size: var(--t-xl);
+  font-weight: var(--w-semibold);
+  letter-spacing: var(--track-snug);
+  line-height: 1.3;
+}
+
+.review-header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+}
+
+.review-header-actions button {
+  min-height: var(--control-sm);
+  padding: 0 var(--s-3);
+  display: inline-flex;
+  align-items: center;
+  color: var(--text-secondary);
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-xs);
+  font-size: var(--t-sm);
+  font-weight: var(--w-medium);
+  white-space: nowrap;
+}
+
+.review-header-actions button:hover {
+  color: var(--text-strong);
+  border-color: var(--border-strong);
+}
+
+.review-header-new {
+  color: var(--ink-on) !important;
+  background: var(--ink) !important;
+  border-color: var(--ink) !important;
+}
+
+/* --------------------------------------------------------------- feedback */
+
+/*
+ * The completion notice sits at the bottom right. Anchored under the header at the
+ * centre, it landed on the page heading and on the composer's top edge every time a
+ * review finished.
+ */
+.transient-feedback:not(:empty) {
+  position: fixed;
+  top: auto;
+  bottom: var(--s-5);
+  left: var(--s-5);
+  right: auto;
+  z-index: 40;
+  width: min(360px, calc(100vw - var(--s-8)));
+  transform: none;
+}
+
+.transient-feedback .feedback-banner {
+  box-shadow: var(--shadow-lg);
+}
+
+@media (max-width: 600px) {
+  .transient-feedback:not(:empty) {
+    left: var(--s-3);
+    right: var(--s-3);
+    bottom: var(--s-3);
+    width: auto;
+  }
+}
+
+/* ------------------------------------------------------------------ desk */
+
+.desk {
+  margin-top: var(--s-6);
+}
+
+@media (min-width: 1280px) {
+  .desk {
+    grid-template-columns: minmax(0, 8fr) minmax(0, 7fr);
+  }
+
+  /* The passage pane keeps up with the answer beside it rather than stopping a third
+     of the way down and leaving the column empty. */
+  .desk-aside {
+    position: sticky;
+    top: calc(var(--header-h) + var(--s-4));
+    height: calc(100dvh - var(--header-h) - var(--s-10));
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* The reader fills the pinned column; the empty state keeps its own height, so an
+     abstained review does not draw an 800px dashed box down the side of the page. */
+  .desk-aside > .source-viewer {
+    min-height: 0;
+    flex: 1;
+  }
+}
+
+/* The provenance line is a bar with real controls, not four grey words adrift. */
+.provenance-line {
+  padding: var(--s-2) var(--s-3);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-2) var(--s-4);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-xs);
+  font-size: var(--t-xs);
+}
+
+.provenance-actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: var(--s-1);
+}
+
+.provenance-actions button,
+.provenance-actions summary {
+  min-height: var(--control-sm);
+  padding: 0 var(--s-3);
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  font-size: var(--t-xs);
+  font-weight: var(--w-medium);
+  cursor: pointer;
+  list-style: none;
+}
+
+.provenance-actions button:hover,
+.provenance-actions summary:hover {
+  color: var(--text-strong);
+  background: var(--bg-sunk);
+}
+
+/* ---------------------------------------------------------------- answer */
+
+.answer-panel h2,
+.verification-panel h2,
+.conflict-panel h2,
+.source-viewer h2 {
+  font-size: var(--t-h2);
+  letter-spacing: var(--track-snug);
+}
+
+.answer-summary {
+  margin-top: var(--s-1);
+  color: var(--text-muted);
+  font-size: var(--t-sm);
+}
+
+/*
+ * A selected claim is marked by a rule and a tint, never by a box. The border and fill
+ * made the chosen claim read as a different component from the one under it.
+ */
+.recommendation {
+  padding: var(--s-1) 0 var(--s-1) 44px;
+  background: none;
+  border: 0;
+  box-shadow: none;
+  border-radius: 0;
+}
+
+.selected-claim,
+.recommendation.selected-claim {
+  background: none;
+  border: 0;
+  box-shadow: none;
+}
+
+.recommendation.selected-claim::after {
+  content: "";
+  position: absolute;
+  left: 13px;
+  top: 32px;
+  bottom: 4px;
+  width: 2px;
+  border-radius: 2px;
+  background: var(--accent);
+}
+
+.recommendation::before {
+  top: 4px;
+  width: 28px;
+  height: 28px;
+  color: var(--text-muted);
+  background: var(--bg-sunk);
+  border-color: transparent;
+  font-weight: var(--w-semibold);
+}
+
+.recommendation.selected-claim::before {
+  color: var(--accent-on);
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.recommendation-text {
+  max-width: 68ch;
+}
+
+/*
+ * One citation mark. The selected one used to invert to a filled black square while its
+ * neighbour stayed a teal superscript, so two adjacent references looked like two
+ * different controls.
+ */
+.cite {
+  min-width: 16px;
+  color: var(--accent-text);
+  font-weight: var(--w-semibold);
+}
+
+.cite[aria-pressed="true"] {
+  color: var(--accent-on);
+  background: var(--accent);
+}
+
+/* Evidence roles are neutral. Three colours in one phrase read as syntax highlighting;
+   only an exception is worth a colour, because only an exception changes the advice. */
+.recommendation-meta {
+  margin-top: var(--s-2);
+  color: var(--text-muted);
+  font-size: var(--t-xs);
+}
+
+.recommendation-meta .role-primary,
+.recommendation-meta .role-supporting {
+  color: var(--text-muted);
+  background: none;
+  border: 0;
+}
+
+.recommendation-meta .role-exception {
+  color: var(--warn-text);
+  background: none;
+  border: 0;
+  font-weight: var(--w-medium);
+}
+
+/* References read at body size, in one face. */
+.references {
+  margin-top: var(--s-6);
+  padding-top: var(--s-5);
+  border-top: 1px solid var(--border-subtle);
+}
+
+.references li {
+  font-size: var(--t-sm);
+  line-height: 1.6;
+}
+
+/* ---------------------------------------------------------------- checks */
+
+/*
+ * Five steps, five outcomes, one row. The strip used to print a duration for four of
+ * them and an outcome for the fifth, and the long stage names wrapped onto two lines.
+ */
+.checks-strip {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 1px;
+  padding: 0;
+  margin: var(--s-4) 0 0;
+  background: var(--border-subtle);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  list-style: none;
+}
+
+.check {
+  padding: var(--s-3);
+  display: grid;
+  gap: 3px;
+  background: var(--bg-surface);
+  border: 0;
+}
+
+.check-name {
+  color: var(--text-muted);
+  font-size: var(--t-xs);
+  font-weight: var(--w-medium);
+  letter-spacing: 0;
+  text-transform: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.check-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-primary);
+  font-size: var(--t-xs);
+  font-weight: var(--w-medium);
+}
+
+.check-state::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: var(--text-faint);
+}
+
+.check.complete .check-state {
+  color: var(--ok-text);
+}
+
+.check.complete .check-state::before {
+  background: var(--ok-mark);
+}
+
+.check.currentStep .check-state {
+  color: var(--accent-text);
+}
+
+.check.currentStep .check-state::before {
+  background: var(--accent);
+}
+
+.check.blockedStep .check-state {
+  color: var(--danger-text);
+}
+
+.check.blockedStep .check-state::before {
+  background: var(--danger-mark);
+}
+
+@media (max-width: 700px) {
+  .checks-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* ------------------------------------------------------------- conflicts */
+
+/*
+ * Two passages, two identical cards, one caption underneath both. One side used to be
+ * bordered and the other not, their tops did not align, their heights differed, and the
+ * caption sat under the left one as though it belonged to it.
+ */
+.compare-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: var(--s-3);
+  align-items: stretch;
+  margin-top: var(--s-3);
+}
+
+.compare-side {
+  height: 100%;
+  padding: var(--s-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  background: var(--bg-paper);
+  border: 1px solid var(--paper-border);
+  border-radius: var(--radius-lg);
+  box-shadow: none;
+  text-align: left;
+}
+
+.compare-side:hover {
+  border-color: var(--paper-rule);
+}
+
+.compare-side[aria-pressed="true"] {
+  border-color: var(--accent-border-strong);
+  box-shadow: 0 0 0 1px var(--accent-border-strong);
+}
+
+.compare-side .paper {
+  flex: 1;
+  margin: 0;
+  padding: 0;
+  background: none;
+  border: 0;
+  box-shadow: none;
+  font-size: var(--t-base);
+  line-height: 1.6;
+}
+
+.compare-side[aria-pressed="true"] .paper {
+  border: 0;
+}
+
+.compare-side .compare-state {
+  align-items: baseline;
+  font-size: var(--t-2xs);
+}
+
+.compare-meta {
+  color: var(--text-muted);
+  font-size: var(--t-2xs);
+  line-height: 1.5;
+}
+
+.compare-caption {
+  margin-top: var(--s-3);
+  color: var(--text-primary);
+  font-size: var(--t-sm);
+  line-height: 1.6;
+}
+
+.conflict-panel article + article {
+  margin-top: var(--s-6);
+  padding-top: var(--s-5);
+}
+
+.conflict-panel article h3 {
+  margin: 0 0 2px;
+  font-size: var(--t-md);
+}
+
+.conflict-fields {
+  margin-top: var(--s-4);
+  display: grid;
+  gap: 1px;
+  background: var(--border-subtle);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  font-size: var(--t-sm);
+}
+
+.conflict-fields > div {
+  display: grid;
+  grid-template-columns: minmax(120px, 30%) minmax(0, 1fr);
+  gap: var(--s-4);
+  padding: var(--s-3) var(--s-4);
+  background: var(--bg-surface);
+}
+
+.conflict-fields dt {
+  color: var(--text-muted);
+}
+
+.conflict-fields dd {
+  margin: 0;
+  color: var(--text-primary);
+}
+
+/* ---------------------------------------------------------------- sources */
+
+.source-viewer {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-xs);
+  overflow: hidden;
+}
+
+.source-viewer .panel-titlebar {
+  padding: var(--s-3) var(--s-4);
+  margin: 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.source-toolbar {
+  padding: var(--s-2) var(--s-3);
+  gap: var(--s-1) var(--s-2);
+  background: var(--bg-surface);
+}
+
+/* Navigation first, then find, then the rest folded into their own group at the end.
+   Seven controls at equal weight over three rows read as a debug panel. */
+.source-toolbar button,
+.source-toolbar a {
+  min-height: var(--control-sm);
+  min-width: 0;
+  padding: 0 var(--s-2);
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+  color: var(--text-secondary);
+  font-size: var(--t-xs);
+}
+
+.source-toolbar button:hover:not(:disabled),
+.source-toolbar a:hover {
+  color: var(--text-strong);
+  background: var(--bg-sunk);
+  border-color: transparent;
+}
+
+.source-toolbar .toolbar-group {
+  gap: 0;
+}
+
+.evidence-position {
+  margin-left: var(--s-2);
+  font-family: var(--font-sans), system-ui, sans-serif;
+  font-variant-numeric: tabular-nums;
+}
+
+.toolbar-find {
+  flex: 1;
+  min-width: 160px;
+}
+
+.find-field {
+  width: 100%;
+}
+
+/*
+ * The record list is vertical, so a document can be named. As a sideways strip of chips
+ * it truncated every title to about a dozen characters, and the divider that says where
+ * citation stopped floated above the row instead of sitting in it.
+ */
+.evidence-rail {
+  padding: var(--s-2);
+  display: grid;
+  gap: 2px;
+  /* `min-content` rows, explicitly: with auto rows the list distributed its spare height
+     across the records, so each row was shorter than the title inside it and a two-line
+     document name drew over the record beneath it. */
+  grid-auto-rows: min-content;
+  align-content: start;
+  max-height: 260px;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.rail-item {
+  min-width: 0;
+  width: 100%;
+  align-items: start;
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+  font-size: var(--t-xs);
+}
+
+.rail-item:hover {
+  background: var(--bg-sunk);
+}
+
+.rail-item.selected {
+  color: var(--text-strong);
+  background: var(--accent-wash);
+  border-color: var(--accent-border);
+}
+
+/* The selected row is a tint now, not a black block, so its text goes back to ink. It
+   was still inheriting the inverse colours the black state needed. */
+.rail-item.selected .rail-locator,
+.rail-item.selected .rail-flags {
+  color: var(--text-muted);
+}
+
+.rail-item.selected .rail-source {
+  color: var(--text-strong);
+  opacity: 1;
+}
+
+.rail-item.selected .rail-rank {
+  color: var(--accent-on);
+  background: var(--accent);
+}
+
+.rail-item.selected svg {
+  color: var(--accent-text);
+}
+
+.rail-source {
+  color: var(--text-primary);
+  font-weight: var(--w-medium);
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  line-height: 1.4;
+}
+
+.rail-locator {
+  color: var(--text-muted);
+  font-family: var(--font-sans), system-ui, sans-serif;
+  font-variant-numeric: tabular-nums;
+}
+
+.rail-divider {
+  margin: var(--s-2) 0 var(--s-1);
+  padding: 0 var(--s-2);
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--text-muted);
+  font-size: var(--t-2xs);
+}
+
+.rail-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--border-subtle);
+}
+
+@container inspector (min-width: 620px) {
+  .evidence-rail {
+    max-height: none;
+    border-bottom: 0;
+    border-right: 1px solid var(--border-subtle);
+  }
+}
+
+.viewer-layout {
+  background: var(--bg-surface);
+}
+
+.reader {
+  padding: var(--s-5);
+}
+
+.reader-meta {
+  color: var(--text-muted);
+  font-size: var(--t-xs);
+}
+
+/* --------------------------------------------------------------- abstention */
+
+.abstention-lead h3 {
+  margin: 0;
+  color: var(--text-strong);
+  font-size: var(--t-h3);
+  font-weight: var(--w-semibold);
+  letter-spacing: var(--track-snug);
+}
+
+.abstention-lead p {
+  margin: var(--s-2) 0 0;
+  max-width: 62ch;
+  color: var(--text-secondary);
+  font-size: var(--t-base);
+  line-height: 1.6;
+}
+
+.abstention-facts {
+  margin: var(--s-5) 0 0;
+  display: grid;
+  gap: var(--s-1);
+}
+
+.abstention-facts dt {
+  color: var(--text-muted);
+  font-size: var(--t-xs);
+  font-weight: var(--w-medium);
+}
+
+.abstention-facts dd {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: var(--t-sm);
+}
+
+.abstention-next {
+  margin-top: var(--s-5);
+  padding: var(--s-4);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-3);
+  background: var(--bg-sunk);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+}
+
+.abstention-next p {
+  margin: 0;
+  max-width: 62ch;
+  color: var(--text-primary);
+  font-size: var(--t-sm);
+  line-height: 1.6;
+}
+
+.abstention-closest {
+  margin-top: var(--s-8);
+}
+
+.abstention-closest h3 {
+  margin: 0 0 var(--s-1);
+  font-size: var(--t-h3);
+}
+
+.abstention-closest > p {
+  margin: 0;
+  max-width: 62ch;
+  color: var(--text-secondary);
+  font-size: var(--t-sm);
+  line-height: 1.6;
+}
+
+.aside-empty {
+  padding: var(--s-8) var(--s-6);
+  display: grid;
+  gap: var(--s-1);
+  background: var(--bg-surface);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-xl);
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+
+/* -------------------------------------------------------------- start page */
+
+@media (min-width: 1080px) {
+  .start-grid {
+    grid-template-columns: minmax(0, 7fr) minmax(0, 4fr);
+    gap: var(--s-8);
+  }
+}
+
+.start-aside {
+  padding: var(--s-5);
+  gap: var(--s-5);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-xs);
+  align-self: start;
+}
+
+.start-aside h2 {
+  margin: 0;
+  font-size: var(--t-md);
+  font-weight: var(--w-semibold);
+}
+
+/* The corpus figures as a compact two-column band with rules, not a grid whose gaps are
+   wider than its values. */
+.start-aside .aside-facts {
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
+  background: var(--border-subtle);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.start-aside .aside-facts > div {
+  padding: var(--s-3);
+  display: grid;
+  gap: 2px;
+  background: var(--bg-surface);
+}
+
+.start-aside .aside-facts dt {
+  color: var(--text-muted);
+  font-size: var(--t-2xs);
+}
+
+.start-aside .aside-facts dd {
+  margin: 0;
+  color: var(--text-strong);
+  font-size: var(--t-md);
+  font-weight: var(--w-semibold);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ------------------------------------------------------------------ tabs */
+
+.desk-tabs {
+  gap: 2px;
+  background: var(--bg-inset);
+  border: 0;
+  border-radius: var(--radius-md);
+  padding: 3px;
+}
+
+.desk-tabs button {
+  flex: 1;
+  min-height: var(--control-sm);
+  padding: 0 var(--s-3);
+  border: 0;
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  font-size: var(--t-sm);
+  font-weight: var(--w-medium);
+}
+
+.desk-tabs button[aria-selected="true"] {
+  color: var(--text-strong);
+  background: var(--bg-surface);
+  box-shadow: var(--shadow-xs);
+}
+
+/* ---------------------------------------------------------- context chips */
+
+.context-chips {
+  margin: var(--s-4) 0 0;
+  align-items: center;
+}
+
+@media (max-width: 700px) {
+  .context-chips {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+    padding-bottom: 2px;
+  }
+
+  .context-chips::-webkit-scrollbar {
+    display: none;
+  }
+
+  .context-chips > * {
+    flex: 0 0 auto;
+  }
+}
+
+.start-aside .aside-runs {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 1px;
+}
+
+.start-aside .aside-runs a {
+  padding: var(--s-2) var(--s-2);
+  display: grid;
+  gap: 2px;
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-size: var(--t-sm);
+  font-weight: var(--w-medium);
+  text-decoration: none;
+  overflow: hidden;
+}
+
+.start-aside .aside-runs a:hover {
+  background: var(--bg-sunk);
+  text-decoration: none;
+}
+
+.start-aside .aside-runs small {
+  color: var(--text-muted);
+  font-size: var(--t-2xs);
+  font-weight: var(--w-regular);
+}
+
+/* ---------------------------------------------------- disclosure markers */
+
+/*
+ * Every disclosure in the workspace wears the same mark. Four of them were still showing
+ * the browser's own triangle beside three that were not.
+ */
+.abstention-details > summary,
+.checks-log > summary,
+.reader-details > summary,
+.technical-error > summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  list-style: none;
+  cursor: pointer;
+  color: var(--text-secondary);
+  font-size: var(--t-sm);
+  font-weight: var(--w-medium);
+}
+
+.abstention-details > summary::-webkit-details-marker,
+.checks-log > summary::-webkit-details-marker,
+.reader-details > summary::-webkit-details-marker,
+.technical-error > summary::-webkit-details-marker {
+  display: none;
+}
+
+.abstention-details > summary::before,
+.checks-log > summary::before,
+.reader-details > summary::before,
+.technical-error > summary::before {
+  content: "";
+  width: 0;
+  height: 0;
+  border-left: 5px solid currentColor;
+  border-top: 4px solid transparent;
+  border-bottom: 4px solid transparent;
+  transition: transform 120ms ease;
+}
+
+.abstention-details[open] > summary::before,
+.checks-log[open] > summary::before,
+.reader-details[open] > summary::before,
+.technical-error[open] > summary::before {
+  transform: rotate(90deg);
+}
+
+.abstention-details > summary:hover,
+.checks-log > summary:hover,
+.reader-details > summary:hover,
+.technical-error > summary:hover {
+  color: var(--text-strong);
+}
+
+/* ------------------------------------------------------------ start page */
+
+/*
+ * The start screen sits in the middle of the window rather than clinging to the top of a
+ * flat field with half the page left empty beneath it.
+ */
+@media (min-width: 1080px) {
+  .start-grid {
+    min-height: calc(100dvh - var(--header-h) - 260px);
+    align-content: center;
   }
 }

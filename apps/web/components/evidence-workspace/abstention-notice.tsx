@@ -9,41 +9,70 @@ interface AbstentionNoticeProps {
 }
 
 /**
+ * Whether the service's own message repeats the headline this interface already shows.
+ *
+ * The service sends "No approved guideline corpus is configured." under a reason code
+ * whose headline is "No approved guideline corpus is active", and both were rendered, one
+ * under the other, in two different faces. Rather than dropping the service message
+ * everywhere, which would lose the specifics it sometimes carries, it is suppressed only
+ * when the headline already contains almost all of it.
+ */
+function repeatsHeadline(headline: string, message: string): boolean {
+  const words = (value: string) =>
+    new Set(
+      value
+        .toLowerCase()
+        .replace(/[^a-z0-9\s]/g, " ")
+        .split(/\s+/)
+        .filter((word) => word.length > 3),
+    );
+  const inMessage = words(message);
+  if (inMessage.size === 0) return true;
+  const inHeadline = words(headline);
+  let shared = 0;
+  for (const word of inMessage) if (inHeadline.has(word)) shared += 1;
+  return shared / inMessage.size >= 0.7;
+}
+
+/**
  * The state shown when no clinical claim was rendered.
  *
  * Abstention is a correct outcome here, not an error, so this reads as an answer rather
- * than a warning: no icon, no wash, no border. The lead sentence says what happened and
- * why, the next step says what a reader can do about it, and the reason code stays
- * available in a closed disclosure for a support conversation - including when this
- * build does not recognise it.
+ * than a warning: the headline says what happened, one line says why, the next step is a
+ * bordered instruction rather than a sentence adrift between two others, and the reason
+ * code stays available in a closed disclosure for a support conversation.
  */
 export function AbstentionNotice({ onRetry, result }: AbstentionNoticeProps) {
   const abstention = presentAbstention(result.abstention, result.status);
+  const showMessage = !repeatsHeadline(abstention.title, abstention.message);
 
   return (
     <div className={styles["abstention-content"]}>
-      <p className={`${styles["abstention-lead"]} reading`}>
-        <strong>{abstention.title}</strong> {abstention.message}
-      </p>
+      <div className={styles["abstention-lead"]}>
+        <h3>{abstention.title}</h3>
+        {showMessage ? <p>{abstention.message}</p> : null}
+      </div>
 
       {abstention.missingEvidenceRoles.length ? (
-        <p className={styles["abstention-roles"]}>
-          The review could not verify:{" "}
-          {abstention.missingEvidenceRoles.map(humanizeCode).join(", ")}.
-        </p>
+        <dl className={styles["abstention-facts"]}>
+          <div>
+            <dt>Could not verify</dt>
+            <dd>{abstention.missingEvidenceRoles.map(humanizeCode).join(", ")}</dd>
+          </div>
+        </dl>
       ) : null}
 
-      <p className={styles["abstention-next"]}>
+      <div className={styles["abstention-next"]}>
+        <p>{abstention.nextStep}</p>
         {abstention.retryable ? (
           <button type="button" onClick={onRetry}>
             Try again
           </button>
         ) : null}
-        {abstention.nextStep}
-      </p>
+      </div>
 
       {abstention.closestEvidenceIds.length ? (
-        <>
+        <div className={styles["abstention-closest"]}>
           <h3>What came closest</h3>
           <p>
             These ranked highest for the question and supported no claim. Compare them
@@ -78,16 +107,23 @@ export function AbstentionNotice({ onRetry, result }: AbstentionNoticeProps) {
               );
             })}
           </ol>
-        </>
+        </div>
       ) : null}
 
-      {abstention.rawCode ? (
+      {abstention.rawCode || !showMessage ? (
         <details className={styles["abstention-details"]}>
           <summary>Details</summary>
-          <p>
-            Reason code <code>{abstention.rawCode}</code>
-            {abstention.code === null ? " (not recognised by this interface)" : null}
-          </p>
+          {abstention.rawCode ? (
+            <p>
+              Reason code <code>{abstention.rawCode}</code>
+              {abstention.code === null ? " (not recognised by this interface)" : null}
+            </p>
+          ) : null}
+          {showMessage ? null : (
+            <p>
+              Service message: <span>{abstention.message}</span>
+            </p>
+          )}
         </details>
       ) : null}
     </div>

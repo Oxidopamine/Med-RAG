@@ -4,48 +4,116 @@ import { useId, useState } from "react";
 
 import styles from "./evaluation.module.css";
 
-export interface ArmBar {
+export interface ArmPoint {
   key: string;
   label: string;
-  value: number;
-  total: number;
+  /** Fraction, 0 to 1. */
+  rate: number;
+  /** The production instrument gets the accent; every comparison arm gets a neutral ink. */
+  emphasis: "accent" | "neutral";
 }
 
+const TICKS = [0, 25, 50, 75, 100];
+
 /*
- * One measure, four arms: a horizontal bar per arm, one hue, the value written beside
- * the bar. Thin marks on a recessive baseline; hover names the arm and the count. The
- * table under the chart is the same data in full, so nothing is colour-alone.
+ * Four arms whose answered rate is nearly identical for three of them: a horizontal dot
+ * plot on one shared 0-100% axis, not bars, so the near-equal cluster and the one outlier
+ * both read from position rather than from four lengths that are almost the same length.
+ *
+ * Every row carries its own text label, so colour (production versus comparison arm) is
+ * never the only way to tell rows apart. A value is printed beside a dot only where it is
+ * not already obvious from the row above it - three identical rates need one label, not
+ * three - and the table under the chart is the full data, so nothing here is colour-alone
+ * or hover-only.
  */
-export function ArmChart({ bars, caption }: { bars: ArmBar[]; caption: string }) {
+export function ArmChart({
+  points,
+  summary,
+  caption,
+}: {
+  points: ArmPoint[];
+  summary: string;
+  caption: string;
+}) {
   const [active, setActive] = useState<string | null>(null);
   const id = useId();
-  const max = Math.max(...bars.map((bar) => bar.total), 1);
-  const rowHeight = 34;
-  const labelWidth = 220;
+
   const width = 640;
-  const plotWidth = width - labelWidth - 72;
-  const height = bars.length * rowHeight + 8;
+  const labelWidth = 208;
+  const rightPad = 56;
+  const plotWidth = width - labelWidth - rightPad;
+  const rowHeight = 40;
+  const topPad = 10;
+  const axisHeight = 40;
+  const plotBottom = topPad + points.length * rowHeight;
+  const height = plotBottom + axisHeight;
+
+  const x = (rate: number) => labelWidth + rate * plotWidth;
 
   return (
     <figure className={styles.figure}>
       <svg
-        aria-labelledby={`${id}-title`}
+        aria-label={summary}
         className={styles.chart}
+        preserveAspectRatio="xMidYMid meet"
         role="img"
         viewBox={`0 0 ${width} ${height}`}
       >
         <title id={`${id}-title`}>{caption}</title>
-        {bars.map((bar, index) => {
-          const y = index * rowHeight + 4;
-          const w = Math.max((bar.value / max) * plotWidth, 2);
-          const share = bar.total ? Math.round((bar.value / bar.total) * 100) : 0;
-          const isActive = active === bar.key;
+
+        {TICKS.map((tick) => (
+          <line
+            key={`grid-${tick}`}
+            className={styles.gridline}
+            x1={x(tick / 100)}
+            x2={x(tick / 100)}
+            y1={topPad - 4}
+            y2={plotBottom + 4}
+          />
+        ))}
+
+        <line
+          className={styles.axis}
+          x1={labelWidth}
+          x2={labelWidth + plotWidth}
+          y1={plotBottom + 4}
+          y2={plotBottom + 4}
+        />
+
+        {TICKS.map((tick) => (
+          <text
+            key={`tick-${tick}`}
+            className={styles.tickLabel}
+            textAnchor="middle"
+            x={x(tick / 100)}
+            y={plotBottom + 20}
+          >
+            {tick}
+          </text>
+        ))}
+
+        <text
+          className={styles.axisLabel}
+          textAnchor="middle"
+          x={labelWidth + plotWidth / 2}
+          y={plotBottom + 36}
+        >
+          Answered rate (%)
+        </text>
+
+        {points.map((point, index) => {
+          const rowY = topPad + index * rowHeight + rowHeight / 2;
+          const cx = x(point.rate);
+          const isActive = active === point.key;
+          const previous = points[index - 1];
+          const showValue = !previous || Math.abs(previous.rate - point.rate) > 0.001;
+
           return (
             <g
-              key={bar.key}
+              key={point.key}
               onBlur={() => setActive(null)}
-              onFocus={() => setActive(bar.key)}
-              onMouseEnter={() => setActive(bar.key)}
+              onFocus={() => setActive(point.key)}
+              onMouseEnter={() => setActive(point.key)}
               onMouseLeave={() => setActive(null)}
               tabIndex={0}
             >
@@ -54,38 +122,24 @@ export function ArmChart({ bars, caption }: { bars: ArmBar[]; caption: string })
                 height={rowHeight}
                 width={width}
                 x={0}
-                y={y - 4}
+                y={rowY - rowHeight / 2}
               />
-              <text className={styles.rowLabel} x={0} y={y + 17}>
-                {bar.label}
+              <text className={styles.rowLabel} x={2} y={rowY + 4}>
+                {point.label}
               </text>
-              <line
-                className={styles.baseline}
-                x1={labelWidth}
-                x2={labelWidth + plotWidth}
-                y1={y + rowHeight - 6}
-                y2={y + rowHeight - 6}
+              <circle
+                className={`${point.emphasis === "accent" ? styles.dotAccent : styles.dotNeutral} ${
+                  isActive ? styles.dotActive : ""
+                }`}
+                cx={cx}
+                cy={rowY}
+                r={7}
               />
-              <rect
-                className={`${styles.bar} ${isActive ? styles.barActive : ""}`}
-                height={14}
-                rx={0}
-                width={w}
-                x={labelWidth}
-                y={y + 5}
-              />
-              <rect
-                className={`${styles.bar} ${isActive ? styles.barActive : ""}`}
-                height={14}
-                rx={4}
-                width={Math.min(8, w)}
-                x={labelWidth + w - Math.min(8, w)}
-                y={y + 5}
-              />
-              <text className={styles.value} x={labelWidth + w + 8} y={y + 17}>
-                {bar.value}
-                <tspan className={styles.valueMuted}> of {bar.total} ({share}%)</tspan>
-              </text>
+              {showValue ? (
+                <text className={styles.dotValue} x={cx + 14} y={rowY + 4}>
+                  {(point.rate * 100).toFixed(1)}%
+                </text>
+              ) : null}
             </g>
           );
         })}
@@ -93,9 +147,9 @@ export function ArmChart({ bars, caption }: { bars: ArmBar[]; caption: string })
       {active ? (
         <div className={styles.tooltip} role="status">
           {(() => {
-            const bar = bars.find((item) => item.key === active);
-            if (!bar) return null;
-            return `${bar.label}: ${bar.value} answered of ${bar.total} questions`;
+            const point = points.find((item) => item.key === active);
+            if (!point) return null;
+            return `${point.label}: ${(point.rate * 100).toFixed(1)}% answered`;
           })()}
         </div>
       ) : null}

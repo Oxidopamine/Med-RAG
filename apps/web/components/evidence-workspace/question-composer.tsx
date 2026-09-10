@@ -151,7 +151,7 @@ export function QuestionComposer({
       return;
     }
     textarea.style.height = "auto";
-    textarea.style.height = `${Math.min(Math.max(textarea.scrollHeight, 60), 144)}px`;
+    textarea.style.height = `${Math.min(Math.max(textarea.scrollHeight, 88), 220)}px`;
     if (focusAfterQuestionChangeRef.current) {
       textarea.focus();
       textarea.setSelectionRange(question.length, question.length);
@@ -340,7 +340,10 @@ export function QuestionComposer({
             onKeyDown={handleQuestionKeyDown}
             maxLength={4000}
             rows={1}
-            placeholder="e.g., For a pregnant adult newly starting treatment, which regimen and monitoring schedule do current guidelines recommend?"
+            // Short enough to fit the field at 320px. The long version ran to four lines
+            // on a phone and was cut in half by the field's height, and the example cards
+            // below now carry the fuller questions.
+            placeholder="e.g., Which regimen for a pregnant adult starting treatment?"
             aria-describedby={describedBy}
             aria-invalid={Boolean(questionError)}
             aria-keyshortcuts="Control+Enter Meta+Enter"
@@ -574,7 +577,7 @@ export function QuestionComposer({
 
       {showExamples ? (
         <div className={styles.examples} role="group" aria-labelledby="example-heading">
-          <span id="example-heading">Examples</span>
+          <span id="example-heading">Try one of these</span>
           <ul>
             {EXAMPLES.map(({ label, question: example }) => (
               <li key={label}>
@@ -583,11 +586,11 @@ export function QuestionComposer({
                   // fills in, so speech input can activate the control by what it reads.
                   aria-label={`${label}: ${example}`}
                   disabled={isBusy}
-                  title={example}
                   type="button"
                   onClick={() => chooseExample(example)}
                 >
-                  {label}
+                  <strong>{label}</strong>
+                  <span>{example}</span>
                 </button>
               </li>
             ))}

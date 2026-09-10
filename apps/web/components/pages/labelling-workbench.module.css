@@ -62,8 +62,8 @@
   }
 }
 
-/* A fieldset of options laid out in a row; wraps on narrow controls panes. */
-.radioGroup {
+/* A fieldset holding a `shell.choices` group of `shell.choice` cards. */
+.fieldset {
   margin: 0;
   padding: 0;
   border: 0;
@@ -71,25 +71,21 @@
   gap: var(--s-2);
 }
 
-.radioGroup legend {
+.fieldset legend {
   margin-bottom: var(--s-1);
   color: var(--text-strong);
   font-size: var(--t-sm);
   font-weight: var(--w-medium);
 }
 
-.radioRow {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--s-3);
-}
-
-.radioRow label {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: var(--t-sm);
-  color: var(--text-primary);
+/* Short option sets (yes/no, extents, likelihoods, attribution and agreement labels)
+   read better as cards laid across the controls pane than stacked one to a row. Declared
+   self-contained (not relying on cascade order against shell.choices) since it composes
+   with a class from another CSS module. */
+.choicesInline {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: var(--s-2);
 }
 
 .passage {
@@ -234,13 +230,146 @@
   box-shadow: 0 0 0 3px var(--ink-ring);
 }
 
-.numberInput {
-  min-height: var(--control-sm);
-  width: 140px;
-  padding: 0 var(--s-3);
-  color: var(--text-primary);
+/* ================================================================ setup: drop zone */
+
+/*
+ * One drop target instead of six raw file inputs. The real `<input type="file">` sits
+ * inside, wrapped in the same label, so a click or a native label-activation opens it,
+ * and it stays in the tab order and answers Enter/Space itself; no drag is ever required.
+ */
+.dropzone {
+  padding: var(--s-8) var(--s-6);
+  display: grid;
+  justify-items: center;
+  gap: var(--s-1);
+  text-align: center;
   background: var(--bg-surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
+  border: 1.5px dashed var(--border-strong);
+  border-radius: var(--radius-xl);
+  cursor: pointer;
+  transition: border-color 120ms ease, background-color 120ms ease;
+}
+
+.dropzone strong {
+  color: var(--text-strong);
+  font-size: var(--t-md);
+  font-weight: var(--w-medium);
+}
+
+.dropzone span {
+  max-width: 52ch;
+  color: var(--text-muted);
   font-size: var(--t-sm);
+}
+
+.dropzone:hover {
+  border-color: var(--ink);
+  background: var(--bg-canvas);
+}
+
+.dropzone:has(input:focus-visible) {
+  outline: none;
+  border-color: var(--ink);
+  box-shadow: 0 0 0 3px var(--ink-ring);
+}
+
+.dropzoneActive {
+  border-color: var(--accent-border-strong);
+  background: var(--accent-wash);
+}
+
+/* ================================================================ setup: slot list */
+
+.slotList {
+  margin: var(--s-5) 0 var(--s-6);
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 1px;
+  background: var(--border-subtle);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+}
+
+.slotRow {
+  padding: var(--s-4) var(--s-5);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-3) var(--s-5);
+  background: var(--bg-surface);
+}
+
+.slotInfo {
+  min-width: 220px;
+  display: grid;
+  gap: 2px;
+}
+
+.slotTitle {
+  margin: 0;
+  color: var(--text-strong);
+  font-size: var(--t-sm);
+  font-weight: var(--w-medium);
+}
+
+.requiredMark {
+  color: var(--text-muted);
+  font-weight: var(--w-regular);
+  font-size: var(--t-xs);
+}
+
+.slotHint {
+  margin: 0;
+  max-width: 46ch;
+  color: var(--text-muted);
+  font-size: var(--t-xs);
+  line-height: 1.5;
+}
+
+.slotState {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-3);
+}
+
+.slotFile {
+  margin: 0;
+  max-width: 40ch;
+  color: var(--text-primary);
+  font-size: var(--t-xs);
+  overflow-wrap: anywhere;
+}
+
+/* ================================================================ setup: settings */
+
+.settingsRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-5);
+}
+
+.seedField {
+  width: 160px;
+}
+
+.annotatorField {
+  width: 280px;
+}
+
+/* ================================================================ pass tabs */
+
+.tabProgress {
+  margin-left: var(--s-2);
+  color: var(--text-muted);
+  font-size: var(--t-2xs);
+  font-weight: var(--w-regular);
+  font-variant-numeric: tabular-nums;
+}
+
+.tab[aria-selected="true"] .tabProgress {
+  color: var(--text-secondary);
 }

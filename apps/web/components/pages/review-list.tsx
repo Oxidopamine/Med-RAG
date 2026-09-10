@@ -1,10 +1,21 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  useSyncExternalStore,
+  type ReactNode,
+} from "react";
 
-import styles from "@/components/shell/shell.module.css";
-import { listQuestions } from "@/lib/api";
+import shell from "@/components/shell/shell.module.css";
+import styles from "@/components/pages/reviews.module.css";
+import { getCorpusReadiness, listQuestions } from "@/lib/api";
+import { downloadText } from "@/lib/export";
 import { withRetries } from "@/lib/readiness";
 import { runsSnapshot, serverRunsSnapshot, subscribeRuns } from "@/lib/run-history";
 import type { QuestionSummary } from "@/lib/contracts";
@@ -23,6 +34,7 @@ interface Row {
 }
 
 type Load = { status: "loading" } | { status: "ready"; unreachable: boolean };
+type OutcomeFilter = "all" | "answered" | "abstained" | "other";
 
 const TERMINAL: QuestionStatus[] = ["ANSWER_READY", "ABSTAINED", "FAILED"];
 
@@ -35,16 +47,28 @@ export function outcomeLabel(status: Row["status"]): string {
 }
 
 function outcomeTone(status: Row["status"]): string {
-  if (status === "ANSWER_READY") return styles.ok;
-  if (status === "ABSTAINED") return styles.warn;
-  if (status === "FAILED") return styles.danger;
-  return styles.neutral;
+  if (status === "ANSWER_READY") return shell.ok;
+  if (status === "ABSTAINED") return shell.warn;
+  if (status === "FAILED") return shell.danger;
+  return shell.neutral;
 }
 
-function formatWhen(value: string): string {
+/** A reason code such as `NO_EVIDENCE_FOUND`, read the way a reader writes a sentence. */
+function sentenceCase(code: string): string {
+  const words = code.toLowerCase().replaceAll("_", " ");
+  return words.length ? words[0]!.toUpperCase() + words.slice(1) : words;
+}
+
+function formatDate(value: string): string {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
-  return new Intl.DateTimeFormat("en", { dateStyle: "medium", timeStyle: "short" }).format(date);
+  return new Intl.DateTimeFormat("en", { dateStyle: "medium" }).format(date);
+}
+
+function formatTime(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return new Intl.DateTimeFormat("en", { timeStyle: "short" }).format(date);
 }
 
 export function mergeRows(
@@ -103,12 +127,38 @@ function toCsv(rows: Row[]): string {
   return [header.join(","), ...lines].join("\n");
 }
 
-export function ReviewList() {
+/* ============================================================ shared state */
+
+/**
+ * The list's state, shared between the table body and the export action.
+ *
+ * The export button lives in the page's title band, set by `PageFrame`'s `actions` prop,
+ * while the table it exports is a section further down the page. Both need the same
+ * filtered rows, so the state is held once, above both, rather than fetched twice or
+ * threaded through props across a page boundary.
+ */
+interface ReviewsState {
+  load: Load;
+  rows: Row[];
+  visible: Row[];
+  query: string;
+  setQuery: (value: string) => void;
+  outcome: OutcomeFilter;
+  setOutcome: (value: OutcomeFilter) => void;
+  servedRelease: string | null;
+  clearFilters: () => void;
+  exportCsv: () => void;
+}
+
+const ReviewsContext = createContext<ReviewsState | null>(null);
+
+function useReviewsState(): ReviewsState {
   const [server, setServer] = useState<QuestionSummary[]>([]);
   const local = useSyncExternalStore(subscribeRuns, runsSnapshot, serverRunsSnapshot);
   const [load, setLoad] = useState<Load>({ status: "loading" });
   const [query, setQuery] = useState("");
-  const [outcome, setOutcome] = useState<"all" | "answered" | "abstained" | "other">("all");
+  const [outcome, setOutcome] = useState<OutcomeFilter>("all");
+  const [servedRelease, setServedRelease] = useState<string | null>(null);
 
   useEffect(() => {
     let live = true;
@@ -120,6 +170,23 @@ export function ReviewList() {
       })
       .catch(() => {
         if (live) setLoad({ status: "ready", unreachable: true });
+      });
+    return () => {
+      live = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let live = true;
+    // Only used to flag a review that ran on a release other than the one served now; a
+    // miss here just leaves that note off, so it gets no retries budget of its own beyond
+    // the standard backoff.
+    withRetries(getCorpusReadiness, { delays: [1_000, 3_000] })
+      .then((value) => {
+        if (live) setServedRelease(value.corpus_release_id);
+      })
+      .catch(() => {
+        // The list still works without it.
       });
     return () => {
       live = false;
@@ -140,114 +207,208 @@ export function ReviewList() {
     });
   }, [rows, query, outcome]);
 
-  function exportCsv() {
-    const blob = new Blob([toCsv(visible)], { type: "text/csv;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = `reviews-${new Date().toISOString().slice(0, 10)}.csv`;
-    anchor.click();
-    URL.revokeObjectURL(url);
-  }
+  const clearFilters = useCallback(() => {
+    setQuery("");
+    setOutcome("all");
+  }, []);
+
+  const exportCsv = useCallback(() => {
+    downloadText(`reviews-${new Date().toISOString().slice(0, 10)}.csv`, toCsv(visible), "text/csv");
+  }, [visible]);
+
+  return { load, rows, visible, query, setQuery, outcome, setOutcome, servedRelease, clearFilters, exportCsv };
+}
+
+/** Holds the list's state above both the export action and the table that share it. */
+export function ReviewsProvider({ children }: { children: ReactNode }) {
+  const state = useReviewsState();
+  return <ReviewsContext.Provider value={state}>{children}</ReviewsContext.Provider>;
+}
+
+function useReviews(): ReviewsState {
+  const value = useContext(ReviewsContext);
+  if (!value) throw new Error("ReviewList and ReviewListExportAction must render inside ReviewsProvider.");
+  return value;
+}
+
+/** The CSV export button, placed in the page's title band. */
+export function ReviewListExportAction() {
+  const { exportCsv, visible } = useReviews();
+  return (
+    <button className={shell.button} type="button" onClick={exportCsv} disabled={!visible.length}>
+      Export CSV
+    </button>
+  );
+}
+
+/* ============================================================ the table */
+
+function SkeletonRows() {
+  return (
+    <>
+      {[0, 1, 2].map((index) => (
+        <tr key={index} aria-hidden="true">
+          <td>
+            <span className={`${styles.skeletonBar} ${styles.wide}`} />
+          </td>
+          <td>
+            <span className={`${styles.skeletonBar} ${styles.narrow}`} />
+          </td>
+          <td>
+            <span className={`${styles.skeletonBar} ${styles.narrow}`} />
+          </td>
+          <td>
+            <span className={styles.skeletonBar} />
+          </td>
+        </tr>
+      ))}
+    </>
+  );
+}
+
+function Columns() {
+  return (
+    <colgroup>
+      <col style={{ width: "46%" }} />
+      <col style={{ width: "16%" }} />
+      <col style={{ width: "20%" }} />
+      <col style={{ width: "18%" }} />
+    </colgroup>
+  );
+}
+
+function Header() {
+  return (
+    <thead>
+      <tr>
+        <th scope="col">Question</th>
+        <th scope="col">Outcome</th>
+        <th scope="col">Claims</th>
+        <th scope="col">When</th>
+      </tr>
+    </thead>
+  );
+}
+
+export function ReviewList() {
+  const { load, rows, visible, query, setQuery, outcome, setOutcome, servedRelease, clearFilters } = useReviews();
 
   return (
     <section aria-labelledby="reviews-list">
-      <h2 id="reviews-list" className={styles.srOnly}>
+      <h2 id="reviews-list" className={shell.srOnly}>
         Review list
       </h2>
       {load.status === "ready" && load.unreachable ? (
-        <div className={styles.notice} role="status">
+        <div className={shell.notice} role="status">
           The evidence service could not be reached. Only reviews opened in this browser are
           listed, and each is fetched again when opened.
         </div>
       ) : null}
-      <div className={styles.actions}>
-        <label className={styles.srOnly} htmlFor="review-search">
+      <div className={styles.filters}>
+        <label className={shell.srOnly} htmlFor="review-search">
           Search reviews
         </label>
         <input
-          className={styles["text-input"]}
+          className={`${shell["text-input"]} ${styles.search}`}
           id="review-search"
           placeholder="Search questions"
           type="search"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
         />
-        <label className={styles.srOnly} htmlFor="review-outcome">
+        <label className={shell.srOnly} htmlFor="review-outcome">
           Outcome
         </label>
         <select
-          className={styles.select}
+          className={`${shell.select} ${styles.outcomeSelect}`}
           id="review-outcome"
           value={outcome}
-          onChange={(event) => setOutcome(event.target.value as typeof outcome)}
+          onChange={(event) => setOutcome(event.target.value as OutcomeFilter)}
         >
           <option value="all">All outcomes</option>
           <option value="answered">Answered</option>
           <option value="abstained">No answer</option>
           <option value="other">Running or failed</option>
         </select>
-        <button className={styles.button} type="button" onClick={exportCsv} disabled={!visible.length}>
-          Export CSV
-        </button>
       </div>
       {load.status === "loading" ? (
-        <p className={styles.empty}>Reading reviews.</p>
-      ) : visible.length ? (
-        <div className={styles["table-wrap"]}>
-          <table className={styles.table}>
-            <thead>
-              <tr>
-                <th scope="col">Question</th>
-                <th scope="col">When</th>
-                <th scope="col">Outcome</th>
-                <th scope="col">Release</th>
-                <th scope="col" className={styles.num}>
-                  Supported
-                </th>
-                <th scope="col" className={styles.num}>
-                  Withheld
-                </th>
-              </tr>
-            </thead>
+        <div className={shell["table-wrap"]}>
+          <table className={`${shell.table} ${styles.table}`} aria-label="Reviews, loading">
+            <Columns />
+            <Header />
             <tbody>
-              {visible.map((row) => (
-                <tr key={row.questionId}>
-                  <td>
-                    <Link href={`/r/${encodeURIComponent(row.questionId)}`}>
-                      {row.question || row.questionId}
-                    </Link>
-                    {!row.onServer ? (
-                      <>
-                        <br />
-                        <span className={styles.muted}>Opened in this browser</span>
-                      </>
-                    ) : null}
-                  </td>
-                  <td>{formatWhen(row.createdAt)}</td>
-                  <td>
-                    <span className={`${styles.status} ${outcomeTone(row.status)}`}>
-                      {outcomeLabel(row.status)}
-                    </span>
-                    {row.reasonCode ? (
-                      <>
-                        <br />
-                        <span className={styles.muted}>{row.reasonCode.toLowerCase().replaceAll("_", " ")}</span>
-                      </>
-                    ) : null}
-                  </td>
-                  <td>{row.releaseId ?? ""}</td>
-                  <td className={styles.num}>{row.onServer ? row.supported : ""}</td>
-                  <td className={styles.num}>{row.onServer ? row.withheld : ""}</td>
-                </tr>
-              ))}
+              <SkeletonRows />
             </tbody>
           </table>
         </div>
+      ) : rows.length === 0 ? (
+        <div className={shell.empty}>
+          <strong>No reviews yet.</strong>
+          <p>
+            Ask a question in the <Link href="/">workspace</Link> and it will appear here.
+          </p>
+        </div>
+      ) : visible.length === 0 ? (
+        <div className={shell.empty}>
+          <strong>No reviews match these filters.</strong>
+          <p>Try a different search term or outcome.</p>
+          <button className={`${shell.button} ${shell.small}`} type="button" onClick={clearFilters}>
+            Clear filters
+          </button>
+        </div>
       ) : (
-        <p className={styles.empty}>
-          No reviews yet. Ask a question in the <Link href="/">workspace</Link> and it will appear here.
-        </p>
+        <div className={shell["table-wrap"]}>
+          <table className={`${shell.table} ${styles.table}`} aria-label="Reviews">
+            <Columns />
+            <Header />
+            <tbody>
+              {visible.map((row) => {
+                const mismatch =
+                  row.onServer && row.releaseId && servedRelease && row.releaseId !== servedRelease
+                    ? `Ran on release ${row.releaseId}`
+                    : null;
+                return (
+                  <tr key={row.questionId}>
+                    <td>
+                      <Link
+                        className={`${shell["row-link"]} ${styles.rowLink}`}
+                        href={`/r/${encodeURIComponent(row.questionId)}`}
+                      >
+                        {row.question || row.questionId}
+                      </Link>
+                      {!row.onServer ? (
+                        <span className={shell.sub}>Opened in this browser</span>
+                      ) : mismatch ? (
+                        <span className={shell.sub}>{mismatch}</span>
+                      ) : null}
+                    </td>
+                    <td>
+                      <span className={`${shell.status} ${outcomeTone(row.status)}`}>{outcomeLabel(row.status)}</span>
+                      {row.reasonCode ? <span className={shell.sub}>{sentenceCase(row.reasonCode)}</span> : null}
+                    </td>
+                    <td>
+                      {row.onServer ? (
+                        <>
+                          {row.supported} supported
+                          <span className={shell.sub}>{row.withheld} withheld</span>
+                        </>
+                      ) : (
+                        <span className={shell.muted}>Not fetched</span>
+                      )}
+                    </td>
+                    <td className={shell.num}>
+                      {formatDate(row.createdAt)}
+                      <span className={shell.sub}>{formatTime(row.createdAt)}</span>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+          <p className={shell["table-note"]}>
+            {visible.length} of {rows.length} review{rows.length === 1 ? "" : "s"}.
+          </p>
+        </div>
       )}
     </section>
   );

@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const pathname = vi.hoisted(() => ({ current: "/" }));
@@ -20,8 +20,10 @@ describe("SiteHeader", () => {
     pathname.current = "/corpus";
     render(<SiteHeader />);
     const nav = screen.getByRole("navigation", { name: "Primary" });
+    // Scoped to the bar's own navigation: the phone drawer renders the same links first
+    // in document order, now that its button sits inside the bar rather than under it.
     for (const item of NAVIGATION) {
-      expect(nav).toContainElement(screen.getAllByRole("link", { name: item.label })[0]!);
+      expect(within(nav).getByRole("link", { name: item.label })).toBeInTheDocument();
     }
     const current = nav.querySelector('a[aria-current="page"]');
     expect(current).not.toBeNull();

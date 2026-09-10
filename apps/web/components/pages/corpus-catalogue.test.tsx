@@ -82,7 +82,9 @@ describe("CorpusCatalogueView", () => {
       "href",
       "/sources/SRC_1",
     );
-    expect(screen.getByText("Quote only")).toBeInTheDocument();
+    expect(screen.getAllByText("World Health Organization").length).toBeGreaterThan(0);
+    expect(screen.getByText("Quotation only")).toBeInTheDocument();
+    expect(screen.getByText("Effective")).toBeInTheDocument();
     expect(screen.getByText("2021 edition")).toBeInTheDocument();
     expect(screen.getByText("WHO SMART guidelines, HIV")).toBeInTheDocument();
     // The catalogue names documents; it never carries a passage.

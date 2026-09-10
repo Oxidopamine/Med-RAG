@@ -32,8 +32,18 @@ function renderPanel(progressEvents: EvidenceProgressEvent[]) {
   return screen.getByRole("list");
 }
 
+/*
+ * A stage's row in the log.
+ *
+ * Durations are read here rather than off the strip: the strip states one outcome per
+ * stage, because printing a duration for four stages and an outcome for the fifth put two
+ * different kinds of thing in one row of five columns. The timing logic these tests are
+ * about is unchanged; only where it is displayed moved.
+ */
 function stepRow(index: number): HTMLElement {
-  return within(screen.getByRole("list")).getAllByRole("listitem")[index]!;
+  const log = screen.getByText("Log").closest("details");
+  const table = within(log!).getByRole("table");
+  return within(table).getAllByRole("row")[index + 1]!;
 }
 
 /**
@@ -126,7 +136,9 @@ describe("VerificationPanel, what each stage concluded", () => {
       />,
     );
 
-    expect(screen.getByRole("status")).toHaveTextContent("Answer withheld by the checks");
+    // One word for one outcome. "No answer", "Answer withheld by the checks" and
+    // "Blocked" were three names for this state, all reachable on the same screen.
+    expect(screen.getByRole("status")).toHaveTextContent("No answer");
   });
 });
 

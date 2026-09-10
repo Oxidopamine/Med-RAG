@@ -2,6 +2,7 @@
 
 import { useState, useSyncExternalStore } from "react";
 
+import content from "@/components/pages/content.module.css";
 import { PageFrame } from "@/components/shell/page-frame";
 import styles from "@/components/shell/shell.module.css";
 import {
@@ -13,6 +14,30 @@ import {
   type ReaderSettings,
   type TextScale,
 } from "@/lib/settings";
+
+const TEXT_SCALES: ReadonlyArray<{ value: TextScale; title: string; description: string }> = [
+  { value: "normal", title: "Normal", description: "The interface's usual size." },
+  { value: "large", title: "Large", description: "About 12% larger, on every page." },
+  { value: "larger", title: "Larger", description: "About 25% larger, on every page." },
+];
+
+const EXPORT_FORMATS: ReadonlyArray<{ value: ExportFormat; title: string; description: string }> = [
+  {
+    value: "print",
+    title: "Printable review",
+    description: "A PDF made with your browser's print dialog.",
+  },
+  {
+    value: "ris",
+    title: "RIS reference file",
+    description: "For Zotero, EndNote and other reference managers.",
+  },
+  {
+    value: "bibtex",
+    title: "BibTeX",
+    description: "For LaTeX and BibTeX-based bibliographies.",
+  },
+];
 
 export default function SettingsPage() {
   const settings = useSyncExternalStore(subscribeSettings, settingsSnapshot, serverSettingsSnapshot);
@@ -36,38 +61,56 @@ export default function SettingsPage() {
 
   return (
     <PageFrame
-      narrow
       title="Settings"
-      lede="Kept in this browser. Nothing here is sent to the evidence service."
+      lede="Kept in this browser. Nothing on this page leaves the browser or reaches the evidence service."
     >
-      <section aria-labelledby="settings-reading">
+      <section aria-labelledby="settings-reading" className={styles.card}>
         <h2 id="settings-reading">Reading</h2>
         <div className={styles.field}>
-          <label htmlFor="text-scale">Text size</label>
-          <select
-            id="text-scale"
-            value={settings.textScale}
-            onChange={(event) => update({ textScale: event.target.value as TextScale })}
-          >
-            <option value="normal">Normal</option>
-            <option value="large">Large</option>
-            <option value="larger">Larger</option>
-          </select>
+          <fieldset>
+            <legend>Text size</legend>
+            <div className={content["scale-row"]}>
+              <div className={styles.choices}>
+                {TEXT_SCALES.map((option) => (
+                  <label className={styles.choice} key={option.value}>
+                    <input
+                      checked={settings.textScale === option.value}
+                      name="text-scale"
+                      onChange={() => update({ textScale: option.value })}
+                      type="radio"
+                      value={option.value}
+                    />
+                    <span className={styles["choice-body"]}>
+                      <strong>{option.title}</strong>
+                      <span>{option.description}</span>
+                    </span>
+                  </label>
+                ))}
+              </div>
+              <div className={content["scale-preview"]}>
+                <span className={content["scale-preview-label"]}>Preview</span>
+                <span className={content["scale-preview-sample"]} data-scale={settings.textScale}>
+                  Viral load should be measured twelve months after starting
+                  antiretroviral therapy.
+                </span>
+              </div>
+            </div>
+          </fieldset>
           <p>Applies to every page, including passages in the source pane.</p>
         </div>
       </section>
 
-      <section aria-labelledby="settings-sources">
+      <section aria-labelledby="settings-sources" className={styles.card}>
         <h2 id="settings-sources">Sources</h2>
         <div className={styles.field}>
           <label htmlFor="default-organizations">Default publishers</label>
           <input
             id="default-organizations"
+            onBlur={commitOrganizations}
+            onChange={(event) => setOrganizationsDraft(event.target.value)}
+            placeholder="e.g., WHO"
             type="text"
             value={organizations}
-            placeholder="e.g., WHO"
-            onChange={(event) => setOrganizationsDraft(event.target.value)}
-            onBlur={commitOrganizations}
           />
           <p>
             Publisher identifiers to narrow new reviews to, separated by commas. Leave empty to
@@ -76,29 +119,28 @@ export default function SettingsPage() {
         </div>
       </section>
 
-      <section aria-labelledby="settings-export">
+      <section aria-labelledby="settings-export" className={styles.card}>
         <h2 id="settings-export">Export</h2>
         <div className={styles.field}>
           <fieldset>
             <legend>Citation format</legend>
-            {(
-              [
-                ["print", "Printable review (PDF via the browser)"],
-                ["ris", "RIS reference file"],
-                ["bibtex", "BibTeX"],
-              ] as const
-            ).map(([value, label]) => (
-              <label key={value}>
-                <input
-                  checked={settings.exportFormat === value}
-                  name="export-format"
-                  type="radio"
-                  value={value}
-                  onChange={() => update({ exportFormat: value as ExportFormat })}
-                />
-                {label}
-              </label>
-            ))}
+            <div className={styles.choices}>
+              {EXPORT_FORMATS.map((option) => (
+                <label className={styles.choice} key={option.value}>
+                  <input
+                    checked={settings.exportFormat === option.value}
+                    name="export-format"
+                    onChange={() => update({ exportFormat: option.value })}
+                    type="radio"
+                    value={option.value}
+                  />
+                  <span className={styles["choice-body"]}>
+                    <strong>{option.title}</strong>
+                    <span>{option.description}</span>
+                  </span>
+                </label>
+              ))}
+            </div>
           </fieldset>
           <p>The format offered first by the export control on a review.</p>
         </div>

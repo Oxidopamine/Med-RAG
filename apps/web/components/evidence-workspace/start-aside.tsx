@@ -67,7 +67,7 @@ export function StartAside({
           ) : null}
         </p>
         {catalogue?.release ? (
-          <dl>
+          <dl className={styles["aside-facts"]}>
             <div>
               <dt>Documents</dt>
               <dd>{documents}</dd>
@@ -102,7 +102,7 @@ function RecentReviews() {
       <h2 id="start-recent">Recent reviews</h2>
       {runs.length ? (
         <>
-          <ul>
+          <ul className={styles["aside-runs"]}>
             {runs.slice(0, 6).map((run) => (
               <li key={run.questionId}>
                 <a href={`/r/${encodeURIComponent(run.questionId)}`}>
