@@ -18,7 +18,21 @@
 
 @media (min-width: 1000px) {
   .layout {
-    grid-template-columns: 220px minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr) 200px;
+  }
+
+  .toc {
+    order: 2;
+    position: sticky;
+    top: calc(var(--header-h) + var(--s-6));
+    padding-bottom: 0;
+    padding-left: var(--s-5);
+    border-bottom: 0;
+    border-left: 1px solid var(--border);
+  }
+
+  .content {
+    order: 1;
   }
 }
 
@@ -91,11 +105,10 @@
 
 .pipeline {
   margin: var(--s-4) 0 var(--s-6);
-  padding: var(--s-5);
-  background: var(--bg-surface);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-xs);
+  padding: var(--s-5) 0;
+  background: none;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
   overflow-x: auto;
 }
 

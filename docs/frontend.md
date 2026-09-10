@@ -35,9 +35,27 @@ The Evaluation page renders `lib/generated/evaluation.json`, written by
 
 ## Design foundations
 
+- **Two registers, one page.** The instrument speaks in monospace and the document speaks
+  in a serif. Anything measured or identified wears the microlabel: monospace at the floor
+  size, letterspaced, upper case, for column headers, field labels, release identifiers,
+  stage names and axis ticks. Anything read wears the serif: page and section titles, the
+  claims, quoted passages and every headline figure. The sans carries the sentences in
+  between. A label is never a sentence and a sentence is never a label.
+- **The chrome is ink.** The top bar is near-black, the one dark surface in the product,
+  so the page has a top edge and the instrument's controls are visibly not the document.
+- **A warm ground.** The neutral ramp is rotated warm, and quoted text sits on a warmer
+  paper still. The cool grey it replaced is the default of every dashboard.
 - **One accent.** A deep teal for links, selection and the active state. Black is the
   primary action and nothing else. Status is a mark and a few words; colour is reserved
   for supported, withheld and abstained.
+- **Rules, not boxes.** A section is a hairline and a heading; a table is ruled; key
+  figures sit in a band ruled top and bottom. A border is for an object a reader acts on:
+  the composer, a claim, the passage pane. Nothing is boxed inside a box.
+- **One grid.** Every page, narrow ones included, shares the same left edge and the same
+  measure; narrow caps the body's width rather than centring it. Inside the review desk
+  every section starts at its column's edge.
+- **One control scale.** 28px for a control inside a line of text, 34px for a panel
+  control, 40px for an action, 44px for anything on touch. Nothing in between.
 - **A page is a band and a body.** Every page opens with a full-bleed title band on the
   surface colour carrying the title, one line of lede and the page's own controls, then
   the body on the canvas below it. `PageFrame` is the only way to build one.
@@ -45,10 +63,10 @@ The Evaluation page renders `lib/generated/evaluation.json`, written by
   selects, radios, checkboxes, tables, stat bands, status marks, cards, empty states and
   disclosures used across the product. Nothing native ships unstyled: a browser default
   in the middle of a designed page is the loudest thing on it.
-- **Type.** Public Sans for the interface; Source Serif 4, the reading face, for claims
-  and quoted passages at 18px; JetBrains Mono only for hashes and identifiers inside a
-  details disclosure. Headings are 34/22/18px and carry the hierarchy; there are no
-  eyebrow labels.
+- **Type.** Six sizes and one reading size: 12, 13, 14, 16, 20, 24, 40, plus 18px for
+  claims and passages. Every size is absolute and in rem, so the reader's text-size
+  setting scales all of it and no ratio can compound below the 12px floor. Titles are
+  40/24/20px in the reading face.
 - **Tables set their own widths.** Every table carries a `colgroup` with explicit
   percentages. Automatic widths wrapped four columns of eight and made a three-row table
   as tall as a paragraph.

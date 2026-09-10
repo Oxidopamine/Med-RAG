@@ -61,6 +61,7 @@ export default function SettingsPage() {
 
   return (
     <PageFrame
+      narrow
       title="Settings"
       lede="Kept in this browser. Nothing on this page leaves the browser or reaches the evidence service."
     >

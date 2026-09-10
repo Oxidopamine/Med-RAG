@@ -35,13 +35,20 @@
 
 /* ============================================================ header */
 
+/*
+ * The bar is ink.
+ *
+ * It was a translucent white strip over a pale page, so every screen opened with a
+ * hairline and then more of the same colour, and the product had no silhouette. Ink gives
+ * the page a top edge, separates the instrument's chrome from the document it prints, and
+ * is the one place the interface is dark.
+ */
 .header {
   position: sticky;
   top: 0;
   z-index: 30;
-  background: var(--veil-surface-strong);
-  backdrop-filter: saturate(180%) blur(12px);
-  border-bottom: 1px solid var(--border-subtle);
+  background: var(--chrome);
+  color: var(--chrome-text);
 }
 
 .header-inner {
@@ -60,7 +67,7 @@
   display: inline-flex;
   align-items: center;
   gap: var(--s-2);
-  color: var(--text-strong);
+  color: var(--chrome-text-strong);
   text-decoration: none;
 }
 
@@ -69,14 +76,13 @@
 }
 
 .brand-mark {
-  width: 28px;
-  height: 28px;
+  width: 26px;
+  height: 26px;
   display: grid;
   place-items: center;
-  color: var(--ink-on);
-  background: var(--ink);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-ink);
+  color: var(--chrome);
+  background: var(--chrome-text-strong);
+  border-radius: var(--radius-sm);
 }
 
 .brand-mark svg {
@@ -85,7 +91,8 @@
 }
 
 .brand-name {
-  font-size: var(--t-base);
+  font-family: var(--font-serif), Georgia, serif;
+  font-size: var(--t-md);
   font-weight: var(--w-semibold);
   letter-spacing: var(--track-snug);
   white-space: nowrap;
@@ -108,8 +115,8 @@
   padding: 0 var(--s-3);
   display: inline-flex;
   align-items: center;
-  border-radius: var(--radius-md);
-  color: var(--text-secondary);
+  border-radius: var(--radius-sm);
+  color: var(--chrome-text);
   font-size: var(--t-sm);
   font-weight: var(--w-medium);
   white-space: nowrap;
@@ -118,14 +125,14 @@
 }
 
 .nav a:hover {
-  color: var(--text-strong);
-  background: var(--bg-sunk);
+  color: var(--chrome-text-strong);
+  background: var(--chrome-raised);
   text-decoration: none;
 }
 
 .nav a[aria-current="page"] {
-  color: var(--text-strong);
-  background: var(--bg-inset);
+  color: var(--chrome-text-strong);
+  background: var(--chrome-raised);
   font-weight: var(--w-semibold);
 }
 
@@ -137,23 +144,27 @@
 }
 
 /* The served release, as a chip that opens the corpus rather than a decorative dot. */
+/* The served release, in the instrument's own register: monospace, because it is an
+   identifier and the reader compares it against one printed in a manifest. */
 .release {
   height: var(--control-sm);
   padding: 0 var(--s-3);
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  background: var(--bg-surface);
-  color: var(--text-secondary);
-  font-size: var(--t-xs);
+  border: 1px solid var(--chrome-line);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--chrome-text);
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: var(--t-2xs);
   white-space: nowrap;
   text-decoration: none;
 }
 
 a.release:hover {
-  border-color: var(--border-strong);
+  background: var(--chrome-raised);
+  border-color: rgba(255, 255, 255, 0.24);
   text-decoration: none;
 }
 
@@ -182,7 +193,7 @@ a.release:hover {
 }
 
 .release strong {
-  color: var(--text-primary);
+  color: var(--chrome-text-strong);
   font-weight: var(--w-medium);
   font-variant-numeric: tabular-nums;
 }
@@ -193,8 +204,8 @@ a.release:hover {
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  border-radius: var(--radius-md);
-  color: var(--text-secondary);
+  border-radius: var(--radius-sm);
+  color: var(--chrome-text);
   font-size: var(--t-sm);
   font-weight: var(--w-medium);
   text-decoration: none;
@@ -207,14 +218,14 @@ a.release:hover {
 }
 
 .settings-link:hover {
-  color: var(--text-strong);
-  background: var(--bg-sunk);
+  color: var(--chrome-text-strong);
+  background: var(--chrome-raised);
   text-decoration: none;
 }
 
 .settings-link[aria-current="page"] {
-  color: var(--text-strong);
-  background: var(--bg-inset);
+  color: var(--chrome-text-strong);
+  background: var(--chrome-raised);
 }
 
 /*
@@ -232,8 +243,8 @@ a.release:hover {
   display: inline-grid;
   place-items: center;
   list-style: none;
-  border-radius: var(--radius-md);
-  color: var(--text-primary);
+  border-radius: var(--radius-sm);
+  color: var(--chrome-text-strong);
   cursor: pointer;
 }
 
@@ -253,7 +264,7 @@ a.release:hover {
 }
 
 .drawer[open] summary {
-  background: var(--bg-inset);
+  background: var(--chrome-raised);
 }
 
 @media (max-width: 900px) {
@@ -402,15 +413,23 @@ a.release:hover {
  * the canvas below it. Before this, every page was a stack of blocks that began at the
  * top of a flat grey field and stopped wherever the content ran out.
  */
+/*
+ * The title band.
+ *
+ * Its inner box is the same width and the same left edge on every page, narrow pages
+ * included. A narrow page used to centre itself, so its title started 160px to the right
+ * of every other page's and the whole product jogged sideways on navigation; narrow now
+ * caps the measure of the body instead of moving it.
+ */
 .band {
   background: var(--bg-surface);
-  border-bottom: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--border);
 }
 
 .band-inner {
   width: min(var(--shell-max), 100%);
   margin: 0 auto;
-  padding: var(--s-10) var(--s-6);
+  padding: var(--s-12) var(--s-6) var(--s-8);
   display: flex;
   flex-wrap: wrap;
   align-items: flex-end;
@@ -418,26 +437,31 @@ a.release:hover {
   gap: var(--s-5) var(--s-8);
 }
 
-.band-inner.narrow {
-  width: min(880px, 100%);
-}
-
 .page-head {
   max-width: 62ch;
   min-width: 0;
 }
 
+/*
+ * Titles are set in the reading face.
+ *
+ * The interface sans said nothing about what this instrument reads. The serif is already
+ * loaded for the guideline text it prints, and using it for the titles ties the chrome to
+ * the document rather than to every other dashboard.
+ */
 .page-head h1 {
   margin: 0;
   color: var(--text-strong);
+  font-family: var(--font-serif), Georgia, "Times New Roman", serif;
   font-size: var(--t-h1);
   font-weight: var(--w-semibold);
-  letter-spacing: var(--track-tight);
-  line-height: 1.15;
+  letter-spacing: -0.018em;
+  line-height: 1.08;
 }
 
 .page-head p {
-  margin: var(--s-3) 0 0;
+  margin: var(--s-4) 0 0;
+  max-width: 60ch;
   color: var(--text-secondary);
   font-size: var(--t-md);
   line-height: 1.6;
@@ -456,21 +480,29 @@ a.release:hover {
   padding: var(--s-10) var(--s-6) var(--s-16);
 }
 
-.page.narrow {
-  width: min(880px, 100%);
+/* Narrow caps the body's measure. It does not move the page. */
+.page.narrow > * {
+  max-width: 800px;
 }
 
+/*
+ * A section is a rule and a heading, the way a printed report divides itself. Sections
+ * were separated by 48px of nothing, which is not a division a reader can see.
+ */
 .page section + section {
   margin-top: var(--s-12);
+  padding-top: var(--s-8);
+  border-top: 1px solid var(--border);
 }
 
 .page h2 {
   margin: 0 0 var(--s-2);
   color: var(--text-strong);
+  font-family: var(--font-serif), Georgia, "Times New Roman", serif;
   font-size: var(--t-h2);
   font-weight: var(--w-semibold);
-  letter-spacing: var(--track-snug);
-  line-height: 1.25;
+  letter-spacing: -0.012em;
+  line-height: 1.2;
 }
 
 .page h3 {
@@ -478,6 +510,7 @@ a.release:hover {
   color: var(--text-strong);
   font-size: var(--t-h3);
   font-weight: var(--w-semibold);
+  letter-spacing: var(--track-snug);
 }
 
 /* A section's own one-line explanation, under its heading. */
@@ -501,6 +534,28 @@ a.release:hover {
   .page section + section {
     margin-top: var(--s-10);
   }
+}
+
+/* ============================================================ microlabel */
+
+/*
+ * The instrument's register.
+ *
+ * Column headers, field labels, statuses and counters are set in the monospace face at the
+ * floor size, letterspaced. It is the one mark that says a number was measured rather than
+ * written, and it separates every label in the product from every sentence in it.
+ */
+.microlabel,
+.table thead th,
+.facts dt,
+.field > label,
+.field legend,
+.label {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: var(--t-2xs);
+  font-weight: var(--w-medium);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
 /* ============================================================ prose */
@@ -552,9 +607,8 @@ a.release:hover {
 .card {
   padding: var(--s-6);
   background: var(--bg-surface);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-xs);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
 }
 
 .card-tight {
@@ -568,12 +622,12 @@ a.release:hover {
  * every table here sets a colgroup, because automatic widths were wrapping four columns
  * of eight and making a three-row table as tall as a paragraph.
  */
+/*
+ * A table is ruled, not boxed. The card around it added a second frame inside a page that
+ * already has margins, and made every table on a page look like a separate application.
+ */
 .table-wrap {
   overflow-x: auto;
-  background: var(--bg-surface);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-xs);
 }
 
 .table {
@@ -584,26 +638,28 @@ a.release:hover {
 
 .table th,
 .table td {
-  padding: var(--s-3) var(--s-4);
+  padding: var(--s-3) var(--s-4) var(--s-3) 0;
   text-align: left;
   vertical-align: middle;
   border-bottom: 1px solid var(--border-subtle);
+}
+
+.table th:last-child,
+.table td:last-child {
+  padding-right: 0;
 }
 
 .table thead th {
   padding-top: var(--s-3);
   padding-bottom: var(--s-3);
   color: var(--text-muted);
-  background: var(--bg-canvas);
-  font-size: var(--t-2xs);
-  font-weight: var(--w-semibold);
-  letter-spacing: var(--track-label);
-  text-transform: uppercase;
+  background: transparent;
+  border-bottom: 1px solid var(--border-strong);
   white-space: nowrap;
 }
 
 .table tbody tr:last-child td {
-  border-bottom: 0;
+  border-bottom: 1px solid var(--border);
 }
 
 .table td.num,
@@ -617,7 +673,7 @@ a.release:hover {
 }
 
 .table tbody tr:hover {
-  background: var(--bg-canvas);
+  background: var(--bg-surface);
 }
 
 .table a {
@@ -665,42 +721,40 @@ a.release:hover {
  * Key figures as one bordered band with dividers, rather than a full-width grid whose
  * gaps were wider than its values.
  */
+/*
+ * Key figures, ruled off above and below like a table of results rather than boxed in a
+ * card. The label is the instrument's microlabel; the figure is the reading face, which is
+ * what makes a measured number look measured.
+ */
 .facts {
   margin: 0 0 var(--s-6);
+  padding: var(--s-5) 0;
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  background: var(--bg-surface);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-xs);
-  overflow: hidden;
+  gap: var(--s-5) var(--s-6);
+  border-top: 1px solid var(--border-strong);
+  border-bottom: 1px solid var(--border);
 }
 
 .facts > div {
-  padding: var(--s-4) var(--s-5);
   display: grid;
-  gap: var(--s-1);
-  border-left: 1px solid var(--border-subtle);
-}
-
-.facts > div:first-child {
-  border-left: 0;
+  gap: var(--s-2);
+  align-content: start;
 }
 
 .facts dt {
   color: var(--text-muted);
-  font-size: var(--t-xs);
-  font-weight: var(--w-medium);
 }
 
 .facts dd {
   margin: 0;
   color: var(--text-strong);
+  font-family: var(--font-serif), Georgia, serif;
   font-size: var(--t-xl);
   font-weight: var(--w-semibold);
   font-variant-numeric: tabular-nums;
-  letter-spacing: var(--track-snug);
-  line-height: 1.2;
+  letter-spacing: -0.01em;
+  line-height: 1.1;
 }
 
 .facts dd small {
@@ -712,13 +766,8 @@ a.release:hover {
 }
 
 @media (max-width: 700px) {
-  .facts > div {
-    border-left: 0;
-    border-top: 1px solid var(--border-subtle);
-  }
-
-  .facts > div:first-child {
-    border-top: 0;
+  .facts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
@@ -731,6 +780,7 @@ a.release:hover {
   font-size: var(--t-xs);
   font-weight: var(--w-medium);
   white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
 
 .status::before {
@@ -760,9 +810,9 @@ a.release:hover {
 
 /* The tinted form, for a status that has to hold its own beside a heading. */
 .status.pill {
-  height: 24px;
+  height: 26px;
   padding: 0 var(--s-2) 0 9px;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
   border: 1px solid currentColor;
 }
 
@@ -798,6 +848,7 @@ a.release:hover {
 .button {
   min-height: var(--control-md);
   padding: 0 var(--s-4);
+  letter-spacing: var(--track-normal);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -875,6 +926,12 @@ a.release:hover {
   font-size: var(--t-xs);
 }
 
+.button.tiny {
+  min-height: var(--control-xs);
+  padding: 0 var(--s-2);
+  font-size: var(--t-xs);
+}
+
 /* ============================================================ form kit */
 
 .field {
@@ -888,9 +945,7 @@ a.release:hover {
 .field legend,
 .label {
   padding: 0;
-  color: var(--text-strong);
-  font-weight: var(--w-medium);
-  font-size: var(--t-sm);
+  color: var(--text-muted);
 }
 
 .field .help,
@@ -928,6 +983,7 @@ a.release:hover {
 
 .text-input {
   min-width: 0;
+  max-width: 420px;
 }
 
 .text-input::placeholder {
@@ -1050,13 +1106,11 @@ a.release:hover {
 /* ============================================================ empty & notice */
 
 .empty {
-  padding: var(--s-8) var(--s-6);
+  padding: var(--s-8) 0;
   display: grid;
-  gap: var(--s-1);
+  gap: var(--s-2);
   justify-items: start;
-  background: var(--bg-surface);
-  border: 1px dashed var(--border-strong);
-  border-radius: var(--radius-xl);
+  border-top: 1px solid var(--border);
   color: var(--text-muted);
   font-size: var(--t-sm);
   line-height: 1.6;

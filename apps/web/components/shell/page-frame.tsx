@@ -27,7 +27,7 @@ export function PageFrame({
   return (
     <main id="main-content">
       <div className={styles.band}>
-        <div className={`${styles["band-inner"]} ${narrow ? styles.narrow : ""}`}>
+        <div className={styles["band-inner"]}>
           <div className={styles["page-head"]}>
             <h1>{title}</h1>
             {lede ? <p>{lede}</p> : null}

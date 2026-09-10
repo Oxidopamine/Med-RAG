@@ -14,33 +14,39 @@
 :root {
   color-scheme: light;
 
-  /* Neutral ramp. Cool zinc rather than blue-grey: the accent is near-black, and a navy
-     bias in the greys made every surface read as tinted. */
+  /*
+   * Neutral ramp, warm.
+   *
+   * This was cool zinc, which is the default grey of every dashboard built this decade and
+   * read as exactly that. The instrument prints guideline text, so its ground carries a
+   * little of the paper that text sits on: the same lightness steps, rotated warm. The
+   * shift is small on any one surface and unmistakable across a page.
+   */
   --n-0: #ffffff;
-  --n-25: #fcfcfd;
-  --n-50: #fafafa;
-  --n-100: #f4f4f5;
-  --n-150: #ececee;
-  --n-200: #e4e4e7;
-  --n-300: #d4d4d8;
-  --n-400: #a1a1aa;
-  --n-500: #71717a;
-  --n-600: #52525b;
-  --n-700: #3f3f46;
-  --n-800: #27272a;
-  --n-900: #18181b;
-  --n-950: #0a0a0a;
+  --n-25: #fbfaf8;
+  --n-50: #f6f5f2;
+  --n-100: #efeee9;
+  --n-150: #e7e5df;
+  --n-200: #dedbd3;
+  --n-300: #cbc7bd;
+  --n-400: #9c988e;
+  --n-500: #6f6b62;
+  --n-600: #514e48;
+  --n-700: #3c3a34;
+  --n-800: #26241f;
+  --n-900: #1a1815;
+  --n-950: #111110;
 
   /* Link and selection blue. Used for text links, the focus ring and nothing decorative. */
   /* The one accent. A deep teal: it reads as clinical without borrowing any
      publisher's brand, and it is used for links, selection and the active state
      only. Black is reserved for the primary action. */
-  --c-50: #eef7f6;
-  --c-100: #d3ebe8;
-  --c-200: #a9d8d2;
-  --c-500: #0e8479;
-  --c-600: #0b6b62;
-  --c-700: #095750;
+  --c-50: #edf6f4;
+  --c-100: #d0e9e4;
+  --c-200: #a3d5cd;
+  --c-500: #0f7f74;
+  --c-600: #0a655d;
+  --c-700: #08514b;
   --b-50: #eff4ff;
   --b-100: #dbe6fe;
   --b-200: #c2d6fd;
@@ -73,9 +79,9 @@
   --bg-overlay: var(--n-0);
   /* Source text sits on paper, not on the interface: a warm tint that says
      "quoted from a document" without a border or a label. */
-  --bg-paper: #fbf8f2;
-  --paper-border: #ebe4d6;
-  --paper-rule: #e2dac8;
+  --bg-paper: #fdfaf3;
+  --paper-border: #e8e0cd;
+  --paper-rule: #ded4bd;
 
   /* ---- text ---- */
   --text-strong: var(--n-950);
@@ -87,14 +93,27 @@
    * pushed it off zinc-500; --text-faint is the lightest text tone and is for white
    * surfaces and decorative icons only.
    */
-  --text-muted: #67676f;
-  --text-faint: #71717a;
+  --text-muted: #63605a;
+  --text-faint: #6f6b62;
   --text-inverse: var(--n-0);
 
   /* ---- borders ---- */
   --border-subtle: var(--n-150);
   --border: var(--n-200);
   --border-strong: var(--n-300);
+
+  /*
+   * The chrome.
+   *
+   * The top bar is ink rather than a translucent white strip over the page. A pale bar on
+   * a pale page gave the product no anchor and no silhouette; every screen began with a
+   * hairline and then more of the same colour.
+   */
+  --chrome: var(--n-950);
+  --chrome-text: rgba(255, 255, 255, 0.72);
+  --chrome-text-strong: #ffffff;
+  --chrome-line: rgba(255, 255, 255, 0.14);
+  --chrome-raised: rgba(255, 255, 255, 0.1);
 
   /* ---- the black action ---- */
   --ink: var(--n-950);
@@ -173,20 +192,29 @@
    *
    * rem so a raised browser default actually raises the interface (WCAG 1.4.4).
    */
-  --t-2xs: 0.75rem; /* 12px - floor; chrome and dense labels */
-  --t-xs: 0.8125rem; /* 13px - labels, metadata */
-  --t-sm: 0.875rem; /* 14px - secondary content */
-  --t-base: 0.9375rem; /* 15px - prose floor */
-  --t-md: 1rem; /* 16px - body, panel headings */
-  --t-lg: 1.125rem; /* 18px */
-  --t-xl: 1.375rem; /* 22px */
-  --t-2xl: 1.75rem; /* 28px */
-  --t-3xl: 2.125rem; /* 34px */
-  /* Headings carry the hierarchy now; no label above them does. */
-  --t-h1: 2.125rem; /* 34px - page title */
-  --t-h2: 1.375rem; /* 22px - section */
-  --t-h3: 1.125rem; /* 18px - subsection */
-  --t-reading: 1.125rem; /* 18px - claims and passages in the reading face */
+  /*
+   * Type scale: six steps and one reading size, and nothing between them.
+   *
+   * A measurement pass over the built pages found ten distinct sizes on the review desk
+   * alone, three of them below the 12px floor this file claims to hold, because a chain of
+   * `em` ratios inside the source sheet compounded. Every size below is absolute and in
+   * rem, so the reader's text-size setting still scales all of it and no ratio can land
+   * under the floor.
+   */
+  --t-2xs: 0.75rem; /* 12px - floor; microlabels, chrome */
+  --t-xs: 0.8125rem; /* 13px - metadata */
+  --t-sm: 0.875rem; /* 14px - secondary content, tables */
+  --t-base: 0.9375rem; /* 15px - dense prose */
+  --t-md: 1rem; /* 16px - body */
+  --t-lg: 1.25rem; /* 20px - subsection */
+  --t-xl: 1.5rem; /* 24px - section */
+  --t-2xl: 2rem; /* 32px */
+  --t-3xl: 2.5rem; /* 40px - page title */
+  /* Headings are set in the reading face; the scale below is theirs. */
+  --t-h1: 2.5rem; /* 40px - page title */
+  --t-h2: 1.5rem; /* 24px - section */
+  --t-h3: 1.25rem; /* 20px - subsection */
+  --t-reading: 1.125rem; /* 18px - claims and passages */
 
   --w-regular: 400;
   --w-medium: 500;
@@ -225,8 +253,9 @@
    * and a control that opts out has to say so where it does it.
    */
   --control-min: 44px;
-  --control-md: 38px;
+  --control-md: 40px;
   --control-sm: 34px;
+  --control-xs: 28px;
   /* Compact controls are a pointer affordance. On touch, every control takes the full
      target - one line here rather than a rule per control. */
 
@@ -262,6 +291,8 @@
 @media (max-width: 900px) {
   :root {
     --control-md: var(--control-min);
+    --control-sm: var(--control-min);
+    --control-xs: 34px;
   }
 }
 

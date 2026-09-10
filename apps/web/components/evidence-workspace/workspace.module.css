@@ -2060,7 +2060,7 @@
 .paper-section {
   margin: 0;
   color: var(--text-muted);
-  font-size: 0.8em;
+  font-size: var(--t-xs);
   line-height: 1.5;
 }
 
@@ -2072,7 +2072,7 @@
   display: block;
   margin-bottom: 7px;
   color: var(--text-muted);
-  font-size: 0.75em;
+  font-size: var(--t-2xs);
   font-weight: var(--w-medium);
   letter-spacing: var(--track-label);
   text-transform: uppercase;
@@ -2123,7 +2123,7 @@
   background: var(--warn-wash);
   border: 1px solid var(--warn-border);
   border-radius: var(--radius-md);
-  font-size: 0.8em;
+  font-size: var(--t-xs);
 }
 
 .uncited-notice svg {
@@ -2155,7 +2155,7 @@
 .document-metadata h4 {
   margin: 0 0 var(--s-2);
   color: var(--text-muted);
-  font-size: 0.75em;
+  font-size: var(--t-2xs);
   font-weight: var(--w-medium);
   letter-spacing: var(--track-label);
   text-transform: uppercase;
@@ -2180,9 +2180,10 @@
 
 .document-metadata dt {
   color: var(--text-muted);
-  font-size: 0.7em;
-  letter-spacing: var(--track-label);
+  font-size: var(--t-2xs);
+  letter-spacing: 0.06em;
   text-transform: uppercase;
+  font-family: var(--font-mono), ui-monospace, monospace;
 }
 
 .document-metadata dd {
@@ -2190,7 +2191,7 @@
   min-width: 0;
   overflow-wrap: anywhere;
   color: var(--text-primary);
-  font-size: 0.8em;
+  font-size: var(--t-xs);
   line-height: 1.45;
 }
 
@@ -2204,13 +2205,13 @@
   overflow-wrap: anywhere;
   word-break: break-all;
   font-family: var(--font-mono), monospace;
-  font-size: 0.72em;
+  font-size: var(--t-2xs);
 }
 
 .document-metadata > a {
   min-height: var(--control-sm);
   margin-top: var(--s-4);
-  font-size: 0.8em;
+  font-size: var(--t-xs);
 }
 
 /* ============================================================ anchors */
@@ -4135,7 +4136,7 @@ button.provenance-fact:hover {
   color: var(--accent-text);
   border-radius: var(--radius-sm);
   font-family: var(--font-sans), system-ui, sans-serif;
-  font-size: 11px;
+  font-size: var(--t-2xs);
   font-weight: var(--w-semibold);
   line-height: 1;
 }
@@ -6071,4 +6072,369 @@ button.provenance-fact:hover {
     min-height: calc(100dvh - var(--header-h) - 260px);
     align-content: center;
   }
+}
+
+/* ============================================================================
+   Redesign pass 2: one register, one grid
+   ============================================================================
+   A measurement pass over the built desk found ten type sizes, eight control
+   heights and six different left edges inside one column. The rules below hold
+   the desk to the product's scale and to one content edge, and give it the same
+   editorial voice the rest of the interface now speaks.
+   ============================================================================ */
+
+/* ------------------------------------------------------------- the voice */
+
+/*
+ * Headings are set in the reading face, like the guideline text under them, and section
+ * headings sit on a rule. Sans headings said nothing about what this instrument reads.
+ */
+.review-header h1,
+.answer-panel h2,
+.verification-panel h2,
+.conflict-panel h2,
+.source-viewer h2,
+.composer-intro h1 {
+  font-family: var(--font-serif), Georgia, "Times New Roman", serif;
+  letter-spacing: -0.014em;
+}
+
+.composer-intro h1 {
+  font-size: var(--t-h1);
+  line-height: 1.08;
+}
+
+.review-header h1 {
+  font-size: var(--t-h2);
+  line-height: 1.25;
+  max-width: 52ch;
+}
+
+.answer-panel h2,
+.verification-panel h2,
+.conflict-panel h2,
+.source-viewer h2 {
+  font-size: var(--t-h2);
+  font-weight: var(--w-semibold);
+}
+
+/* The instrument's microlabel, wherever the desk names a measured thing. */
+.check-name,
+.document-metadata dt,
+.rail-divider,
+.evidence-position,
+.compare-state,
+.paper-section,
+.answer-summary,
+.provenance-fact {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: var(--t-2xs);
+  letter-spacing: 0.05em;
+}
+
+.check-name,
+.rail-divider,
+.document-metadata dt {
+  text-transform: uppercase;
+}
+
+.answer-summary,
+.provenance-fact,
+.compare-state,
+.paper-section,
+.evidence-position {
+  text-transform: none;
+  letter-spacing: 0.01em;
+}
+
+/* ------------------------------------------------------- one content edge */
+
+/*
+ * Everything in a desk column starts at the column's own left edge. The provenance bar
+ * began 13px in because it was a bordered box, the answer 24px in because its section had
+ * padding, and the checks 20px in: three edges down one column, which is what reads as a
+ * page assembled by accident.
+ */
+.desk-main > *,
+.pane-answer > *,
+.pane-checks > * {
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.provenance-line {
+  padding: var(--s-3) 0;
+  background: none;
+  border: 0;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.answer-panel,
+.verification-panel,
+.conflict-panel {
+  padding: 0;
+  background: none;
+  border: 0;
+  box-shadow: none;
+}
+
+/* A section of the desk is a rule and a heading, matching the content pages. */
+.pane-checks > .verification-panel,
+.pane-checks > .conflict-panel,
+.desk-main > .pane-checks {
+  padding-top: var(--s-8);
+  border-top: 1px solid var(--border);
+}
+
+.pane-checks > .verification-panel {
+  padding-top: 0;
+  border-top: 0;
+}
+
+/* ---------------------------------------------------------- control scale */
+
+/*
+ * Three heights, and nothing between them: 28 for a control inside a line of text, 34 for
+ * a panel control, 40 for an action. The desk was running eight.
+ */
+.provenance-actions button,
+.provenance-actions summary,
+.source-toolbar button,
+.source-toolbar a,
+.review-header-actions button,
+.conflict-compare-open,
+.edit-context {
+  min-height: var(--control-sm);
+  height: auto;
+}
+
+.claim-footer button,
+.claim-flag button,
+.summary-link,
+.checks-log > summary,
+.abstention-details > summary,
+.reader-details > summary,
+.technical-error > summary {
+  min-height: var(--control-xs);
+  display: inline-flex;
+  align-items: center;
+}
+
+.answer-actions button,
+.abstention-next button,
+.ask-button,
+.primary-action {
+  min-height: var(--control-md);
+}
+
+/* -------------------------------------------------------------- the desk */
+
+.desk {
+  margin-top: var(--s-8);
+  padding-top: var(--s-8);
+  border-top: 1px solid var(--border);
+}
+
+.review-header {
+  padding-bottom: var(--s-6);
+  border-bottom: 0;
+}
+
+.context-chips {
+  margin-top: 0;
+}
+
+/* The passage pane is the one boxed object on the desk, because it is a document held
+   beside the answer rather than a section of the page. */
+.source-viewer {
+  border-color: var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: none;
+}
+
+.source-viewer .panel-titlebar {
+  background: var(--bg-canvas);
+}
+
+/* ------------------------------------------------------------ the answer */
+
+.answer-summary {
+  color: var(--text-muted);
+}
+
+.recommendation-text {
+  font-size: var(--t-reading);
+  line-height: 1.5;
+}
+
+.cite {
+  font-size: var(--t-2xs);
+  min-width: 17px;
+  height: 17px;
+}
+
+/* References as footnotes: a hanging number, ruled off from the claims above. */
+.references {
+  margin-top: var(--s-8);
+  padding-top: var(--s-5);
+  border-top: 1px solid var(--border);
+}
+
+/* ------------------------------------------------------------- composer */
+
+.composer-shell {
+  border-color: var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: none;
+}
+
+.examples button {
+  border-color: var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: none;
+}
+
+.examples > span {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: var(--t-2xs);
+  font-weight: var(--w-medium);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+/* ----------------------------------------------------------- start aside */
+
+.start-aside {
+  border-color: var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: none;
+}
+
+.start-aside h2 {
+  font-family: var(--font-serif), Georgia, serif;
+  font-size: var(--t-h3);
+}
+
+.start-aside .aside-facts {
+  border: 0;
+  border-top: 1px solid var(--border-strong);
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+  padding: var(--s-4) 0;
+  gap: var(--s-4);
+  background: none;
+}
+
+.start-aside .aside-facts > div {
+  padding: 0;
+  background: none;
+}
+
+.start-aside .aside-facts dt {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: var(--t-2xs);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.start-aside .aside-facts dd {
+  font-family: var(--font-serif), Georgia, serif;
+  font-size: var(--t-lg);
+}
+
+/* ---------------------------------------------------------------- checks */
+
+.checks-strip {
+  border-color: var(--border);
+  border-radius: var(--radius-md);
+  background: var(--border);
+}
+
+.check {
+  background: var(--bg-surface);
+}
+
+/* -------------------------------------------------------------- records */
+
+.rail-item {
+  border-radius: var(--radius-sm);
+}
+
+.rail-rank {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: var(--t-2xs);
+}
+
+/* ---------------------------------------------------------- the notice */
+
+/*
+ * The completion notice sits in the flow, above the provenance bar, as a slim ruled row.
+ *
+ * Floated, it covered whatever was under it: over the heading at the top centre, over the
+ * passage at the bottom right, over the references at the bottom left. A notice that
+ * hides the result it is announcing is wrong in every position, and this one arrives at
+ * the same moment the whole page changes, so putting it in the flow costs no stability
+ * the reader could have noticed.
+ */
+.transient-feedback:not(:empty) {
+  position: static;
+  width: auto;
+  margin: var(--s-6) 0 0;
+  transform: none;
+}
+
+.transient-feedback .feedback-banner {
+  padding: var(--s-2) var(--s-3);
+  background: var(--ok-wash);
+  border: 1px solid var(--ok-border);
+  border-radius: var(--radius-md);
+  box-shadow: none;
+}
+
+.transient-feedback .feedback-icon {
+  color: var(--ok-text);
+}
+
+.transient-feedback .feedback-copy strong {
+  font-size: var(--t-sm);
+}
+
+/* The examples sit inside the composer's card, so they keep the card's padding. They were
+   flush to its edge while everything above them was inset by 24px. */
+.examples {
+  padding: 0 var(--s-6) var(--s-6);
+  margin-top: var(--s-2);
+}
+
+/* The abstention's facts wear the same microlabel as every other measured label, and sit
+   closer to the headline they qualify. */
+.abstention-facts dt {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: var(--t-2xs);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.abstention-facts {
+  margin-top: var(--s-6);
+}
+
+.abstention-next {
+  border-radius: var(--radius-md);
+}
+
+/* The bank's area select is the kit's select: no operating-system chrome, one chevron,
+   and the panel control height rather than the browser's intrinsic 36px. */
+.bank-area {
+  height: var(--control-sm);
+  appearance: none;
+  padding-right: var(--s-6);
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2363605a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right var(--s-2) center;
+  cursor: pointer;
 }
